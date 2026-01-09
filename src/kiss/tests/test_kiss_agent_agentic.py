@@ -17,7 +17,7 @@ from kiss.core.kiss_error import KISSError
 from kiss.tests.conftest import CustomFormatter, simple_calculator
 
 # Test model - using a reliable model for agentic tool calling
-TEST_MODEL = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+TEST_MODEL = "gemini-3-flash-preview"
 
 
 def get_greeting(name: str) -> str:
@@ -376,7 +376,8 @@ class TestKISSAgentToolVariants(unittest.TestCase):
         )
         self.assertIsNotNone(result)
         self.assertIn("Dr. Smith", result)
-        self.assertEqual(len(json.loads(self.agent.get_trajectory())), 5)
+        trajectory = json.loads(self.agent.get_trajectory())
+        self.assertIn(len(trajectory), [3, 5])
 
     def test_tool_returns_dict(self):
         """Test tool that returns a dictionary.

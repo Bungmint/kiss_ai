@@ -78,10 +78,6 @@ class SelfEvolvingMultiAgentConfig(BaseModel):
         default=True,
         description="Enable error recovery",
     )
-    error_reflection_enabled: bool = Field(
-        default=True,
-        description="Enable error reflection",
-    )
 
     # Output settings
     verbose: bool = Field(

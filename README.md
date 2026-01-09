@@ -2,7 +2,7 @@
 
 A simple and portable AI agent framework for building and evolving LLM agents. The framework follows the [KISS principle](https://en.wikipedia.org/wiki/KISS_principle) and provides native function calling for seamless tool integration.
 
-**Version:** 0.1.0 (see `kiss.__version__` or `src/kiss/_version.py`)  
+**Version:** 0.1.1 (see `kiss.__version__` or `src/kiss/_version.py`)  
 **Description:** KISS Agent Framework - A simple and portable agent framework for building and evolving AI agents  
 **Python:** >=3.13
 
@@ -129,7 +129,7 @@ Runs the agent's main ReAct loop to solve the task.
 - `formatter` (Formatter | None): Custom formatter for output. Default is `SimpleFormatter`.
 - `is_agentic` (bool): If True, runs in agentic mode with tools. If False, returns raw LLM response. Default is True.
 - `max_steps` (int): Maximum number of ReAct loop iterations. Default is 100.
-- `max_budget` (float): Maximum budget in USD for this agent run. Default is 5.0.
+  - `max_budget` (float): Maximum budget in USD for this agent run. Default is 1.0.
 
 **Returns:**
 - `str`: The result returned by the agent's `finish()` call, or the raw LLM response in non-agentic mode.
@@ -253,7 +253,7 @@ result = agent.run(
     arguments={"question": "What is 15% of 847?"},
     tools=[search_web, calculate],
     max_steps=10,
-    max_budget=1.0,
+    max_budget=0.5,
 )
 
 print(f"Result: {result}")
@@ -280,6 +280,57 @@ For usage examples, API reference, and configuration options, please see the [GE
 KISSEvolve is an evolutionary algorithm discovery framework that uses LLM-guided mutation and crossover to evolve code variants. It supports advanced features including island-based evolution, novelty rejection sampling, and multiple parent sampling methods.
 
 For usage examples, API reference, and configuration options, please see the [KISSEvolve README](src/kiss/agents/kiss_evolve/README.md).
+
+### Using Self-Evolving Multi-Agent
+
+> 📖 **For detailed Self-Evolving Multi-Agent documentation, see [Self-Evolving Multi-Agent README](src/kiss/agents/self_evolving_multi_agent/README.md)**
+
+The Self-Evolving Multi-Agent is an advanced agent with planning, error recovery, dynamic tool creation, and the ability to evolve itself for better efficiency and accuracy.
+
+```python
+from kiss.agents.self_evolving_multi_agent import (
+    SelfEvolvingMultiAgent,
+    run_self_evolving_multi_agent_task,
+)
+
+# Option 1: Using the convenience function
+result = run_self_evolving_multi_agent_task(
+    task="""
+    Create a Python script that:
+    1. Generates the first 20 Fibonacci numbers
+    2. Saves them to 'fibonacci.txt'
+    3. Reads the file and prints the sum
+    """,
+    model_name="gemini-3-flash-preview",
+    max_steps=30,
+    max_budget=1.0,
+)
+
+print(f"Status: {result['status']}")
+print(f"Result: {result['result']}")
+print(f"Stats: {result['stats']}")
+
+# Option 2: Using the class directly
+agent = SelfEvolvingMultiAgent(
+    model_name="gemini-3-flash-preview",
+    docker_image="python:3.12-slim",
+    max_steps=50,
+    max_budget=2.0,
+    enable_planning=True,
+    enable_error_recovery=True,
+    enable_dynamic_tools=True,
+)
+
+result = agent.run("Create a calculator module with tests")
+print(result)
+
+# Access execution statistics
+stats = agent.get_stats()
+print(f"Completed todos: {stats['completed']}/{stats['total_todos']}")
+print(f"Dynamic tools created: {stats['dynamic_tools_created']}")
+```
+
+For usage examples, API reference, and configuration options, please see the [Self-Evolving Multi-Agent README](src/kiss/agents/self_evolving_multi_agent/README.md).
 
 ### Running Agent Examples
 
@@ -538,7 +589,7 @@ kiss/
 │   │   ├── test_kiss_agent_agentic.py
 │   │   ├── test_kiss_agent_non_agentic.py
 │   │   ├── test_kissevolve_bubblesort.py
-│   │   ├── test_gepa_huggingface.py
+│   │   ├── test_gepa_squad.py
 │   │   ├── test_docker_manager.py
 │   │   ├── test_models.py         # Tests for all models based on ModelInfo capabilities
 │   │   ├── test_multiprocess.py
@@ -580,8 +631,9 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
   - `max_steps`: Maximum iterations in the ReAct loop (default: 100)
   - `verbose`: Enable verbose output (default: True)
   - `debug`: Enable debug mode (default: False)
-  - `max_agent_budget`: Maximum budget per agent run in USD (default: 5.0)
+  - `max_agent_budget`: Maximum budget per agent run in USD (default: 1.0)
   - `global_max_budget`: Maximum total budget across all agents in USD (default: 10.0)
+  - `use_google_search`: Automatically add Google search tool if enabled (default: True)
 - **GEPA Settings**: Modify `DEFAULT_CONFIG.gepa` in `src/kiss/agents/gepa/config.py`:
   - `reflection_model`: Model to use for reflection (default: "gemini-3-flash-preview")
   - `max_generations`: Maximum number of evolutionary generations (default: 10)
@@ -610,7 +662,7 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
 - `uv run pytest src/kiss/tests/test_kiss_agent_non_agentic.py -v` - Run non-agentic agent tests
 - `uv run pytest src/kiss/tests/test_models.py -v` - Run model tests
 - `uv run pytest src/kiss/tests/test_multiprocess.py -v` - Run multiprocessing tests
-- `uv run python -m unittest src.kiss.tests.test_gepa_huggingface -v` - Run GEPA HuggingFace tests (unittest)
+- `uv run python -m unittest src.kiss.tests.test_gepa_squad -v` - Run GEPA Squad tests (unittest)
 - `uv run python -m unittest src.kiss.tests.test_docker_manager -v` - Run docker manager tests (unittest)
 - `uv run python -m unittest discover -s src/kiss/tests -v` - Run all tests using unittest
 
@@ -682,7 +734,7 @@ The visualizer provides:
 - **Together AI (Other)**: Kimi-K2-Instruct, GLM-4.5/4.6, Nemotron-Nano-9B
 - **OpenRouter**: Access to 400+ models from multiple providers via unified API:
   - OpenAI (gpt-4.1, gpt-4o, gpt-5, gpt-5.1, gpt-5.2, o1, o3, o3-pro, o4-mini, codex-mini)
-  - Anthropic (claude-3.5-sonnet, claude-3.7-sonnet, claude-sonnet-4/4.5, claude-haiku-4.5, claude-opus-4/4.1/4.5)
+  - Anthropic (claude-3-haiku, claude-3.5-haiku, claude-3.5-sonnet, claude-3.7-sonnet, claude-sonnet-4/4.5, claude-haiku-4.5, claude-opus-4/4.1/4.5)
   - Google (gemini-2.0-flash, gemini-2.5-flash/pro, gemini-3-flash/pro-preview, gemma-3-27b)
   - Meta Llama (llama-3.3-70b, llama-4-maverick/scout)
   - DeepSeek (deepseek-chat, deepseek-r1, deepseek-v3.1/v3.2)

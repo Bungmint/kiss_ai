@@ -11,6 +11,8 @@ the full evolution process, making them fast to execute.
 
 import unittest
 
+import pytest
+
 from kiss.agents.kiss_evolve.kiss_evolve import KISSEvolve
 from kiss.scripts.kissevolve_bubblesort import (
     INITIAL_CODE,
@@ -196,6 +198,7 @@ class TestKISSEvolveIntegration(unittest.TestCase):
         result = evaluate_correctness_of_code(code)
         return bool(result.get("correctness", False))
 
+    @pytest.mark.timeout(300)  # 5 minutes for LLM-based evolution
     def test_kiss_evolve_improves_performance(self):
         """Test that KISSEvolve improves performance over the initial code.
 
@@ -241,6 +244,7 @@ class TestKISSEvolveIntegration(unittest.TestCase):
             f"Evolved code is not correct: {correctness_result.get('error', 'Unknown error')}",
         )
 
+    @pytest.mark.timeout(300)  # 5 minutes for LLM-based evolution
     def test_kiss_evolve_population_stats(self):
         """Test that KISSEvolve maintains valid population statistics.
 

@@ -20,7 +20,7 @@ from kiss.core.config import DEFAULT_CONFIG
 from kiss.core.kiss_error import KISSError
 from kiss.core.models.model_info import calculate_cost, get_max_context_length, model
 from kiss.core.simple_formatter import SimpleFormatter
-from kiss.core.utils import config_to_dict
+from kiss.core.utils import config_to_dict, search_web
 
 
 # Register YAML representer for multiline strings (module-level, runs once)
@@ -128,6 +128,11 @@ class KISSAgent:
                 tools = tools or []
                 if not any(getattr(tool, "__name__", None) == "finish" for tool in tools):
                     tools.append(self.finish)
+                has_search = any(
+                    getattr(tool, "__name__", None) == "search_web" for tool in tools
+                )
+                if DEFAULT_CONFIG.agent.use_google_search and not has_search:
+                    tools.append(search_web)
                 self._add_functions(tools)
             self._set_prompt(prompt_template, arguments)
 
@@ -179,7 +184,10 @@ class KISSAgent:
                 if self.step_count == self.max_steps:
                     raise KISSError(f"Agent {self.name} exceeded {self.max_steps} steps.")
 
-            raise KISSError("This should never be reached, but mypy requires a return statement.")
+            # This should not be reached, but handle edge case where loop completes without return
+            raise KISSError(
+                f"Agent {self.name} completed {self.max_steps} steps without finishing."
+            )
 
         finally:
             self._save(DEFAULT_CONFIG.agent.artifact_dir)
@@ -228,7 +236,7 @@ class KISSAgent:
             input_tokens, output_tokens = (
                 self.model.extract_input_output_token_counts_from_response(response)
             )
-            self.total_tokens_used = input_tokens + output_tokens
+            self.total_tokens_used += input_tokens + output_tokens
             cost = calculate_cost(self.model.model_name, input_tokens, output_tokens)
             self.budget_used += cost
             KISSAgent.global_budget_used += cost
@@ -421,7 +429,7 @@ class KISSAgent:
         return str(result_raw)
 
     def _add_function_results_to_conversation(
-        self, function_results: list[tuple[str, dict[str, str]]]
+        self, function_results: list[tuple[str, dict[str, Any]]]
     ) -> None:
         """Adds function results to conversation and trajectory."""
         assert self.model is not None

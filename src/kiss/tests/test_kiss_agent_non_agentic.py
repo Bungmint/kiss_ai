@@ -12,7 +12,7 @@ from kiss.core.kiss_error import KISSError
 from kiss.tests.conftest import simple_calculator
 
 # Test model - using a fast, cheap model for testing
-TEST_MODEL = "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
+TEST_MODEL = "gemini-3-flash-preview"
 
 
 class TestKISSAgentNonAgentic(unittest.TestCase):

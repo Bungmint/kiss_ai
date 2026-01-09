@@ -677,21 +677,12 @@ combine the best aspects of two code variants to create an improved version.
         if len(pop) < n:
             return pop.copy()
 
-        if self.parent_sampling_method == "tournament":
-            # Tournament selection: pick n random variants, return the best
-            tournament_size = min(3, len(pop))
-            selected = []
-            for _ in range(n):
-                tournament = random.sample(pop, tournament_size)
-                best = max(tournament, key=lambda v: v.fitness)
-                selected.append(best)
-            return selected
-        elif self.parent_sampling_method == "power_law":
+        if self.parent_sampling_method == "power_law":
             return self._power_law_sample(pop, n)
         elif self.parent_sampling_method == "performance_novelty":
             return self._performance_novelty_sample(pop, n)
         else:
-            # Fallback to tournament selection
+            # Default: tournament selection (also handles "tournament" and unknown methods)
             tournament_size = min(3, len(pop))
             selected = []
             for _ in range(n):

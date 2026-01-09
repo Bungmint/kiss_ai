@@ -32,7 +32,6 @@ dependencies = [
     "docker>=7.0.0",
     "types-docker>=7.1.0.20251202",
     "google-genai>=0.30.0",
-    "setuptools>=65.0.0",
     "pyyaml>=6.0.0",
     "types-PyYAML>=6.0.0",
     "datasets>=2.0.0",
@@ -42,14 +41,8 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "flask>=3.0.0",
     "requests>=2.28.0",
-]
-
-[project.optional-dependencies]
-dev = [
-    "mypy>=1.19.1",
-    "ruff>=0.14.9",
-    "pytest>=9.0.2",
-    "pytest-cov>=7.0.0",
+    "beautifulsoup4>=4.12.0",
+    "playwright>=1.40.0",
 ]
 
 [build-system]
@@ -78,6 +71,15 @@ testpaths = ["src/kiss/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+# Timeout for tests (can be overridden per-test)
+timeout = 120
+# Quick testing (exclude test_models.py which tests ALL models):
+#   uv run pytest --ignore=src/kiss/tests/test_models.py -v
+# Full testing (includes all models):
+#   uv run pytest -v
 
 [tool.coverage.run]
 source = ["src/kiss"]
@@ -122,6 +124,14 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "openai.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "bs4.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "playwright.*"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

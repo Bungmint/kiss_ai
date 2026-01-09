@@ -1,15 +1,8 @@
-# Author: Koushik Sen (ksen@berkeley.edu)
-# Contributors:
-# Koushik Sen (ksen@berkeley.edu)
-# add your name here
-
-"""Advanced Coding Agent with planning, error recovery, and dynamic tool creation."""
-
 from __future__ import annotations
 
-import base64
 import json
 import traceback
+import base64
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -19,7 +12,6 @@ from kiss.core.kiss_agent import KISSAgent
 from kiss.core.kiss_error import KISSError
 from kiss.core.utils import get_config_value
 from kiss.docker.docker_manager import DockerManager
-
 
 @dataclass
 class TodoItem:
@@ -58,7 +50,7 @@ Last Error: {last_error}
 - finish(result: str): Task complete.
 
 ## Strategy
-1. For simple tasks, use run_bash/write_file directly then call finish.
+1. For simple tasks, use run_bash/write_file directly then call finish. 
 2. For complex logic, use plan_task followed by execute_todo or run_bash.
 3. Batch commands in run_bash to minimize steps.
 4. Call finish immediately upon goal completion."""
@@ -88,12 +80,8 @@ class SelfEvolvingMultiAgent:
         self.max_steps = get_config_value(max_steps, cfg, "max_steps") or 30
         self.max_budget = get_config_value(max_budget, cfg, "max_budget") or 1.5
         self.enable_planning = get_config_value(enable_planning, cfg, "enable_planning")
-        self.enable_error_recovery = get_config_value(
-            enable_error_recovery, cfg, "enable_error_recovery"
-        )
-        self.enable_dynamic_tools = get_config_value(
-            enable_dynamic_tools, cfg, "enable_dynamic_tools"
-        )
+        self.enable_error_recovery = get_config_value(enable_error_recovery, cfg, "enable_error_recovery")
+        self.enable_dynamic_tools = get_config_value(enable_dynamic_tools, cfg, "enable_dynamic_tools")
 
         self.sub_agent_max_steps = cfg.sub_agent_max_steps
         self.sub_agent_max_budget = cfg.sub_agent_max_budget
@@ -176,12 +164,11 @@ class SelfEvolvingMultiAgent:
                 return f"Todo {todo_id} failed: {e}"
 
         def create_tool(name: str, description: str, bash_command_template: str) -> str:
-            tools_at_limit = len(self.state.dynamic_tools) >= self.max_dynamic_tools
-            if not self.enable_dynamic_tools or tools_at_limit:
+            if not self.enable_dynamic_tools or len(self.state.dynamic_tools) >= self.max_dynamic_tools:
                 return "Tool limit reached."
             if not name.isidentifier():
                 return "Invalid identifier."
-
+            
             def dynamic_tool(arg: str = "") -> str:
                 try:
                     return run_bash(bash_command_template.format(arg=arg), description)
@@ -192,10 +179,7 @@ class SelfEvolvingMultiAgent:
             self.state.dynamic_tools[name] = dynamic_tool
             return f"Tool '{name}' ready."
 
-        tools: list[Callable[..., str]] = [
-            plan_task, execute_todo, complete_todo, run_bash,
-            create_tool, read_file, write_file
-        ]
+        tools = [plan_task, execute_todo, complete_todo, run_bash, create_tool, read_file, write_file]
         tools.extend(self.state.dynamic_tools.values())
         return tools
 
@@ -204,7 +188,7 @@ class SelfEvolvingMultiAgent:
         self.state, self.trajectory = AgentState(), []
         if self.docker:
             return self._run_orchestrator(task)
-
+        
         with DockerManager(self.docker_image, workdir="/", mount_shared_volume=True) as docker:
             self.docker = docker
             docker.run_bash_command("mkdir -p /workspace", "Init")
@@ -264,32 +248,10 @@ def run_task(task: str, model_name: str, docker: DockerManager) -> dict:
     except Exception as e:
         return {"result": str(e), "metrics": {"llm_calls": 10, "steps": 0}, "error": str(e)}
 
-def run_self_evolving_multi_agent_task(
-    task: str,
-    model_name: str | None = None,
-    docker_image: str | None = None,
-    max_steps: int | None = None,
-    max_budget: float | None = None,
-) -> dict[str, Any]:
-    agent = SelfEvolvingMultiAgent(
-        model_name=model_name,
-        docker_image=docker_image,
-        max_steps=max_steps,
-        max_budget=max_budget
-    )
+def run_self_evolving_multi_agent_task(task, model_name=None, docker_image=None, max_steps=None, max_budget=None):
+    agent = SelfEvolvingMultiAgent(model_name=model_name, docker_image=docker_image, max_steps=max_steps, max_budget=max_budget)
     try:
         res = agent.run(task)
-        return {
-            "status": "success",
-            "result": res,
-            "trajectory": agent.get_trajectory(),
-            "stats": agent.get_stats()
-        }
+        return {"status": "success", "result": res, "trajectory": agent.get_trajectory(), "stats": agent.get_stats()}
     except Exception as e:
-        return {
-            "status": "failure",
-            "error": str(e),
-            "traceback": traceback.format_exc(),
-            "trajectory": agent.get_trajectory(),
-            "stats": agent.get_stats()
-        }
+        return {"status": "failure", "error": str(e), "traceback": traceback.format_exc(), "trajectory": agent.get_trajectory(), "stats": agent.get_stats()}

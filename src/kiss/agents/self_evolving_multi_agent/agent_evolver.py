@@ -593,15 +593,15 @@ def create_code_agent_wrapper(model_name: str) -> Callable[..., str]:
             prompt_template=prompt_template,
             arguments=arguments,
             is_agentic=True,
-            max_steps=10,
-            max_budget=0.3,
+            max_steps=100,
+            max_budget=10.0,
         )
         return result
 
     return code_agent_wrapper
 
 
-class CodingAgentEvolver:
+class AgentEvolver:
     """Evolves the SelfEvolvingMultiAgent for better efficiency and accuracy.
 
     The evolver optimizes for:
@@ -711,7 +711,7 @@ Your goal is to evolve the coding agent to be MORE EFFICIENT while maintaining a
 """
 
         evolver = KISSEvolve(
-            code_agent_wrapper=create_code_agent_wrapper(self.model_name),
+            code_agent_wrapper=create_code_agent_wrapper('gemini-3-pro-preview'),
             initial_code=BASE_AGENT_CODE,
             evaluation_fn=evaluation_fn,
             model_names=[(self.model_name, 1.0)],
@@ -804,7 +804,7 @@ def main() -> None:
         return
 
     # Create evolver with efficiency focus
-    evolver = CodingAgentEvolver(
+    evolver = AgentEvolver(
         model_name=config.evolver_model,
         population_size=config.evolver_population_size,
         max_generations=config.evolver_max_generations,
