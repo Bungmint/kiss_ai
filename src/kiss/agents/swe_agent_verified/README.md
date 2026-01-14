@@ -16,15 +16,7 @@ SWE-bench (Software Engineering Benchmark) evaluates language models on their ab
 
 This module is part of the KISS Agent Framework. See the main [README.md](../../../../README.md) for installation instructions.
 
-### Additional Dependencies
-
-For running the official SWE-bench evaluator:
-
-```bash
-pip install swebench
-```
-
-For Docker-based evaluation, ensure Docker is installed and running:
+The SWE-bench package is included as a dependency of KISS. For Docker-based evaluation, ensure Docker is installed and running:
 
 ```bash
 docker --version

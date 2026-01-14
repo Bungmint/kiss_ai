@@ -3,109 +3,187 @@
 # Koushik Sen (ksen@berkeley.edu)
 # add your name here
 
-"""Anthropic model implementation for KISS agent."""
+"""Anthropic model implementation for Claude models."""
 
-import json
 from collections.abc import Callable
 from typing import Any
 
 from anthropic import Anthropic
 
-from kiss.core.config import DEFAULT_CONFIG
 from kiss.core.kiss_error import KISSError
-from kiss.core.models.model import DictConversationModel
+from kiss.core.models.model import Model
 
 
-class AnthropicModel(DictConversationModel):
-    """Anthropic Claude model implementation."""
+class AnthropicModel(Model):
+    """A model that uses Anthropic's Messages API (Claude)."""
 
-    client: Anthropic | None
+    def __init__(
+        self,
+        model_name: str,
+        api_key: str,
+        model_config: dict[str, Any] | None = None,
+    ):
+        super().__init__(model_name, model_config=model_config)
+        self.api_key = api_key
 
-    def _get_tools(self, function_map: dict[str, Callable[..., Any]]) -> list[dict[str, Any]]:
-        return [
-            {"name": s["name"], "description": s["description"], "input_schema": s["schema"]}
-            for s in self._build_function_schema(function_map)
-        ]
+    def __str__(self) -> str:
+        return f"{self.__class__.__name__}(name={self.model_name})"
 
-    def _extract_function_calls_from_response(self, response: Any) -> list[dict[str, Any]]:
-        if not response.content:
-            return []
-        return [
-            {"name": b.name, "arguments": b.input if isinstance(b.input, dict) else {}, "id": b.id}
-            for b in response.content
-            if b.type == "tool_use"
-        ]
-
-    def _extract_text_from_response(self, response: Any) -> str:
-        return "".join(b.text for b in (response.content or []) if b.type == "text")
+    __repr__ = __str__
 
     def initialize(self, prompt: str) -> None:
-        self.client = Anthropic(api_key=DEFAULT_CONFIG.agent.api_keys.ANTHROPIC_API_KEY)
-        self.conversation = [{"role": "user", "content": self._append_usage_info(prompt)}]
+        self.client = Anthropic(api_key=self.api_key)
+        self.conversation = [{"role": "user", "content": prompt}]
 
-    def generate_content_with_tools(self, function_map: dict[str, Callable[..., Any]]) -> Any:
-        assert self.client
-        tools = self._get_tools(function_map)
-        kwargs: dict[str, Any] = {
-            "model": self.model_name,
-            "max_tokens": 4096,
-            "messages": self.conversation,
-            "temperature": 1.0,
-        }
+    def _normalize_content_blocks(self, content: Any) -> list[dict[str, Any]]:
+        """Normalize Anthropic content blocks to JSON-serializable dicts."""
+        blocks: list[dict[str, Any]] = []
+        if content is None:
+            return blocks
+        for block in content:
+            if isinstance(block, dict):
+                blocks.append(block)
+                continue
+            if hasattr(block, "model_dump"):
+                blocks.append(block.model_dump())
+                continue
+            block_type = getattr(block, "type", None)
+            if block_type == "text":
+                blocks.append({"type": "text", "text": getattr(block, "text", "")})
+            elif block_type == "tool_use":
+                blocks.append(
+                    {
+                        "type": "tool_use",
+                        "id": getattr(block, "id", ""),
+                        "name": getattr(block, "name", ""),
+                        "input": getattr(block, "input", {}) or {},
+                    }
+                )
+            else:
+                blocks.append({"type": "text", "text": str(block)})
+        return blocks
+
+    def _extract_text_from_blocks(self, blocks: list[dict[str, Any]]) -> str:
+        return "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
+
+    def _build_anthropic_tools_schema(
+        self, function_map: dict[str, Callable[..., Any]]
+    ) -> list[dict[str, Any]]:
+        """Build Anthropic tools schema from a function map."""
+        tools = []
+        for tool in self._build_openai_tools_schema(function_map):
+            fn = tool.get("function", {})
+            tools.append(
+                {
+                    "name": fn.get("name", ""),
+                    "description": fn.get("description", ""),
+                    "input_schema": fn.get("parameters", {"type": "object", "properties": {}}),
+                }
+            )
+        return tools
+
+    def _build_create_kwargs(self, tools: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+        kwargs = self.model_config.copy()
+
+        # Anthropic requires max_tokens; accept OpenAI-style "max_completion_tokens" too.
+        max_tokens = kwargs.pop("max_tokens", None)
+        if max_tokens is None:
+            max_tokens = kwargs.pop("max_completion_tokens", None)
+        if max_tokens is None:
+            max_tokens = 4096
+
+        # Map OpenAI-style stop -> Anthropic stop_sequences (best-effort).
+        if "stop" in kwargs and "stop_sequences" not in kwargs:
+            stop_val = kwargs.pop("stop")
+            if isinstance(stop_val, str):
+                kwargs["stop_sequences"] = [stop_val]
+            elif isinstance(stop_val, list):
+                kwargs["stop_sequences"] = stop_val
+
+        kwargs.update(
+            {
+                "model": self.model_name,
+                "messages": self.conversation,
+                "max_tokens": max_tokens,
+            }
+        )
         if tools:
             kwargs["tools"] = tools
-        return self.client.messages.create(**kwargs)
-
-    def add_model_response_to_conversation(self, response: Any) -> None:
-        if not response.content:
-            return
-        blocks = []
-        for b in response.content:
-            if b.type == "text":
-                blocks.append({"type": "text", "text": b.text})
-            elif b.type == "tool_use":
-                blocks.append({"type": "tool_use", "id": b.id, "name": b.name, "input": b.input})
-        self.conversation.append({"role": "assistant", "content": blocks})
+        return kwargs
 
     def generate(self) -> tuple[str, Any]:
-        assert self.client
-        prompt = self._get_initial_prompt_text()
-        if not prompt:
-            raise KISSError("No prompt provided.")
-        response = self.client.messages.create(
-            model=self.model_name, max_tokens=4096, messages=[{"role": "user", "content": prompt}]
-        )
-        if not response.content:
-            raise KISSError("No response from Anthropic model.")
-        return "".join(b.text for b in response.content if b.type == "text"), response
+        kwargs = self._build_create_kwargs()
+        response = self.client.messages.create(**kwargs)
+        blocks = self._normalize_content_blocks(getattr(response, "content", None))
+        content = self._extract_text_from_blocks(blocks)
+        self.conversation.append({"role": "assistant", "content": blocks or content})
+        return content, response
 
-    def extract_input_output_token_counts_from_response(self, response: Any) -> tuple[int, int]:
-        return (
-            (response.usage.input_tokens or 0, response.usage.output_tokens or 0)
-            if response.usage
-            else (0, 0)
-        )
+    def generate_and_process_with_tools(
+        self, function_map: dict[str, Callable[..., Any]]
+    ) -> tuple[list[dict[str, Any]], str, Any]:
+        tools = self._build_anthropic_tools_schema(function_map)
+        kwargs = self._build_create_kwargs(tools=tools or None)
+        response = self.client.messages.create(**kwargs)
+
+        blocks = self._normalize_content_blocks(getattr(response, "content", None))
+        content = self._extract_text_from_blocks(blocks)
+
+        function_calls: list[dict[str, Any]] = []
+        for b in blocks:
+            if b.get("type") == "tool_use":
+                function_calls.append(
+                    {
+                        "id": b.get("id", ""),
+                        "name": b.get("name", ""),
+                        "arguments": b.get("input", {}) or {},
+                    }
+                )
+
+        self.conversation.append({"role": "assistant", "content": blocks or content})
+        return function_calls, content, response
 
     def add_function_results_to_conversation_and_return(
         self, function_results: list[tuple[str, dict[str, Any]]]
     ) -> None:
-        if not function_results or not self.conversation:
-            return
-        last = self.conversation[-1]
-        if last.get("role") != "assistant" or not last.get("content"):
-            return
-        name_to_id = {
-            b.get("name", ""): b.get("id", "")
-            for b in last["content"]
-            if b.get("type") == "tool_use"
-        }
-        blocks = []
-        for name, result in function_results:
-            content = json.dumps(result)
-            blocks.append(
-                {"type": "tool_result", "tool_use_id": name_to_id.get(name, ""), "content": content}
+        # Map tool name -> tool_use id from the most recent assistant message
+        tool_use_id_map: dict[str, str] = {}
+        for msg in reversed(self.conversation):
+            if msg.get("role") == "assistant" and isinstance(msg.get("content"), list):
+                for b in msg["content"]:
+                    if b.get("type") == "tool_use":
+                        tool_use_id_map[b.get("name", "")] = b.get("id", "")
+                if tool_use_id_map:
+                    break
+
+        tool_results_blocks: list[dict[str, Any]] = []
+        for func_name, result_dict in function_results:
+            result_content = result_dict.get("result", str(result_dict))
+            if self.usage_info_for_messages:
+                result_content = f"{result_content}\n\n{self.usage_info_for_messages}"
+            tool_results_blocks.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tool_use_id_map.get(func_name, f"toolu_{func_name}"),
+                    "content": result_content,
+                }
             )
-        self.conversation.append({"role": "user", "content": blocks})
+
+        self.conversation.append({"role": "user", "content": tool_results_blocks})
+
+    def add_message_to_conversation(self, role: str, content: str) -> None:
+        if role == "user" and self.usage_info_for_messages:
+            content = f"{content}\n\n{self.usage_info_for_messages}"
+        self.conversation.append({"role": role, "content": content})
+
+    def extract_input_output_token_counts_from_response(self, response: Any) -> tuple[int, int]:
+        if hasattr(response, "usage") and response.usage:
+            return (
+                getattr(response.usage, "input_tokens", 0) or 0,
+                getattr(response.usage, "output_tokens", 0) or 0,
+            )
+        return 0, 0
 
     def get_embedding(self, text: str, embedding_model: str | None = None) -> list[float]:
-        raise NotImplementedError("Anthropic does not provide an embeddings API.")
+        raise KISSError("Anthropic does not provide an embeddings API.")
+

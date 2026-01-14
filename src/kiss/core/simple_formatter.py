@@ -53,6 +53,7 @@ class SimpleFormatter(Formatter):
 
     def print_messages(self, messages: list[dict[str, str]]) -> None:
         if self._console:
+            self._console.print()
             self._console.print(Markdown("\n#  Agent Messages #"), style="bold")
             for message in messages:
                 self.print_message(message)

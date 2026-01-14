@@ -85,7 +85,7 @@ def code_agent_wrapper(model_name: str, prompt_template: str, arguments: dict[st
         model_name=model_name,
         prompt_template=prompt_template,
         arguments=arguments,
-        is_agentic=False  # Non-agentic mode to get raw code response
+        is_agentic=True  # Agentic mode uses finish tool to return code
     )
 
 optimizer = KISSEvolve(

@@ -43,14 +43,12 @@ The framework centers around the `KISSAgent` class, which implements a ReAct age
   - Model name is passed to the `run()` method
   - Tracks token usage throughout the run and appends token information to messages
 - **`Model`**: Abstract base class for LLM providers (located in `core/models/`)
-  - **`Gemini3Model`**: Gemini model implementation with native function calling
-  - **`OpenAIModel`**: OpenAI model implementation with native function calling
+  - **`GeminiModel`**: Gemini model implementation with native function calling
+  - **`OpenAICompatibleModel`**: OpenAI-compatible API model implementation with native function calling (supports OpenAI, Together AI, OpenRouter, and other OpenAI-compatible providers)
   - **`AnthropicModel`**: Anthropic Claude model implementation with native function calling
-  - **`TogetherModel`**: Together AI model implementation with native function calling (supports Llama, Qwen, DeepSeek, Mistral, and more)
-  - **`OpenRouterModel`**: OpenRouter model implementation with native function calling (unified API for 400+ models from multiple providers)
   - Automatic context length detection for supported models (OpenAI, Anthropic, Gemini, Together AI, OpenRouter)
   - Token count extraction from API responses
-  - Embedding support: OpenAI and Together AI models support embeddings via `get_embedding()` method (Anthropic and Gemini do not support embeddings)
+  - Embedding support: OpenAI, Together AI, and Gemini models support embeddings via `get_embedding()` method (Anthropic does not support embeddings)
 - **`Formatter`**: Abstract base class for output formatting and status messages
   - **`SimpleFormatter`**: Rich-formatted output with colored status messages
 - **`DockerManager`**: Manages Docker containers for isolated execution
@@ -115,7 +113,8 @@ def run(
     formatter: Formatter | None = None,
     is_agentic: bool = True,
     max_steps: int = 100,
-    max_budget: float = 5.0,
+    max_budget: float = 1.0,
+    model_config: dict[str, Any] | None = None,
 ) -> str
 ```
 
@@ -125,11 +124,12 @@ Runs the agent's main ReAct loop to solve the task.
 - `model_name` (str): The name of the model to use (e.g., "gpt-4o", "claude-sonnet-4-5", "gemini-3-pro-preview", "meta-llama/Llama-3.3-70B-Instruct-Turbo", "openrouter/anthropic/claude-3.5-sonnet")
 - `prompt_template` (str): The prompt template for the agent. Can include `{placeholder}` syntax for variable substitution.
 - `arguments` (dict[str, str] | None): Arguments to substitute into the prompt template. Default is None.
-- `tools` (list[Callable[..., Any]] | None): List of callable functions the agent can use. The `finish` tool is automatically added if it is not provided in `tools`. Default is None.
+- `tools` (list[Callable[..., Any]] | None): List of callable functions the agent can use. The `finish` tool is automatically added if it is not provided in `tools`. If `use_google_search` is enabled in config, `search_web` is also automatically added. Default is None.
 - `formatter` (Formatter | None): Custom formatter for output. Default is `SimpleFormatter`.
 - `is_agentic` (bool): If True, runs in agentic mode with tools. If False, returns raw LLM response. Default is True.
 - `max_steps` (int): Maximum number of ReAct loop iterations. Default is 100.
-  - `max_budget` (float): Maximum budget in USD for this agent run. Default is 1.0.
+- `max_budget` (float): Maximum budget in USD for this agent run. Default is 1.0.
+- `model_config` (dict[str, Any] | None): Optional model configuration to pass to the model. Default is None.
 
 **Returns:**
 - `str`: The result returned by the agent's `finish()` call, or the raw LLM response in non-agentic mode.
@@ -251,7 +251,7 @@ result = agent.run(
     model_name="gpt-4o",
     prompt_template=prompt_template,
     arguments={"question": "What is 15% of 847?"},
-    tools=[search_web, calculate],
+    tools=[search_web, calculate],  # finish tool is automatically added
     max_steps=10,
     max_budget=0.5,
 )
@@ -394,7 +394,7 @@ This module runs KISSEvolve on AlgoTune benchmarks to optimize numerical program
 
 SimpleRAG provides a lightweight RAG system with in-memory vector storage and similarity search:
 
-> **Note**: SimpleRAG requires a model with embedding support. Currently, OpenAI and Together AI models support embeddings. Anthropic and Gemini models do not provide embedding APIs.
+> **Note**: SimpleRAG requires a model with embedding support. Currently, OpenAI, Together AI, and Gemini models support embeddings. Anthropic models do not provide embedding APIs.
 
 ```python
 from kiss.rag import SimpleRAG
@@ -457,14 +457,12 @@ The framework includes pre-built utility agents for common tasks:
 
 **Prompt Refinement Agent:**
 ```python
-import json
-
 from kiss.agents.kiss import refine_prompt_template
 
 refined_prompt = refine_prompt_template(
     original_prompt_template="Original prompt...",
     previous_prompt_template="Previous version...",
-    agent_trajectory=json.dumps(agent.get_trajectory()),
+    agent_trajectory=agent.get_trajectory(),  # Returns JSON string
     model_name="gemini-3-pro-preview"
 )
 ```
@@ -551,12 +549,9 @@ kiss/
 │   │   ├── utils.py           # Utility functions
 │   │   └── models/            # Model implementations
 │   │       ├── model.py           # Model interface
-│   │       ├── gemini3_model.py   # Gemini model implementation
-│   │       ├── openai_model.py    # OpenAI model implementation
-│   │       ├── openai_compatible_model.py # OpenAI-compatible API model
+│   │       ├── gemini_model.py    # Gemini model implementation
+│   │       ├── openai_compatible_model.py # OpenAI-compatible API model (OpenAI, Together AI, OpenRouter)
 │   │       ├── anthropic_model.py # Anthropic model implementation
-│   │       ├── together_model.py  # Together AI model implementation
-│   │       ├── openrouter_model.py # OpenRouter model implementation
 │   │       └── model_info.py      # Model info: context lengths, pricing, and capabilities
 │   ├── docker/          # Docker integration
 │   │   └── docker_manager.py
@@ -573,7 +568,8 @@ kiss/
 │   │   ├── test_kissevolve_bubblesort.py
 │   │   ├── test_gepa_squad.py
 │   │   ├── test_docker_manager.py
-│   │   ├── test_models.py         # Tests for all models based on ModelInfo capabilities
+│   │   ├── test_models_quick.py   # Quick tests for models based on ModelInfo capabilities
+│   │   ├── run_all_models_test.py # Comprehensive tests for all models
 │   │   ├── test_multiprocess.py
 │   │   └── test_internal.py
 │   └── viz_trajectory/  # Trajectory visualization
@@ -642,7 +638,7 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
 - `uv run pytest src/kiss/tests/ -v` - Run all tests with verbose output
 - `uv run pytest src/kiss/tests/test_kiss_agent_agentic.py -v` - Run agentic agent tests
 - `uv run pytest src/kiss/tests/test_kiss_agent_non_agentic.py -v` - Run non-agentic agent tests
-- `uv run pytest src/kiss/tests/test_models.py -v` - Run model tests
+- `uv run pytest src/kiss/tests/test_models_quick.py -v` - Run quick model tests
 - `uv run pytest src/kiss/tests/test_multiprocess.py -v` - Run multiprocessing tests
 - `uv run python -m unittest src.kiss.tests.test_gepa_squad -v` - Run GEPA Squad tests (unittest)
 - `uv run python -m unittest src.kiss.tests.test_docker_manager -v` - Run docker manager tests (unittest)
@@ -754,8 +750,10 @@ The framework provides embedding generation capabilities through the `get_embedd
 - **Together AI Models**: Full embedding support via Together AI's embeddings API
   - Default model: `togethercomputer/m2-bert-80M-8k-retrieval` (can be customized)
   - Usage: `model.get_embedding(text, embedding_model="togethercomputer/m2-bert-80M-8k-retrieval")`
-- **Anthropic Models**: Embeddings not supported (raises `NotImplementedError`)
-- **Gemini Models**: Embeddings not supported (raises `NotImplementedError`)
+- **Gemini Models**: Full embedding support via Google's embeddings API
+  - Default model: `text-embedding-004` (can be customized)
+  - Usage: `model.get_embedding(text, embedding_model="text-embedding-004")`
+- **Anthropic Models**: Embeddings not supported (raises `KISSError`)
 
 Embeddings are primarily used by the `SimpleRAG` system for document retrieval. When using `SimpleRAG`, ensure you use an OpenAI or Together AI model that supports embeddings.
 

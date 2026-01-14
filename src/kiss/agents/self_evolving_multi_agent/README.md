@@ -86,7 +86,6 @@ The orchestrator agent has access to the following tools:
 | Tool | Description |
 |------|-------------|
 | `plan_task` | Create a plan by adding todo items (newline-separated) |
-| `search_web` | Search the web for information |
 | `execute_todo` | Execute a specific todo item using a sub-agent |
 | `complete_todo` | Mark a task finished after manual work |
 | `run_bash` | Execute a bash command in the Docker container |

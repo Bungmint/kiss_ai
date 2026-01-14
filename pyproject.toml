@@ -76,8 +76,8 @@ markers = [
 ]
 # Timeout for tests (can be overridden per-test)
 timeout = 120
-# Quick testing (exclude test_models.py which tests ALL models):
-#   uv run pytest --ignore=src/kiss/tests/test_models.py -v
+# Quick testing (exclude run_all_models_test.py which tests ALL models):
+#   uv run pytest --ignore=src/kiss/tests/run_all_models_test.py -v
 # Full testing (includes all models):
 #   uv run pytest -v
 

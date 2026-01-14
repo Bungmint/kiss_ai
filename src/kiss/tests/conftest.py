@@ -10,6 +10,18 @@ import pytest
 from kiss.core.formatter import Formatter
 from kiss.core.kiss_error import KISSError
 
+DEFAULT_MODEL = "gpt-5.2"
+
+
+def pytest_addoption(parser):
+    """Add --model option to pytest."""
+    parser.addoption(
+        "--model",
+        action="store",
+        default=DEFAULT_MODEL,
+        help=f"Model name to test (default: {DEFAULT_MODEL})",
+    )
+
 # Ignore gepa and openevolve test files
 collect_ignore = [
     "test_openevolve.py",

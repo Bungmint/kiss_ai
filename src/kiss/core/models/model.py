@@ -6,19 +6,24 @@
 """Abstract base class for LLM provider model implementations."""
 
 import inspect
-import json
 import types as types_module
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, Union, cast, get_args, get_origin
+from typing import Any, Union, get_args, get_origin
 
 
 class Model(ABC):
     """A model is a LLM provider."""
 
-    def __init__(self, model_name: str, model_description: str = ""):
+    def __init__(
+        self,
+        model_name: str,
+        model_description: str = "",
+        model_config: dict[str, Any] | None = None,
+    ):
         self.model_name = model_name
         self.model_description = model_description
+        self.model_config = model_config or {}
         self.usage_info_for_messages: str = ""
         self.conversation: list[Any] = []
         self.client: Any = None
@@ -39,13 +44,10 @@ class Model(ABC):
         pass
 
     @abstractmethod
-    def generate_content_with_tools(self, function_map: dict[str, Callable[..., Any]]) -> Any:
-        """Generates content using the API with tool use support."""
-        pass
-
-    @abstractmethod
-    def add_model_response_to_conversation(self, response: Any) -> None:
-        """Adds model response to the conversation state."""
+    def generate_and_process_with_tools(
+        self, function_map: dict[str, Callable[..., Any]]
+    ) -> tuple[list[dict[str, Any]], str, Any]:
+        """Generates content with tools, processes the response, and adds it to conversation."""
         pass
 
     @abstractmethod
@@ -70,118 +72,137 @@ class Model(ABC):
         """Generates an embedding vector for the given text."""
         pass
 
-    def generate_and_process_with_tools(
-        self, function_map: dict[str, Callable[..., Any]]
-    ) -> tuple[list[dict[str, Any]], str, Any]:
-        """Generates content with tools, processes the response, and adds it to conversation."""
-        response = self.generate_content_with_tools(function_map)
-        function_calls = self._extract_function_calls_from_response(response)
-        text = self._extract_text_from_response(response)
-        self.add_model_response_to_conversation(response)
-        return function_calls, text, response
-
     def set_usage_info_for_messages(self, usage_info: str) -> None:
         """Sets token information to append to messages sent to the LLM."""
         self.usage_info_for_messages = usage_info
 
-    def _extract_function_calls_from_response(self, response: Any) -> list[dict[str, Any]]:
-        raise NotImplementedError
+    # =========================================================================
+    # Helper methods for building tool schemas (shared across implementations)
+    # =========================================================================
 
-    def _extract_text_from_response(self, response: Any) -> str:
-        raise NotImplementedError
-
-    def _get_initial_prompt_text(self) -> str:
-        """Gets the text of the initial prompt from conversation."""
-        if not self.conversation:
-            return ""
-        first = self.conversation[0]
-        if isinstance(first, dict):
-            return str(first.get("content", "") or "")
-        return ""
-
-    def _append_usage_info(self, content: str) -> str:
-        """Appends usage info to content if available."""
-        return content + self.usage_info_for_messages if self.usage_info_for_messages else content
-
-    def _parse_function_args(self, args: Any) -> dict[str, Any]:
-        """Parses function call arguments into a dictionary."""
-        if isinstance(args, dict):
-            return args
-        if isinstance(args, str):
-            try:
-                return cast(dict[str, Any], json.loads(args))
-            except json.JSONDecodeError:
-                pass
-        return {}
-
-    def _build_function_schema(
+    def _build_openai_tools_schema(
         self, function_map: dict[str, Callable[..., Any]]
     ) -> list[dict[str, Any]]:
-        """Builds JSON schema for function parameters from function map."""
-        schemas = []
-        for tool in function_map.values():
-            sig = inspect.signature(tool)
-            doc = inspect.getdoc(tool) or ""
-            props = {}
-            required = []
-            for name, param in sig.parameters.items():
-                props[name] = {
-                    "type": self._type_to_json(param.annotation),
-                    "description": self._get_param_desc(doc, name) or f"Parameter {name}",
+        """Builds the OpenAI-compatible tools schema from a function map."""
+        tools = []
+        for func in function_map.values():
+            tool_schema = self._function_to_openai_tool(func)
+            tools.append(tool_schema)
+        return tools
+
+    def _function_to_openai_tool(self, func: Callable[..., Any]) -> dict[str, Any]:
+        """Converts a Python function to an OpenAI tool schema."""
+        sig = inspect.signature(func)
+        doc = inspect.getdoc(func) or ""
+
+        # Parse docstring for parameter descriptions
+        param_descriptions = self._parse_docstring_params(doc)
+
+        # Build parameters schema
+        properties: dict[str, Any] = {}
+        required: list[str] = []
+
+        for param_name, param in sig.parameters.items():
+            param_type = param.annotation
+            param_schema = self._python_type_to_json_schema(param_type)
+
+            # Add description from docstring if available
+            if param_name in param_descriptions:
+                param_schema["description"] = param_descriptions[param_name]
+
+            properties[param_name] = param_schema
+
+            # Check if parameter is required (no default value)
+            if param.default is inspect.Parameter.empty:
+                required.append(param_name)
+
+        # Get first line of docstring as function description
+        description = doc.split("\n")[0] if doc else f"Function {func.__name__}"
+
+        return {
+            "type": "function",
+            "function": {
+                "name": func.__name__,
+                "description": description,
+                "parameters": {
+                    "type": "object",
+                    "properties": properties,
+                    "required": required,
+                },
+            },
+        }
+
+    def _parse_docstring_params(self, docstring: str) -> dict[str, str]:
+        """Parses parameter descriptions from a docstring."""
+        param_descriptions: dict[str, str] = {}
+        lines = docstring.split("\n")
+        in_args_section = False
+
+        for line in lines:
+            stripped = line.strip()
+            if stripped.lower().startswith("args:"):
+                in_args_section = True
+                continue
+            elif stripped.lower().startswith(("returns:", "raises:", "example:")):
+                in_args_section = False
+                continue
+
+            if in_args_section and ":" in stripped:
+                # Parse "param_name: description" or "param_name (type): description"
+                parts = stripped.split(":", 1)
+                if len(parts) == 2:
+                    param_part = parts[0].strip()
+                    desc_part = parts[1].strip()
+                    # Handle "param_name (type)" format
+                    if "(" in param_part:
+                        param_name = param_part.split("(")[0].strip()
+                    else:
+                        param_name = param_part
+                    param_descriptions[param_name] = desc_part
+
+        return param_descriptions
+
+    def _python_type_to_json_schema(self, python_type: Any) -> dict[str, Any]:
+        """Converts a Python type annotation to a JSON schema type."""
+        if python_type is inspect.Parameter.empty:
+            return {"type": "string"}
+
+        origin = get_origin(python_type)
+        args = get_args(python_type)
+
+        # Handle Union types (including Optional which is Union[X, None])
+        if origin is Union or origin is types_module.UnionType:
+            # Filter out NoneType
+            non_none_args = [a for a in args if a is not type(None)]
+            if len(non_none_args) == 1:
+                return self._python_type_to_json_schema(non_none_args[0])
+            # Multiple types - use anyOf
+            return {"anyOf": [self._python_type_to_json_schema(a) for a in non_none_args]}
+
+        # Handle list/List types
+        if origin is list:
+            if args:
+                return {
+                    "type": "array",
+                    "items": self._python_type_to_json_schema(args[0]),
                 }
-                if param.default == inspect.Parameter.empty:
-                    required.append(name)
-            schema: dict[str, Any] = {"type": "object", "properties": props}
-            if required:
-                schema["required"] = required
-            schemas.append(
-                {
-                    "name": tool.__name__,
-                    "description": doc or f"Function {tool.__name__}",
-                    "schema": schema,
-                }
-            )
-        return schemas
+            return {"type": "array"}
 
-    def _type_to_json(self, annotation: Any) -> str:
-        """Converts Python type annotation to JSON schema type."""
-        if annotation == inspect.Signature.empty:
-            return "string"
-        if isinstance(annotation, str):
-            lower = annotation.lower()
-            return (
-                "integer"
-                if "int" in lower
-                else "number"
-                if "float" in lower
-                else "boolean"
-                if "bool" in lower
-                else "string"
-            )
-        origin = get_origin(annotation)
-        if origin in (Union, types_module.UnionType):
-            args = get_args(annotation)
-            if len(args) == 2 and type(None) in args:
-                return self._type_to_json(next(a for a in args if a is not type(None)))
-        return {str: "string", int: "integer", float: "number", bool: "boolean"}.get(
-            annotation, "string"
-        )
+        # Handle dict/Dict types
+        if origin is dict:
+            return {"type": "object"}
 
-    def _get_param_desc(self, docstring: str, param_name: str) -> str:
-        """Extracts parameter description from docstring."""
-        for line in docstring.split("\n"):
-            if f"{param_name}:" in line:
-                return line.split(":", 1)[1].strip()
-        return ""
+        # Handle basic types
+        type_mapping: dict[type, dict[str, str]] = {
+            str: {"type": "string"},
+            int: {"type": "integer"},
+            float: {"type": "number"},
+            bool: {"type": "boolean"},
+            type(None): {"type": "null"},
+        }
 
+        if python_type in type_mapping:
+            return type_mapping[python_type]
 
-class DictConversationModel(Model):
-    """Base class for models using dict-based conversation (OpenAI, Anthropic, Together)."""
-
-    def add_message_to_conversation(self, role: str, content: str) -> None:
-        self.conversation.append({"role": role, "content": content})
-
-    def _get_initial_prompt_text(self) -> str:
-        if not self.conversation:
-            return ""
-        return str(self.conversation[0].get("content", "") or "")
+        # Default to string for unknown types
+        return {"type": "string"}

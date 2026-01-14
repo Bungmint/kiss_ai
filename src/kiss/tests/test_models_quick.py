@@ -31,15 +31,14 @@ TEST_TIMEOUT = 60
 
 # =============================================================================
 # Selected reliable and fast models - 1 per provider for quick testing
+# Note: Only OpenAI-compatible models are supported (OpenAI, Together AI, OpenRouter)
 # =============================================================================
 ALL_GENERATION_MODELS = [
-    "gpt-4.1-nano",  # OpenAI - fastest
-    "claude-haiku-4-5",  # Anthropic - fast, affordable
-    "gemini-2.5-flash",  # Google Gemini - fast, 1M context
+    "gpt-4.1-mini",  # OpenAI - fast, reliable
     "Qwen/Qwen3-Next-80B-A3B-Instruct",  # Together AI Qwen - fast MoE
-    "deepseek-ai/DeepSeek-R1",  # Together AI DeepSeek - reliable fc
     "zai-org/GLM-4.6",  # Together AI GLM - fast, reliable
-    "openrouter/mistralai/codestral-2508",  # OpenRouter Mistral - fast coder
+    "claude-haiku-4-5",  # Anthropic - fast
+    "openrouter/google/gemini-2.5-flash",  # OpenRouter Gemini - fast
     "openrouter/amazon/nova-lite-v1",  # OpenRouter Nova - fast, affordable
     "openrouter/minimax/minimax-m2.1",  # OpenRouter MiniMax - latest, fast
     "openrouter/bytedance-seed/seed-1.6",  # OpenRouter ByteDance - reliable

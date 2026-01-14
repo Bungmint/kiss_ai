@@ -86,6 +86,7 @@ class KISSAgent:
         is_agentic: bool = True,
         max_steps: int = DEFAULT_CONFIG.agent.max_steps,
         max_budget: float = DEFAULT_CONFIG.agent.max_agent_budget,
+        model_config: dict[str, Any] | None = None,
     ) -> str:
         """
         Runs the agent's main ReAct loop to solve the task.
@@ -104,11 +105,13 @@ class KISSAgent:
                 Default is DEFAULT_CONFIG.agent.max_steps.
             max_budget (float): The maximum budget to spend.
                 Default is DEFAULT_CONFIG.agent.max_agent_budget.
+            model_config (dict[str, Any] | None): The model configuration to use for the agent.
+                Default is None.
         Returns:
             str: The result of the agent's task.
         """
         try:
-            self.model = model(model_name)
+            self.model = model(model_name, model_config=model_config)
             self.formatter = formatter if formatter else SimpleFormatter()
             self.is_agentic = is_agentic
             self.max_steps = max_steps
@@ -148,6 +151,7 @@ class KISSAgent:
                         response_text: str
                         response_text, response = self.model.generate()
                         self._update_usage_from_response(response)
+                        self._add_and_print_message("model", response_text)
                         return response_text
 
                     function_calls, response_text, response = (
