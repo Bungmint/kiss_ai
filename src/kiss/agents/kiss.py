@@ -151,9 +151,13 @@ def get_run_simple_coding_agent(test_fn: Callable[[str], bool]) -> Callable[...,
         prompt_template: str, arguments: dict[str, str], model_name: str
     ) -> str:
         coding_agent = KISSAgent("SimpleCoding Agent")
+        extra_instructions = (
+            "\n\nYou **MUST** test your code with the test tool provided and fix the "
+            "bugs before returning the code."
+        )
         result = coding_agent.run(
             model_name=model_name,
-            prompt_template=prompt_template + "\n\nYou **MUST** test your code with the test tool provided and fix the bugs before returning the code.",
+            prompt_template=prompt_template + extra_instructions,
             arguments=arguments,
             tools=[test_fn, utils.finish],
         )

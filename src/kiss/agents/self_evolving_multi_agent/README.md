@@ -8,7 +8,7 @@ The Self-Evolving Multi-Agent is a sophisticated orchestration system that:
 
 - **Plans and tracks tasks** using a todo list with status tracking
 - **Delegates to sub-agents** for focused task execution
-- **Creates tools dynamically** when it detects repetitive patterns
+- **Creates tools dynamically** when prompted by the orchestrator
 - **Recovers from errors** automatically with retry logic
 - **Runs in Docker isolation** for safe code execution
 - **Evolves itself** using KISSEvolve to optimize for efficiency and accuracy
@@ -92,11 +92,10 @@ The orchestrator agent has access to the following tools:
 | `create_tool` | Create a new reusable tool dynamically |
 | `read_file` | Read a file from the workspace |
 | `write_file` | Write content to a file |
-| `finish` | Complete the task with the final result |
 
 ### Dynamic Tool Creation
 
-The agent can create reusable tools at runtime:
+The agent can create reusable tools at runtime (explicitly via `create_tool`):
 
 ```python
 # The agent might call:
@@ -240,7 +239,7 @@ def run_task(task: str) -> dict:
         Dictionary with keys:
         - result: The task result
         - metrics: {"llm_calls": int, "steps": int}
-        - stats: Agent statistics
+        - stats: Agent statistics (present on success)
         - error: Error message (if failed)
     """
 ```
@@ -291,9 +290,8 @@ class AgentEvolver:
 
 ### Dynamic Tool Creation
 
-1. The orchestrator can detect repetitive patterns
-2. It creates reusable tools with `create_tool`
-3. New tools are added to its available tool set
+1. The orchestrator can choose to create reusable tools with `create_tool`
+2. New tools are added to its available tool set
 
 ## Files
 

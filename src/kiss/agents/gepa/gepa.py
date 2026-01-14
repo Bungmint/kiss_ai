@@ -93,6 +93,42 @@ class GEPA:
                 DEFAULT_CONFIG.gepa.crossover_probability.
             reflection_model (str | None): Model to use for reflection.
                 If None, uses value from DEFAULT_CONFIG.gepa.reflection_model.
+
+        # Pseudocode for GEPA (Genetic-Pareto Prompt Optimizer)
+        #
+        # 1. Initialize population:
+        #     - Start with population_size prompt templates.
+        #     - The initial prompt is initial_prompt_template; others may be mutated versions.
+        #
+        # 2. For each generation up to max_generations:
+        #     a. For each candidate prompt template in the population:
+        #         - Roll out the agent using agent_wrapper with this prompt template
+        #           and different arguments.
+        #         - Collect the result and the trajectory.
+        #         - Evaluate performance using evaluation_fn (returns a dict of metrics).
+        #
+        #     b. Update Pareto frontier:
+        #         - Maintain the list of prompt templates that are non-dominated
+        #           (those not outperformed in all metrics by any other).
+        #         - Pareto frontier size limited by pareto_size.
+        #
+        #     c. Reflect and mutate:
+        #         - For each candidate (especially the less fit or at random), select
+        #           sampled trajectories.
+        #         - Analyze the trajectory using a reflection LLM (reflection_model)
+        #           with a special prompt.
+        #         - Propose a mutated/improved prompt template, making sure
+        #           placeholders are preserved.
+        #         - With probability mutation_rate, accept mutation.
+        #
+        #     d. Crossover (optional, with crossover_probability):
+        #         - Combine lessons from different Pareto candidates to create new prompt templates.
+        #
+        #     e. Form the next generation:
+        #         - Select survivors for the next generation from best of current
+        #           population and new individuals (keeping population_size).
+        #
+        # 3. Return the prompt templates on the Pareto frontier as top candidates.
         """
         self.agent_wrapper = agent_wrapper
         self.evaluation_fn = evaluation_fn or self._default_evaluation

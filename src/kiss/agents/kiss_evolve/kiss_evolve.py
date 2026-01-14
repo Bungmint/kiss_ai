@@ -72,20 +72,24 @@ class KISSEvolve:
         # 1. Initialize population:
         #    - Start with a set of CodeVariant objects using initial_code as the source.
         # 2. Evaluate population:
-        #    - Use evaluation_fn to compute 'fitness', 'metrics', and additional artifacts for each variant.
+        #    - Use evaluation_fn to compute 'fitness', 'metrics', and additional
+        #      artifacts for each variant.
         # 3. For each generation up to max_generations:
         #    a. (If islands are used)
         #       - Maintain separate island subpopulations.
         #       - Evolve islands independently.
-        #       - Every migration_frequency generations, migrate migration_size variants according to migration_topology.
+        #       - Every migration_frequency generations, migrate migration_size
+        #         variants according to migration_topology.
         #    b. Selection:
         #       - Retain elite_size highest-fitness variants (elitism).
-        #       - Select parents using parent_sampling_method (e.g., uniform, fitness-proportional, power-law).
+        #       - Select parents using parent_sampling_method (e.g., uniform,
+        #         fitness-proportional, power-law).
         #    c. Mutation:
         #       - For each non-elite slot, with probability mutation_rate, generate a mutation:
         #           - Use code_agent_wrapper for new code, with extra_coding_instructions.
         #           - If enable_novelty_rejection: check RAG similarity with novelty_rag_model,
-        #               retry up to max_rejection_attempts for a novel variant (similarity < novelty_threshold).
+        #               retry up to max_rejection_attempts for a novel variant
+        #               (similarity < novelty_threshold).
         #    d. Crossover:
         #       - Occasionally create a new variant by combining code from two parents.
         #    e. Evaluate all new code variants with evaluation_fn.

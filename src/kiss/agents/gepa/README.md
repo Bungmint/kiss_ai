@@ -56,7 +56,7 @@ def agent_wrapper(
     import json
     agent = KISSAgent(name="My Agent")
     result = agent.run(
-        model_name="gemini-3-pro-preview",
+        model_name="gemini-2.5-pro",
         prompt_template=prompt_template,
         arguments=arguments,
         tools=[my_tool]  # Optional: tools are available to the agent

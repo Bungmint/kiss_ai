@@ -149,7 +149,7 @@ KISSEvolve(
 - `max_generations`: Maximum number of evolutionary generations (default: 10)
 - `mutation_rate`: Probability of mutating a variant (default: 0.7)
 - `elite_size`: Number of best variants to preserve each generation (default: 2)
-- `num_islands`: Number of islands for island-based evolution (1 = disabled, default: 1)
+- `num_islands`: Number of islands for island-based evolution (1 = disabled, default: 2)
 - `migration_frequency`: Number of generations between migrations (default: 5)
 - `migration_size`: Number of individuals to migrate between islands (default: 1)
 - `migration_topology`: Migration topology - 'ring', 'fully_connected', or 'random' (default: 'ring')
@@ -157,7 +157,7 @@ KISSEvolve(
 - `novelty_threshold`: Cosine similarity threshold for rejecting code (0.0-1.0, higher = more strict, default: 0.95)
 - `max_rejection_attempts`: Maximum number of rejection attempts before accepting a variant (default: 5)
 - `novelty_rag_model`: Model to use for generating code embeddings (default: first model from models list)
-- `parent_sampling_method`: Parent sampling method - 'tournament', 'power_law', or 'performance_novelty' (default: 'tournament')
+- `parent_sampling_method`: Parent sampling method - 'tournament', 'power_law', or 'performance_novelty' (default: 'power_law')
 - `power_law_alpha`: Power-law sampling parameter (α) - lower = more exploration, higher = more exploitation (default: 1.0)
 - `performance_novelty_lambda`: Performance-novelty sampling parameter (λ) controlling selection pressure (default: 1.0)
 
