@@ -28,7 +28,7 @@ class KISSEvolveConfig(BaseModel):
     )
     # Island-based evolution parameters
     num_islands: int = Field(
-        default=1, description="Number of islands for island-based evolution (1 = disabled)"
+        default=2, description="Number of islands for island-based evolution (1 = disabled)"
     )
     migration_frequency: int = Field(
         default=5, description="Number of generations between migrations"
@@ -54,7 +54,7 @@ class KISSEvolveConfig(BaseModel):
         description="Maximum number of rejection attempts before accepting a variant anyway",
     )
     parent_sampling_method: str = Field(
-        default="tournament",
+        default="power_law",
         description="Parent sampling method: 'tournament', 'power_law', or 'performance_novelty'",
     )
     power_law_alpha: float = Field(

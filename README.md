@@ -750,10 +750,8 @@ The framework provides embedding generation capabilities through the `get_embedd
 - **Together AI Models**: Full embedding support via Together AI's embeddings API
   - Default model: `togethercomputer/m2-bert-80M-8k-retrieval` (can be customized)
   - Usage: `model.get_embedding(text, embedding_model="togethercomputer/m2-bert-80M-8k-retrieval")`
-- **Gemini Models**: Full embedding support via Google's embeddings API
-  - Default model: `text-embedding-004` (can be customized)
-  - Usage: `model.get_embedding(text, embedding_model="text-embedding-004")`
-- **Anthropic Models**: Embeddings not supported (raises `KISSError`)
+- **Anthropic Models**: Embeddings not supported (raises `NotImplementedError`)
+- **Gemini Models**: Embeddings not supported (raises `NotImplementedError`)
 
 Embeddings are primarily used by the `SimpleRAG` system for document retrieval. When using `SimpleRAG`, ensure you use an OpenAI or Together AI model that supports embeddings.
 

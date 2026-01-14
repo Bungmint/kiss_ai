@@ -143,7 +143,7 @@ def get_run_simple_coding_agent(test_fn: Callable[[str], bool]) -> Callable[...,
         test_fn (Callable[[str], bool]): The test function to use for the agent.
     Returns:
         Callable[..., str]: A function that runs a simple coding agent with a
-            test function. Accepts keyword arguments: model (Model),
+            test function. Accepts keyword arguments: model_name (str),
             prompt_template (str), and arguments (dict[str, str]).
     """
 
@@ -153,7 +153,7 @@ def get_run_simple_coding_agent(test_fn: Callable[[str], bool]) -> Callable[...,
         coding_agent = KISSAgent("SimpleCoding Agent")
         result = coding_agent.run(
             model_name=model_name,
-            prompt_template=prompt_template,
+            prompt_template=prompt_template + "\n\nYou **MUST** test your code with the test tool provided and fix the bugs before returning the code.",
             arguments=arguments,
             tools=[test_fn, utils.finish],
         )

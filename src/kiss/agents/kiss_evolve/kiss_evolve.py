@@ -67,28 +67,30 @@ class KISSEvolve:
             - parent_sampling_method: how parents are picked (uniform, probabilistic, etc.)
             - power_law_alpha: parameter for power-law parent selection
             - performance_novelty_lambda: weight for combining performance and novelty
-        - Algorithm outline:
-            1. Initialize population:
-                - Create initial population of code variants, using `initial_code` as seed
-            2. Evaluate all code variants with `evaluation_fn` to determine fitness/metrics
-            3. For each generation (up to `max_generations`):
-                a. (If using islands) For each island:
-                    - Maintain separate subpopulations
-                    - Proceed through selection/mutation/crossover independently
-                    - Every `migration_frequency` gens, migrate variants per `migration_topology`
-                b. Selection:
-                    - Select `elite_size` best variants to carry over unchanged
-                    - Select parents using `parent_sampling_method` (uniform, fitness, etc.)
-                c. Mutation:
-                    - With probability `mutation_rate`, generate mutated code for new variants
-                    - Use `code_agent_wrapper` with prompts and `extra_coding_instructions`
-                    - If `enable_novelty_rejection`, check novelty via `novelty_rag_model`
-                        - Try up to `max_rejection_attempts` for novel code
-                d. Crossover:
-                    - Occasionally combine two parents to create new code variant
-                e. Evaluate all new code variants with `evaluation_fn`
-                f. Update population, repeat
-            4. Return the best code variant found
+        # Evolutionary algorithm workflow:
+        #
+        # 1. Initialize population:
+        #    - Start with a set of CodeVariant objects using initial_code as the source.
+        # 2. Evaluate population:
+        #    - Use evaluation_fn to compute 'fitness', 'metrics', and additional artifacts for each variant.
+        # 3. For each generation up to max_generations:
+        #    a. (If islands are used)
+        #       - Maintain separate island subpopulations.
+        #       - Evolve islands independently.
+        #       - Every migration_frequency generations, migrate migration_size variants according to migration_topology.
+        #    b. Selection:
+        #       - Retain elite_size highest-fitness variants (elitism).
+        #       - Select parents using parent_sampling_method (e.g., uniform, fitness-proportional, power-law).
+        #    c. Mutation:
+        #       - For each non-elite slot, with probability mutation_rate, generate a mutation:
+        #           - Use code_agent_wrapper for new code, with extra_coding_instructions.
+        #           - If enable_novelty_rejection: check RAG similarity with novelty_rag_model,
+        #               retry up to max_rejection_attempts for a novel variant (similarity < novelty_threshold).
+        #    d. Crossover:
+        #       - Occasionally create a new variant by combining code from two parents.
+        #    e. Evaluate all new code variants with evaluation_fn.
+        #    f. Update the population and repeat.
+        # 4. Return best CodeVariant (highest .fitness) found upon completion.
     """
 
 
@@ -895,8 +897,21 @@ combine the best aspects of two code variants to create an improved version.
 
     def get_population_stats(self) -> dict[str, Any]:
         """Get statistics about the current population."""
+        # Handle island-based evolution
+        if self.num_islands > 1 and self.islands:
+            all_variants = [v for island in self.islands for v in island]
+            if all_variants:
+                fitnesses = [v.fitness for v in all_variants]
+                return {
+                    "size": len(all_variants),
+                    "avg_fitness": sum(fitnesses) / len(fitnesses),
+                    "best_fitness": max(fitnesses),
+                    "worst_fitness": min(fitnesses),
+                }
+
+        # Handle single population evolution
         if not self.population:
-            return {"size": 0, "avg_fitness": 0.0, "best_fitness": 0.0}
+            return {"size": 0, "avg_fitness": 0.0, "best_fitness": 0.0, "worst_fitness": 0.0}
 
         fitnesses = [v.fitness for v in self.population]
         return {
