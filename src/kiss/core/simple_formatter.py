@@ -38,17 +38,17 @@ class SimpleFormatter(Formatter):
         self._stderr_console = Console(stderr=True) if self.color else None
 
     def format_message(self, message: dict[str, str]) -> str:
-        return f'\n# role="{message.get("role", "")}" #\n{message.get("content", "")}\n'
+        return f'\n## role="{message.get("role", "")}" #\n{message.get("content", "")}\n'
 
     def format_messages(self, messages: list[dict[str, str]]) -> str:
         return "\n".join(self.format_message(m) for m in messages)
 
     def print_message(self, message: dict[str, str]) -> None:
         if self._console:
-            self._console.print(Markdown(f'\n# role="{message.get("role", "")}" #'), style="bold")
+            self._console.print(Markdown(f'\n## role="{message.get("role", "")}" #'), style="bold")
             self._console.print(Markdown(message.get("content", "")))
         else:
-            print(f'\n# role="{message.get("role", "")}" #')
+            print(f'\n## role="{message.get("role", "")}" #')
             print(message.get("content", ""))
 
     def print_messages(self, messages: list[dict[str, str]]) -> None:
