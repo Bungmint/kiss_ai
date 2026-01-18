@@ -42,9 +42,9 @@ class AgentConfig(BaseModel):
     verbose: bool = Field(default=True, description="Enable verbose output")
     debug: bool = Field(default=False, description="Enable debug mode")
     artifact_dir: str = Field(default="artifacts", description="Directory to save artifacts")
-    max_agent_budget: float = Field(default=1.0, description="Maximum budget for an agent")
+    max_agent_budget: float = Field(default=10.0, description="Maximum budget for an agent")
     global_max_budget: float = Field(
-        default=10.0, description="Maximum budget for the global agent"
+        default=200.0, description="Maximum budget for the global agent"
     )
     use_web_search: bool = Field(default=True, description="Use web search")
 

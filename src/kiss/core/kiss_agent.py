@@ -72,7 +72,7 @@ class KISSAgent:
         self.prompt_template = prompt_template
         full_prompt = self.prompt_template.format(**self.arguments)
 
-        self._update_model_usage_info()
+        # self._update_model_usage_info()
         self._add_message("user", full_prompt, location=0)
         self.model.initialize(full_prompt)
 
@@ -150,34 +150,57 @@ class KISSAgent:
                     if not self.is_agentic:
                         response_text: str
                         response_text, response = self.model.generate()
-                        self._update_usage_from_response(response)
-                        self._add_and_print_message("model", response_text)
-                        return response_text
-
-                    function_calls, response_text, response = (
-                        self.model.generate_and_process_with_tools(self.function_map)
-                    )
-                    self._update_usage_from_response(response)
-
-                    if function_calls:
-                        call_results = self._process_function_calls(function_calls)
-                        function_calls_str = "\n".join(self.function_calls_as_str)
+                        self._update_tokens_and_budget_from_response(response)
                         usage_info_str = self._get_usage_info_string()
                         model_content = (
-                            response_text + "\n" + function_calls_str + "\n\n" + usage_info_str
+                            response_text + "\n" + usage_info_str
                         )
                         self._add_and_print_message("model", model_content)
-                        user_content = (
-                            f"Tools call(s) successful.\nResult(s):\n"
-                            f"{call_results['all_responses']}"
-                        )
-                        self._add_and_print_message("user", user_content)
+                        return response_text
 
-                        if call_results["finish_response"] is not None:
-                            return call_results["finish_response"]
+                    else:
+                        function_calls, response_text, response = (
+                            self.model.generate_and_process_with_tools(self.function_map)
+                        )
+                        self._update_tokens_and_budget_from_response(response)
+                        usage_info = self._get_usage_info_string()
+                        self.model.set_usage_info_for_messages(usage_info)
+
+
+                        if len(function_calls) == 0 or len(function_calls) > 1:
+                            usage_info_str = self._get_usage_info_string()
+                            model_content = (
+                                response_text + "\n" + usage_info_str
+                            )
+                            self._add_and_print_message("model", model_content)
+                            user_content = (
+                                f"**Your response MUST have exactly one function call. "
+                                f"Your response has {len(function_calls)} function calls.**"
+                            )
+                            self._add_and_print_message("user", user_content)
+                        else:
+                            call_results = self._process_function_calls(function_calls)
+
+                            function_calls_str = "\n".join(self.function_calls_as_str)
+                            usage_info_str = self._get_usage_info_string()
+                            model_content = (
+                                response_text + "\n" + function_calls_str + usage_info_str
+                            )
+                            self._add_and_print_message("model", model_content)
+
+                            user_content = (
+                                f"Tools call(s) successful.\nResult(s):\n"
+                                f"{call_results['all_responses']}"
+                            )
+                            self._add_and_print_message("user", user_content)
+
+                            if call_results["finish_response"] is not None:
+                                return call_results["finish_response"]
 
                 except (KISSError, RuntimeError) as e:
-                    self._handle_model_error(e)
+                    content = f"Failed to get response from Model: {e}.\nPlease try again.\n"
+                    self.model.add_message_to_conversation("user", content)
+                    self._add_and_print_message("model", content)
 
                 if self.budget_used > self.max_budget:
                     raise KISSError(f"Agent {self.name} budget exceeded.")
@@ -247,11 +270,6 @@ class KISSAgent:
         except Exception as e:
             print(f"Error updating tokens and budget from response: {e} {traceback.format_exc()}")
 
-    def _update_usage_from_response(self, response: Any) -> None:
-        """Updates tokens, budget, and model usage info from response."""
-        self._update_tokens_and_budget_from_response(response)
-        self._update_model_usage_info()
-
     def _get_usage_info_string(self) -> str:
         """Returns the token usage and budget information string.
 
@@ -282,16 +300,10 @@ class KISSAgent:
                 f"  - {step_info}\n"
             )
         except Exception:
-            print(f"Error getting usage info: {traceback.format_exc()}")
+            self.formatter.print_error(f"Error getting usage info: {traceback.format_exc()}")
             return_info = f"#### Usage Information\n  - {step_info}\n"
 
         return return_info
-
-    def _update_model_usage_info(self) -> None:
-        """Updates the model's usage info for messages."""
-        usage_info = self._get_usage_info_string()
-        if usage_info and self.model is not None:
-            self.model.set_usage_info_for_messages(usage_info)
 
     def _add_message(self, role: str, content: str, location: int = -1) -> int:
         """Method to create and add a message to the history tree."""
@@ -395,7 +407,7 @@ class KISSAgent:
             function_results.append((function_call["name"], {"result": this_function_response}))
 
         if function_results:
-            self._add_function_results_to_conversation(function_results)
+            self.model.add_function_results_to_conversation_and_return(function_results)
         return {"all_responses": function_response, "finish_response": None}
 
     def _execute_function_call(self, function_call: dict[str, Any]) -> str:
@@ -431,20 +443,6 @@ class KISSAgent:
             )
             return error_msg
         return str(result_raw)
-
-    def _add_function_results_to_conversation(
-        self, function_results: list[tuple[str, dict[str, Any]]]
-    ) -> None:
-        """Adds function results to conversation and trajectory."""
-        assert self.model is not None
-        self._update_model_usage_info()
-        self.model.add_function_results_to_conversation_and_return(function_results)
-
-    def _handle_model_error(self, error: Exception) -> None:
-        """Handles errors from model generation."""
-        content = f"Failed to get response from Model: {error}.\nPlease try again.\n"
-        self.model.add_message_to_conversation("user", content)
-        self._add_and_print_message("user", content)
 
     def finish(self, result: str) -> str:
         """

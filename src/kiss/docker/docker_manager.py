@@ -112,8 +112,8 @@ class DockerManager:
         stderr = stderr_bytes.decode("utf-8") if stderr_bytes else ""
         exit_code = exec_result.exit_code
         return (
-            f"\n### ----STDOUT-----\n```{stdout}```\n### ----STDERR-----\n```{stderr}```"
-            f"\n### ----EXIT_CODE-----\n{exit_code}\n"
+            f"\n### ----STDOUT-----\n```{stdout}\n```### ----STDERR-----\n```{stderr}\n```"
+            f"### ----EXIT_CODE-----\n{exit_code}\n"
         )
 
     def close(self) -> None:

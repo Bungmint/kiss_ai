@@ -51,7 +51,7 @@ class TestDockerManager(unittest.TestCase):
             )
             print(output)
             start_tag = "### ----STDOUT-----\n```"
-            end_tag = "```\n### ----STDERR-----"
+            end_tag = "```### ----STDERR-----"
             start_idx = output.find(start_tag)
             end_idx = output.find(end_tag)
             if start_idx != -1 and end_idx != -1:
