@@ -10,6 +10,8 @@ tested Python programs. The agent can use various built-in tools (Read, Bash,
 WebSearch, etc.) and custom tools like read_project_file.
 """
 
+import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -86,50 +88,55 @@ Use these tools when you need to:
 
 ## Output Format
 Return a dict of the form by carefully and rigorously introspecting on your work.
-```python
+```json
 {
-    "status": bool,
-    "summary": str,
-    "insights": str
+    "success": bool,
+    "result": str,
 }
+```
+result should be a yaml string in the following format:
+```yaml
+created:
+  - file1.py
+  - file2.md
+modified:
+  - file3.ts
+  - file4.py
+deleted:
+  - file5.py
+  - file6.py
+summary: >
+  A summary of the execution of the task.
 ```
 """
 
 
 class TaskResult(BaseModel):
-    status: bool = Field(
+    success: bool = Field(
         description=(
             "True if the agent successfully completed the task. "
-            "Please introspect on your work to generate the status."
+            "Please introspect on your work to generate the success value."
         )
     )
-    summary: str = Field(
+    result: str = Field(
         description=(
-            "A summary of the code generation and modification process. "
-            "Please introspect on your work to generate the summary."
-        )
-    )
-    insights: str = Field(
-        description=(
-            "Actionable insights/instructions to improve future coding. "
-            "The insights and instructions MUST be task agnostic, generic, concise "
-            "and to the point. "
-            "You MUST not generate any task specific insights or instructions "
-            "because then the coding agent will not be able to generalize to new "
-            "tasks. "
-            "Please introspect on your work to generate the insights and "
-            "instructions ONLY if you have failed some tool calls."
+            "The result of the task."
         )
     )
 
 class ClaudeCodingAgent:
-    def __init__(
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.mlist: list[dict[str, object]] = []
+
+    def _reset(
         self,
         model_name: str,
-        readable_paths: list[str] | None = None,
-        writable_paths: list[str] | None = None,
-        base_dir: str = str(Path(DEFAULT_CONFIG.agent.artifact_dir).resolve() / "claude_workdir")
-    ):
+        readable_paths: list[str] | None,
+        writable_paths: list[str] | None,
+        base_dir: str,
+    ) -> None:
         if readable_paths is None:
             readable_paths = []
         if writable_paths is None:
@@ -139,6 +146,7 @@ class ClaudeCodingAgent:
         self.model_name = model_name
         self.readable_paths = {Path(p).resolve() for p in readable_paths}
         self.writable_paths = {Path(p).resolve() for p in writable_paths}
+        self.mlist = []
 
     def _is_subpath(self, target: Path, whitelist: set[Path]) -> bool:
         """Checks if the target path is or is inside any of the whitelisted paths."""
@@ -150,16 +158,6 @@ class ClaudeCodingAgent:
         tool_input: dict[str, Any],
         context: ToolPermissionContext,
     ) -> PermissionResultAllow | PermissionResultDeny:
-        """Enforces Read/Write restrictions.
-
-        Args:
-            tool_name: The name of the tool being requested.
-            tool_input: The input parameters for the tool.
-            context: Additional context for the permission request.
-
-        Returns:
-            PermissionResultAllow or PermissionResultDeny based on path restrictions.
-        """
         path_str = tool_input.get("file_path") or tool_input.get("path")
 
         if not path_str:
@@ -167,7 +165,6 @@ class ClaudeCodingAgent:
 
         target_path = Path(path_str).resolve()
 
-        # Enforce Read Restrictions
         if tool_name in ["Read", "Grep", "Glob"]:
             if len(self.readable_paths) == 0 or self._is_subpath(
                 target_path, self.readable_paths
@@ -176,7 +173,6 @@ class ClaudeCodingAgent:
             msg = f"Access Denied: {path_str} is not in readable whitelist."
             return PermissionResultDeny(behavior="deny", message=msg)
 
-        # Enforce Write Restrictions
         if tool_name in ["Write", "Edit", "MultiEdit"]:
             if len(self.writable_paths) == 0 or self._is_subpath(
                 target_path, self.writable_paths
@@ -188,44 +184,64 @@ class ClaudeCodingAgent:
         return PermissionResultAllow(behavior="allow")
 
     async def _prompt_stream(self, task: str) -> Any:
-        """Wrap the task prompt as an async iterable for streaming mode.
-
-        The can_use_tool callback requires streaming mode, which needs the prompt
-        to be provided as an AsyncIterable with proper message structure.
-        """
         yield {
             "type": "user",
             "message": {"role": "user", "content": task}
         }
 
-    async def run(self, task: str) -> dict[str, object] | None:
+    async def run(
+        self,
+        task: str,
+        model_name: str = "claude-sonnet-4-5",
+        base_dir: str = str(
+            Path(DEFAULT_CONFIG.agent.artifact_dir).resolve() / "claude_workdir"
+        ),
+        readable_paths: list[str] | None = None,
+        writable_paths: list[str] | None = None,
+    ) -> dict[str, object] | None:
+        """Run the claude coding agent for a given task.
+
+        Args:
+            task: The task to run the claude coding agent for.
+            model_name: The name of the model to use for the agent.
+            base_dir: The base directory to use for the agent.
+            readable_paths: The paths to read from.
+            writable_paths: The paths to write to.
+
+        Returns:
+            The result of the claude coding agent's task.
+        """
+        self._reset(model_name, readable_paths, writable_paths, base_dir)
         options = ClaudeAgentOptions(
-            model=self.model_name,
+            model=model_name,
             system_prompt=SYSTEMS_PROMPT,
             output_format=TaskResult.model_json_schema(),
             can_use_tool=self.permission_handler,
-            permission_mode="default",  # Use default mode so can_use_tool callback is invoked
+            permission_mode="default",
             allowed_tools=list(BUILTIN_TOOLS.keys()),
             cwd=str(self.base_dir)
         )
 
         final_result: dict[str, object] | None = None
-        # Use the standalone query() function with streaming prompt for can_use_tool support
         async for message in query(prompt=self._prompt_stream(task), options=options):
-            # Handle AssistantMessage which contains ToolUseBlock and TextBlock
             if isinstance(message, AssistantMessage):
+                thought = ""
+                tool_call = ""
                 for block in message.content:
                     if isinstance(block, ToolUseBlock):
                         args_str = ", ".join(
                             f"{k}={repr(v)[:50]}" for k, v in block.input.items()
                         )
+                        tool_call += f"```python\n{block.name}({args_str})\n```\n"
                         print(f"[TOOL] {block.name}({args_str})")
-
                     elif isinstance(block, TextBlock):
-                        print(f"Claude: {block.text}")
-
-            # Handle UserMessage which contains ToolResultBlock
+                        thought += f"{block.text}"
+                        print(f"[THOUGHT] {block.text}")
+                msg: dict[str, object] = {"role": "model", "content": thought + tool_call}
+                self.mlist.append(msg)
             elif isinstance(message, UserMessage):
+                result = ""
+                full = ""
                 for content_block in message.content:
                     if isinstance(content_block, ToolResultBlock):
                         content = content_block.content
@@ -234,29 +250,39 @@ class ClaudeCodingAgent:
                                 display = content[:100] + "..." + content[-100:]
                             else:
                                 display = content
+                            full = full + content
                             display = display.replace("\n", "\\n")
                         else:
                             content_str = str(content)
                             display = content_str[:100] + "..." + content_str[-100:]
-                        status = "ERROR" if content_block.is_error else "OK"
-                        print(f"  -> [{status}] {display}")
-
+                            full = full + content_str
+                        if content_block.is_error:
+                            status = "Tool Call Failed"
+                        else:
+                            status = "Tool Call Succeeded"
+                        print(f"[TOOL RESULT] {status}: {display}")
+                        result += f"{status}\n{full}\n"
+                msg = {"role": "user", "content": result}
+                self.mlist.append(msg)
             elif isinstance(message, ResultMessage):
-                # Try structured_output first, fall back to parsing result
                 if message.structured_output is not None:
                     final_result = message.structured_output  # type: ignore[assignment]
                 elif message.result:
-                    # Try to extract JSON from result text
                     final_result = self._parse_result_json(message.result)
-
+                msg = {"role": "model", "content": final_result}
+                self.mlist.append(msg)
         return final_result
+
+
+    def get_trajectory(self) -> str:
+        """Returns the trajectory of the agent in standard JSON format for visualization."""
+        trajectory = []
+        for message in self.mlist:
+            trajectory.append(message)
+        return json.dumps(trajectory, indent=2)
 
     def _parse_result_json(self, result: str) -> dict[str, object] | None:
         """Parse JSON from result text, handling markdown code blocks."""
-        import json
-        import re
-
-        # Try to extract JSON from markdown code block
         json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", result, re.DOTALL)
         if json_match:
             try:
@@ -264,24 +290,15 @@ class ClaudeCodingAgent:
             except json.JSONDecodeError:
                 pass
 
-        # Try to parse as raw JSON
         try:
             return json.loads(result.strip())  # type: ignore[return-value, no-any-return]
         except json.JSONDecodeError:
             pass
 
-        # Return a basic result if we can't parse JSON
-        return {"status": True, "summary": result[:500], "insights": ""}
+        return {"success": True, "result": result}
 
 async def main() -> None:
-    project_root = Path(DEFAULT_CONFIG.agent.artifact_dir).resolve()
-    agent = ClaudeCodingAgent(
-        model_name="claude-sonnet-4-5",
-        readable_paths=["workdir"],
-        writable_paths=["workdir"],
-        base_dir=str(project_root)
-    )
-
+    agent = ClaudeCodingAgent("Example agent")
     task_description = """
     can you write, test, and optimize a fibonacci function in Python that is efficient and correct?
     """
@@ -289,9 +306,8 @@ async def main() -> None:
 
     if result:
         print("\n--- FINAL AGENT REPORT ---")
-        print(f"SUCCESS: {result['status']}")
-        print(f"SUMMARY: {result['summary']}")
-        print(f"INSIGHTS: {result['insights']}")
+        print(f"SUCCESS: {result['success']}")
+        print(f"RESULT:\n{result['result']}")
 
 if __name__ == "__main__":
     anyio.run(main)
