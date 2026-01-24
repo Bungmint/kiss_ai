@@ -22,7 +22,6 @@ from kiss.core.simple_formatter import SimpleFormatter
 from kiss.core.utils import config_to_dict, search_web
 
 
-# Register YAML representer for multiline strings (module-level, runs once)
 def _str_presenter(dumper: yaml.Dumper, data: str) -> yaml.ScalarNode:
     return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
 
@@ -53,8 +52,7 @@ class KISSAgent:
 
     def _reset(self) -> None:
         """Resets the agent's state."""
-        self.id_to_message: list[dict[str, Any]] = []
-        self.message_ids_of_trajectory: list[int] = []
+        self.messages: list[dict[str, Any]] = []
         self.function_calls_as_str: list[str] = []
         self.run_start_timestamp = int(time.time())
         self.function_map: dict[str, Callable[..., Any]] = {}
@@ -149,7 +147,7 @@ class KISSAgent:
                         self._update_tokens_and_budget_from_response(response)
                         usage_info_str = self._get_usage_info_string()
                         model_content = (
-                            response_text + "\n" + usage_info_str
+                            response_text + "\n" + usage_info_str +"\n"
                         )
                         self._add_and_print_message("model", model_content)
                         return response_text
@@ -180,7 +178,7 @@ class KISSAgent:
                             function_calls_str = "\n".join(self.function_calls_as_str)
                             usage_info_str = self._get_usage_info_string()
                             model_content = (
-                                response_text + "\n" + function_calls_str + usage_info_str
+                                response_text + "\n" + function_calls_str + "\n" + usage_info_str
                             )
                             self._add_and_print_message("model", model_content)
 
@@ -218,17 +216,9 @@ class KISSAgent:
     def get_trajectory(self) -> str:
         """Returns the trajectory of the agent in standard JSON format for visualization."""
         trajectory = []
-        for node_id in self.message_ids_of_trajectory:
-            message = self.id_to_message[node_id]
-            if message["content"]:  # Ignore messages with empty content
-                content = message["content"]
-                role = message["role"]
-                trajectory.append(
-                    {
-                        "role": role,
-                        "content": content,
-                    }
-                )
+        for msg in self.messages:
+            if msg["content"]:
+                trajectory.append({"role": msg["role"], "content": msg["content"]})
         return json.dumps(trajectory, indent=2)
 
     def _add_functions(self, tools: list[Callable[..., Any]]) -> None:
@@ -242,12 +232,11 @@ class KISSAgent:
                 raise KISSError(error_msg)
             self.function_map[tool.__name__] = tool
 
-    def _add_and_print_message(self, role: str, content: str, location: int = -1) -> int:
+    def _add_and_print_message(self, role: str, content: str, location: int = -1) -> None:
         """Adds a message and prints it if verbose."""
-        message_id = self._add_message(role, content, location)
+        self._add_message(role, content, location)
         if DEFAULT_CONFIG.agent.verbose:
-            self.formatter.print_message(self.id_to_message[message_id])
-        return message_id
+            self.formatter.print_message(self.messages[-1])
 
     def _update_tokens_and_budget_from_response(self, response: Any) -> None:
         """Updates token counter and budget from API response.
@@ -301,23 +290,20 @@ class KISSAgent:
 
         return return_info
 
-    def _add_message(self, role: str, content: str, location: int = -1) -> int:
+    def _add_message(self, role: str, content: str, location: int = -1) -> None:
         """Method to create and add a message to the history tree."""
-        # Append token and budget usage info to all messages for id_to_message
 
-        unique_id = len(self.id_to_message)
+        unique_id = len(self.messages)
         message = {
             "unique_id": unique_id,
             "role": role,
             "content": content,
             "timestamp": int(time.time()),
         }
-        self.id_to_message.append(message)
         if location != -1:
-            self.message_ids_of_trajectory.insert(location, unique_id)
+            self.messages.insert(location, message)
         else:
-            self.message_ids_of_trajectory.append(unique_id)
-        return unique_id
+            self.messages.append(message)
 
     def _build_state_dict(self) -> dict[str, Any]:
         """Builds the state dictionary for saving."""
@@ -344,8 +330,7 @@ class KISSAgent:
         return {
             "name": self.name,
             "id": self.id,
-            "id_to_message": self.id_to_message,
-            "message_ids_of_trajectory": self.message_ids_of_trajectory,
+            "messages": self.messages,
             "function_map": list(self.function_map.keys()),
             "run_start_timestamp": self.run_start_timestamp,
             "run_end_timestamp": int(time.time()),
@@ -362,7 +347,6 @@ class KISSAgent:
             "max_tokens": max_tokens,
             "step_count": step_count,
             "max_steps": max_steps,
-            "trajectory": self.get_trajectory(),
             "command": " ".join(sys.argv),
         }
 
@@ -371,7 +355,6 @@ class KISSAgent:
         state = self._build_state_dict()
         folder_path = Path(DEFAULT_CONFIG.agent.artifact_dir) / "trajectories"
         folder_path.mkdir(parents=True, exist_ok=True)
-        # Replace characters that could cause path issues (spaces and slashes)
         name_safe = self.name.replace(" ", "_").replace("/", "_")
         filename = folder_path / f"trajectory_{name_safe}_{self.id}_{self.run_start_timestamp}.yaml"
         with filename.open("w", encoding="utf-8") as f:

@@ -7,7 +7,6 @@
 """Simple Flask server for visualizing agent trajectories."""
 
 import argparse
-import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -30,12 +29,7 @@ def _parse_trajectory_yaml(file_path: Path) -> dict:
     with file_path.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
-    trajectory_json = data.get("trajectory", "[]")
-    if isinstance(trajectory_json, str):
-        trajectory_data = json.loads(trajectory_json)
-    else:
-        trajectory_data = trajectory_json
-
+    messages = data.get("messages")
     agent_cfg = (data.get("config") or {}).get("agent") or {}
     agent_max_budget = (
         agent_cfg.get("max_agent_budget")
@@ -65,51 +59,65 @@ def _parse_trajectory_yaml(file_path: Path) -> dict:
         "global_budget_used": data.get("global_budget_used", 0.0),
         "global_max_budget": global_max_budget,
         # Actual messages
-        "trajectory": trajectory_data,
+        "messages": messages,
     }
 
 
 def _parse_state_dir_timestamp(state_dir: str) -> datetime:
-    """Parse state directory name (SS_MM_HH_DD_MM_YYYY_random) to datetime."""
+    """Parse state directory name (job_YYYY_MM_DD_HH_MM_SS_random) to datetime."""
     try:
         parts = state_dir.split("_")
-        if len(parts) >= 6:
-            ss, mm, hh, dd, mo, yyyy = map(int, parts[:6])
+        # Expected format: job_YYYY_MM_DD_HH_MM_SS_random
+        if len(parts) >= 7 and parts[0] == "job":
+            yyyy, mo, dd, hh, mm, ss = map(int, parts[1:7])
             return datetime(yyyy, mo, dd, hh, mm, ss)
     except (ValueError, IndexError):
         pass
     return datetime.min  # fallback for unparseable names
 
 
-def load_trajectories(artifact_dir: Path) -> dict[str, list[dict]]:
-    """Load all trajectory files from the artifact directory.
+def list_jobs(artifact_dir: Path) -> list[dict]:
+    """List all job directories with basic metadata.
 
-    `KISSAgent._save()` writes YAML files under:
-        <artifact_dir>/<run_subdir>/trajectories/trajectory_*.yaml
-    So we scan subdirectories and group results by that run subdir.
+    Returns a list of job info dicts sorted by creation time (newest first).
     """
-    state_to_trajectories: dict[str, list[dict]] = {}
+    jobs = []
+    for job_dir in artifact_dir.glob("job_*"):
+        if not job_dir.is_dir():
+            continue
+        trajectories_dir = job_dir / "trajectories"
+        trajectory_count = (
+            len(list(trajectories_dir.glob("trajectory_*.yaml")))
+            if trajectories_dir.exists()
+            else 0
+        )
+        jobs.append({
+            "name": job_dir.name,
+            "trajectory_count": trajectory_count,
+        })
 
-    for file_path in sorted(artifact_dir.glob("*/*trajectory_*.yaml")):
+    # Sort by creation time (newest first)
+    jobs.sort(key=lambda x: _parse_state_dir_timestamp(str(x["name"])), reverse=True)
+    return jobs
+
+
+def load_job_trajectories(artifact_dir: Path, job_name: str) -> list[dict]:
+    """Load all trajectory files for a specific job.
+
+    <artifact_dir>/<job_name>/trajectories/trajectory_*.yaml
+    """
+    trajectories = []
+    job_dir = artifact_dir / job_name / "trajectories"
+
+    for file_path in sorted(job_dir.glob("trajectory_*.yaml")):
         try:
-            state_dir = file_path.parent.name
-            state_to_trajectories.setdefault(state_dir, []).append(
-                _parse_trajectory_yaml(file_path)
-            )
+            trajectories.append(_parse_trajectory_yaml(file_path))
         except Exception as e:
             print(f"Error loading {file_path}: {e}")
 
     # Sort by run_start_timestamp in ascending order
-    for trajectories in state_to_trajectories.values():
-        trajectories.sort(key=lambda x: x.get("run_start_timestamp", 0))
-
-    # Sort state directories by creation time (descending - newest first)
-    sorted_states = sorted(
-        state_to_trajectories.keys(),
-        key=_parse_state_dir_timestamp,
-        reverse=True,
-    )
-    return {state: state_to_trajectories[state] for state in sorted_states}
+    trajectories.sort(key=lambda x: x.get("run_start_timestamp", 0))
+    return trajectories
 
 
 @app.route("/")
@@ -118,13 +126,30 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/api/trajectories")
-def get_trajectories():
-    """API endpoint to get all trajectories."""
+@app.route("/api/jobs")
+def get_jobs():
+    """API endpoint to list all job directories."""
     if ARTIFACT_DIR is None:
         return jsonify({"error": "Artifact directory not set"}), 500
 
-    return jsonify(load_trajectories(ARTIFACT_DIR))
+    return jsonify(list_jobs(ARTIFACT_DIR))
+
+
+@app.route("/api/jobs/<job_name>/trajectories")
+def get_job_trajectories(job_name: str):
+    """API endpoint to get trajectories for a specific job."""
+    if ARTIFACT_DIR is None:
+        return jsonify({"error": "Artifact directory not set"}), 500
+
+    # Validate job_name to prevent path traversal
+    if "/" in job_name or "\\" in job_name or ".." in job_name:
+        return jsonify({"error": "Invalid job name"}), 400
+
+    job_dir = ARTIFACT_DIR / job_name
+    if not job_dir.exists():
+        return jsonify({"error": f"Job '{job_name}' not found"}), 404
+
+    return jsonify(load_job_trajectories(ARTIFACT_DIR, job_name))
 
 
 def main():

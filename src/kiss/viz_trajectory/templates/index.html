@@ -23,9 +23,8 @@
         }
 
         * { box-sizing: border-box; }
-        html, body { height: 100%; }
+        html, body { height: 100%; margin: 0; }
         body {
-            margin: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg);
             color: var(--text);
@@ -33,69 +32,80 @@
         }
 
         .hidden { display: none !important; }
-
         .container { display: flex; height: 100vh; }
-        .state-sidebar, .sidebar {
+
+        /* Sidebars */
+        .jobs-sidebar, .trajectories-sidebar {
             background: var(--panel);
             border-right: 1px solid var(--border);
-            overflow: hidden;
             display: flex;
             flex-direction: column;
+            flex-shrink: 0;
         }
-        .state-sidebar { width: 220px; }
-        .sidebar { width: 360px; }
+        .jobs-sidebar { width: 220px; }
+        .trajectories-sidebar { width: 360px; }
 
-        .state-sidebar-header, .sidebar-header, .content-header {
+        .sidebar-header {
             padding: 16px 18px;
             background: var(--panel-2);
             border-bottom: 1px solid var(--border);
         }
-        .state-sidebar-header h2 {
+        .sidebar-header h2 {
             margin: 0;
             font-size: 12px;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             color: var(--muted);
         }
-        .sidebar-header h1 {
-            margin: 0 0 6px 0;
-            font-size: 16px;
-            font-weight: 650;
-        }
-        .sidebar-header p { margin: 0; font-size: 12px; color: var(--muted); }
+        .sidebar-header p { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
 
-        .state-list, .trajectory-list { padding: 10px; overflow: auto; }
+        .sidebar-list { padding: 10px; overflow: auto; flex: 1; }
 
-        .state-item, .trajectory-item {
+        /* List items */
+        .list-item {
             background: rgba(255,255,255,0.02);
             border: 1px solid var(--border);
             border-radius: 10px;
             padding: 10px 12px;
             margin-bottom: 10px;
             cursor: pointer;
+            overflow: hidden;
         }
-        .state-item:hover, .trajectory-item:hover { border-color: rgba(122,184,224,0.55); }
-        .state-item.active, .trajectory-item.active {
+        .list-item:hover { border-color: rgba(122,184,224,0.55); }
+        .list-item.active {
             border-color: rgba(122,184,224,0.85);
             box-shadow: 0 0 0 1px rgba(122,184,224,0.2) inset;
         }
+        .list-item-title { font-weight: 600; font-size: 13px; word-break: break-word; }
+        .list-item-subtitle { font-size: 11px; color: var(--muted); margin-top: 4px; }
+        .list-item-meta { display: flex; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: 11px; margin-top: 4px; }
 
-        .state-item-name, .trajectory-item-name { font-weight: 650; font-size: 13px; }
-        .item-subtext { font-size: 11px; color: var(--muted); margin-top: 4px; }
-        .state-item-command { font-size: 10px; color: var(--accent-3); margin-top: 4px; word-break: break-all; }
-        .trajectory-item-meta { display: flex; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: 11px; }
-
+        /* Main content */
         .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        .content-header {
+            padding: 16px 18px;
+            background: var(--panel-2);
+            border-bottom: 1px solid var(--border);
+        }
+        .content-header h2 { margin: 0; font-size: 18px; }
+        .content-header-command {
+            color: var(--accent-3);
+            font-size: 12px;
+            margin-top: 6px;
+            word-break: break-all;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+        .content-header-meta { display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 12px; margin-top: 6px; }
+
         .messages-container { flex: 1; overflow: auto; padding: 18px; }
 
-        .content-header h2 { margin: 0; font-size: 18px; }
-        .content-header-meta { display: flex; gap: 14px; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
-
+        /* Messages */
         .message { margin-bottom: 14px; }
-        .message-header { margin-bottom: 6px; }
         .message-role {
             display: inline-block;
             padding: 4px 10px;
+            margin-bottom: 6px;
             border-radius: 999px;
             font-size: 11px;
             text-transform: uppercase;
@@ -113,16 +123,16 @@
             background: rgba(255,255,255,0.02);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 14px 14px;
+            padding: 14px;
             line-height: 1.55;
         }
 
-        /* Minimal markdown theme (colors come from CSS, not a syntax highlighter). */
+        /* Markdown styles */
         .message-content h1, .message-content h2, .message-content h3 { margin: 16px 0 8px; }
         .message-content h1 { font-size: 20px; color: var(--accent); }
         .message-content h2 { font-size: 17px; color: var(--accent-2); }
         .message-content h3 { font-size: 15px; color: #e0b87a; }
-        .message-content p { margin: 0 0 10px 0; }
+        .message-content p { margin: 0 0 10px; }
         .message-content a { color: var(--accent); text-decoration: none; border-bottom: 1px solid rgba(122,184,224,0.5); }
         .message-content a:hover { border-bottom-color: rgba(122,184,224,0.9); }
         .message-content code {
@@ -131,7 +141,7 @@
             padding: 1px 6px;
             border-radius: 6px;
             color: #9ad8f0;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             font-size: 0.92em;
         }
         .message-content pre {
@@ -147,16 +157,8 @@
             padding: 0;
             background: transparent;
             font-size: 13px;
-        }
-        /* Default code color only when we are not using a syntax highlighter. */
-        .message-content pre code:not(.hljs) {
             color: #d7e6f5;
         }
-
-        /* Lightweight Python-call highlighting (function name + argument literal values). */
-        .message-content pre code .py-fn { color: #ff5c57; font-weight: 650; }
-        .message-content pre code .py-val { color: #9ee37d; }
-
         .message-content blockquote {
             margin: 10px 0;
             padding: 10px 12px;
@@ -170,37 +172,30 @@
         .message-content th, .message-content td { border: 1px solid var(--border); padding: 8px; }
         .message-content th { background: rgba(122,184,224,0.08); color: var(--accent); text-align: left; }
 
-        .empty-state, .loading {
-            padding: 30px 18px;
-            color: var(--muted);
-            text-align: center;
-        }
+        .empty-state, .loading { padding: 30px 18px; color: var(--muted); text-align: center; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="state-sidebar">
-            <div class="state-sidebar-header">
-                <h2>State Directories</h2>
-            </div>
-            <div class="state-list" id="state-list">
-                <div class="loading">Loading states...</div>
+        <div class="jobs-sidebar">
+            <div class="sidebar-header"><h2>Jobs</h2></div>
+            <div class="sidebar-list" id="jobs-list">
+                <div class="loading">Loading jobs...</div>
             </div>
         </div>
-        <div class="sidebar">
+        <div class="trajectories-sidebar">
             <div class="sidebar-header">
-                <h1>Agent Trajectories</h1>
-                <p id="trajectory-count">Select a state directory</p>
+                <h2>Trajectories</h2>
+                <p id="trajectory-count">Select a job</p>
             </div>
-            <div class="trajectory-list" id="trajectory-list">
-                <div class="empty-state">
-                    <p>Select a state directory to view trajectories</p>
-                </div>
+            <div class="sidebar-list" id="trajectories-list">
+                <div class="empty-state">Select a job to view trajectories</div>
             </div>
         </div>
         <div class="main-content">
             <div class="content-header hidden" id="content-header">
-                <h2 id="trajectory-title">Select a trajectory</h2>
+                <h2 id="trajectory-title"></h2>
+                <div class="content-header-command" id="trajectory-command"></div>
                 <div class="content-header-meta" id="trajectory-meta"></div>
             </div>
             <div class="messages-container" id="messages-container">
@@ -213,373 +208,197 @@
     </div>
 
     <script>
-        const el = (id) => document.getElementById(id);
-        const escapeHtml = (input) => String(input)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
+        // State
+        const state = { jobs: [], selectedJob: null, trajectories: [] };
 
-        const state = {
-            stateToTrajectories: {},
-            selectedState: null,
-        };
+        // Utilities
+        const $ = id => document.getElementById(id);
+        const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const plural = (n, one, many) => n === 1 ? one : many;
+        const formatTime = ts => ts ? new Date(ts * 1000).toLocaleTimeString() : '—';
+        const formatTimestamp = ts => ts ? new Date(ts * 1000).toLocaleString() : '—';
+        const formatMoney = (v, d = 4) => Number.isFinite(Number(v)) ? `$${Number(v).toFixed(d)}` : '—';
 
-        const sanitizeHref = (href) => {
-            const raw = (href ?? '').toString().trim();
-            if (!raw) return '';
-            // Allow same-page anchors and relative URLs.
-            if (raw.startsWith('#') || raw.startsWith('/') || raw.startsWith('./') || raw.startsWith('../')) {
-                return raw;
-            }
-            // Allow only safe absolute protocols.
-            try {
-                const url = new URL(raw, window.location.origin);
-                const proto = (url.protocol || '').toLowerCase();
-                if (proto === 'http:' || proto === 'https:' || proto === 'mailto:') {
-                    return url.toString();
-                }
-            } catch (_) {
-                // Fall through
-            }
-            return '#';
-        };
-
-        // We treat message content as Markdown, but we do NOT allow raw HTML inside the Markdown.
-        // This keeps rendering safe without extra sanitization libraries.
+        // Markdown setup
         const renderer = new marked.Renderer();
-        renderer.html = function(html) {
-            return escapeHtml(html);
+        renderer.html = html => escapeHtml(html);
+        renderer.code = (code, lang) => {
+            const text = typeof code === 'object' ? (code.text ?? code.raw ?? '') : code;
+            const language = typeof code === 'object' ? (code.lang ?? '') : (lang ?? '');
+            const cls = language ? ` class="language-${escapeHtml(language)}"` : '';
+            return `<pre><code${cls}>${escapeHtml(text)}</code></pre>`;
         };
-        renderer.code = function(code, infostring) {
-            // marked's renderer API has had slight variations; handle both string and token forms.
-            let rawCode = code;
-            let rawInfo = infostring;
-            if (code && typeof code === 'object') {
-                rawCode = code.text ?? code.raw ?? '';
-                rawInfo = code.lang ?? '';
-            }
-            const lang = (rawInfo || '').trim().split(/\s+/)[0];
-            const classAttr = lang ? ` class="language-${escapeHtml(lang)}"` : '';
-            return `<pre><code${classAttr}>${escapeHtml(rawCode)}</code></pre>`;
-        };
-        renderer.codespan = function(text) {
-            return `<code>${escapeHtml(text)}</code>`;
-        };
+        marked.setOptions({ breaks: true, gfm: true, headerIds: false, renderer });
 
-        marked.setOptions({
-            breaks: true,
-            gfm: true,
-            headerIds: false,
-            mangle: false,
-            renderer: renderer
-        });
-
-        // Sanitize link/image hrefs without needing custom renderer signatures.
+        // Sanitize links
         marked.use({
-            walkTokens: (token) => {
-                if (!token || typeof token !== 'object') return;
-                if (token.type === 'link' || token.type === 'image') {
-                    token.href = sanitizeHref(token.href);
+            walkTokens: token => {
+                if (token?.type === 'link' || token?.type === 'image') {
+                    const href = (token.href ?? '').trim();
+                    if (href.startsWith('#') || href.startsWith('/') || href.startsWith('./')) return;
+                    try {
+                        const url = new URL(href, location.origin);
+                        if (['http:', 'https:', 'mailto:'].includes(url.protocol)) {
+                            token.href = url.toString();
+                            return;
+                        }
+                    } catch {}
+                    token.href = '#';
                 }
             }
         });
 
-        const formatTimestamp = (timestamp) => {
-            if (!timestamp) return 'Unknown';
-            return new Date(timestamp * 1000).toLocaleString();
-        };
+        // API
+        async function fetchJSON(url) {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return res.json();
+        }
 
-        const formatTime = (timestamp) => {
-            if (!timestamp) return 'Unknown';
-            return new Date(timestamp * 1000).toLocaleTimeString();
-        };
+        // Render functions
+        function renderJobsList() {
+            const container = $('jobs-list');
+            if (!state.jobs.length) {
+                container.innerHTML = '<div class="empty-state">No jobs found</div>';
+                return;
+            }
+            container.innerHTML = state.jobs.map(job => `
+                <div class="list-item" data-job="${escapeHtml(job.name)}">
+                    <div class="list-item-title">${escapeHtml(job.name)}</div>
+                    <div class="list-item-subtitle">${job.trajectory_count} ${plural(job.trajectory_count, 'trajectory', 'trajectories')}</div>
+                </div>
+            `).join('');
 
-        const formatMoney = (value, digits = 4) => {
-            const n = Number(value);
-            if (!Number.isFinite(n)) return '—';
-            return `$${n.toFixed(digits)}`;
-        };
+            if (state.jobs.length) selectJob(state.jobs[0].name);
+        }
 
-        const formatTokenCap = (used, cap) => {
-            const u = Number(used);
-            const c = Number(cap);
-            if (!Number.isFinite(u)) return '—';
-            if (!Number.isFinite(c) || c <= 0) return u.toLocaleString();
-            return `${u.toLocaleString()}/${c.toLocaleString()}`;
-        };
+        function renderTrajectoriesList() {
+            const container = $('trajectories-list');
+            const count = $('trajectory-count');
+            const trajs = state.trajectories;
 
-        const plural = (n, one, many) => (n === 1 ? one : many);
+            count.textContent = state.selectedJob
+                ? `${trajs.length} ${plural(trajs.length, 'trajectory', 'trajectories')}`
+                : 'Select a job';
 
-        const prepareMarkdown = (raw) => {
-            if (raw === null || raw === undefined) return '';
-            if (typeof raw === 'string') return raw.replace(/\r\n/g, '\n');
-            // Structured payloads (tool outputs) render cleanly as fenced JSON.
-            return `\`\`\`json\n${JSON.stringify(raw, null, 2)}\n\`\`\``;
-        };
+            if (!trajs.length) {
+                container.innerHTML = '<div class="empty-state">No trajectories found</div>';
+                $('content-header').classList.add('hidden');
+                $('messages-container').innerHTML = '<div class="empty-state">No trajectory selected</div>';
+                return;
+            }
 
-        const setHeaderHidden = (hidden) => {
-            el('content-header').classList.toggle('hidden', Boolean(hidden));
-        };
+            container.innerHTML = trajs.map((t, i) => `
+                <div class="list-item" data-index="${i}">
+                    <div class="list-item-title">${escapeHtml(t.name || 'Unnamed')}</div>
+                    <div class="list-item-meta">
+                        <span>ID: ${escapeHtml(t.id)}</span>
+                        <span>${escapeHtml(t.model)}</span>
+                        <span>Steps: ${t.step_count}/${t.max_steps}</span>
+                        <span>${formatTime(t.run_start_timestamp)} → ${formatTime(t.run_end_timestamp)}</span>
+                    </div>
+                </div>
+            `).join('');
 
-        // States are sorted by the server (descending by creation time)
-        const getStates = () => Object.keys(state.stateToTrajectories);
-        const getTrajectories = () => (
-            state.selectedState ? (state.stateToTrajectories[state.selectedState] || []) : []
-        );
+            selectTrajectory(0);
+        }
 
-        const formatTrajectory = (traj) => {
-            const startTime = formatTime(traj.run_start_timestamp);
-            const endTime = formatTime(traj.run_end_timestamp);
-            const agentBudget = `${formatMoney(traj.agent_budget_used)} / ${formatMoney(traj.agent_max_budget, 2)}`;
-            const globalBudget = `${formatMoney(traj.global_budget_used)} / ${formatMoney(traj.global_max_budget, 2)}`;
-            const tokens = formatTokenCap(traj.tokens_used, traj.max_tokens);
-            return { startTime, endTime, agentBudget, globalBudget, tokens };
-        };
+        function renderMessages(messages) {
+            const container = $('messages-container');
+            if (!messages?.length) {
+                container.innerHTML = '<div class="empty-state">No messages</div>';
+                return;
+            }
 
-        const renderEmptyMessages = () => {
-            el('messages-container').innerHTML =
-                '<div class="empty-state"><h3>No trajectory selected</h3><p>Select a trajectory from the sidebar to view its messages</p></div>';
-        };
+            container.innerHTML = messages.map(m => {
+                const content = typeof m.content === 'string'
+                    ? m.content.replace(/\r\n/g, '\n')
+                    : '```json\n' + JSON.stringify(m.content, null, 2) + '\n```';
+                return `
+                    <div class="message">
+                        <span class="message-role ${m.role || ''}">${m.role || 'unknown'}</span>
+                        <div class="message-content">${marked.parse(content)}</div>
+                    </div>
+                `;
+            }).join('');
 
-        const renderTrajectoryHeader = (traj) => {
-            setHeaderHidden(false);
-            el('trajectory-title').textContent = traj.name || 'Unnamed Trajectory';
-
-            const { agentBudget, globalBudget } = formatTrajectory(traj);
-            el('trajectory-meta').innerHTML = `
-                <span>ID: ${escapeHtml(traj.id)}</span>
-                <span>Model: ${escapeHtml(traj.model)}</span>
-                <span>Steps: ${escapeHtml(traj.step_count)}/${escapeHtml(traj.max_steps)}</span>
-                <span>Tokens Used: ${escapeHtml(formatTokenCap(traj.tokens_used, traj.max_tokens))}</span>
-                <span>Agent Budget: ${escapeHtml(agentBudget)}</span>
-                <span>Global Budget: ${escapeHtml(globalBudget)}</span>
-                <span>Start: ${escapeHtml(formatTimestamp(traj.run_start_timestamp))}</span>
-                <span>End: ${escapeHtml(formatTimestamp(traj.run_end_timestamp))}</span>
-            `;
-        };
-
-        const renderActiveItem = (selector, index) => {
-            document.querySelectorAll(selector).forEach((item, i) => {
-                item.classList.toggle('active', i === index);
+            container.querySelectorAll('pre code').forEach(el => {
+                try { hljs.highlightElement(el); } catch {}
             });
-        };
+        }
 
-        async function loadTrajectories() {
+        // Selection handlers
+        async function selectJob(name) {
+            state.selectedJob = name;
+            state.trajectories = [];
+
+            // Update active state in jobs list
+            $('jobs-list').querySelectorAll('.list-item').forEach(el => {
+                el.classList.toggle('active', el.dataset.job === name);
+            });
+
+            $('trajectories-list').innerHTML = '<div class="loading">Loading...</div>';
+            $('content-header').classList.add('hidden');
+            $('messages-container').innerHTML = '';
+
             try {
-                const response = await fetch('/api/trajectories');
-                if (!response.ok) {
-                    throw new Error('Failed to load trajectories');
-                }
-                state.stateToTrajectories = await response.json();
-                renderStateList();
-            } catch (error) {
-                console.error('Error loading trajectories:', error);
-                el('state-list').innerHTML =
-                    '<div class="empty-state"><p>Error loading states</p></div>';
-            }
-        }
-
-        function renderStateList() {
-            const stateListContainer = el('state-list');
-            const states = getStates();
-            
-            if (states.length === 0) {
-                stateListContainer.innerHTML = '<div class="empty-state"><p>No state directories found</p></div>';
-                return;
-            }
-
-            stateListContainer.innerHTML = states.map((stateName) => {
-                const trajectories = state.stateToTrajectories[stateName];
-                const trajectoryCount = trajectories.length;
-                // Get the command from the first trajectory in this state (they typically share the same command)
-                const command = trajectories.length > 0 ? (trajectories[0].command || 'Unknown') : 'Unknown';
-                return `
-                    <div class="state-item" data-state="${escapeHtml(stateName)}" role="button" tabindex="0">
-                        <div class="state-item-name">${escapeHtml(stateName)}</div>
-                        <div class="item-subtext">${trajectoryCount} ${plural(trajectoryCount, 'trajectory', 'trajectories')}</div>
-                        <div class="state-item-command">${escapeHtml(command)}</div>
-                    </div>
-                `;
-            }).join('');
-
-            // Select first state by default
-            if (states.length > 0) {
-                selectState(states[0]);
-            }
-        }
-
-        function selectState(stateName) {
-            state.selectedState = stateName;
-            
-            // Update active state
-            document.querySelectorAll('.state-item').forEach((item) => {
-                if (item.getAttribute('data-state') === stateName) {
-                    item.classList.add('active');
-                } else {
-                    item.classList.remove('active');
-                }
-            });
-
-            // Render trajectories for this state
-            renderTrajectoryList();
-        }
-
-        function renderTrajectoryList() {
-            const listContainer = el('trajectory-list');
-            const countElement = el('trajectory-count');
-            const trajectories = getTrajectories();
-            
-            if (!state.selectedState) {
-                countElement.textContent = 'Select a state directory';
-                listContainer.innerHTML = '<div class="empty-state"><p>Select a state directory to view trajectories</p></div>';
-                return;
-            }
-
-            countElement.textContent = `${trajectories.length} ${plural(trajectories.length, 'trajectory', 'trajectories')} in ${state.selectedState}`;
-
-            if (trajectories.length === 0) {
-                listContainer.innerHTML = '<div class="empty-state"><p>No trajectories found in this state directory</p></div>';
-                setHeaderHidden(true);
-                renderEmptyMessages();
-                return;
-            }
-
-            listContainer.innerHTML = trajectories.map((traj, index) => {
-                const { startTime, endTime, agentBudget, globalBudget, tokens } = formatTrajectory(traj);
-                return `
-                    <div class="trajectory-item" data-index="${index}" role="button" tabindex="0">
-                        <div class="trajectory-item-name">${escapeHtml(traj.name || 'Unnamed')}</div>
-                        <div class="trajectory-item-meta">
-                            <span>ID: ${escapeHtml(traj.id)}</span>
-                            <span>Model: ${escapeHtml(traj.model)}</span>
-                            <span>Steps: ${escapeHtml(traj.step_count)}/${escapeHtml(traj.max_steps)}</span>
-                            <span>${escapeHtml(startTime)} → ${escapeHtml(endTime)}</span>
-                            <span>Agent Budget: ${escapeHtml(agentBudget)}</span>
-                            <span>Global Budget: ${escapeHtml(globalBudget)}</span>
-                            <span>Tokens Used: ${escapeHtml(tokens)}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            // Select first trajectory by default
-            if (trajectories.length > 0) {
-                selectTrajectory(0);
+                state.trajectories = await fetchJSON(`/api/jobs/${encodeURIComponent(name)}/trajectories`);
+                renderTrajectoriesList();
+            } catch (e) {
+                console.error(e);
+                $('trajectories-list').innerHTML = '<div class="empty-state">Error loading trajectories</div>';
             }
         }
 
         function selectTrajectory(index) {
-            const trajectories = getTrajectories();
-            const selectedTrajectory = trajectories[index];
-            if (!selectedTrajectory) return;
-            
-            renderActiveItem('.trajectory-item', index);
-            renderTrajectoryHeader(selectedTrajectory);
+            const traj = state.trajectories[index];
+            if (!traj) return;
 
-            // Render messages
-            renderMessages(selectedTrajectory.trajectory);
-        }
-
-        function renderMessages(trajectory) {
-            const container = el('messages-container');
-            
-            if (!trajectory || trajectory.length === 0) {
-                container.innerHTML = '<div class="empty-state"><p>No messages in this trajectory</p></div>';
-                return;
-            }
-
-            // Render markdown content
-            container.innerHTML = trajectory.map((message) => {
-                const role = message.role || 'unknown';
-                const markdown = prepareMarkdown(message.content);
-                const renderedContent = marked.parse(markdown || '');
-                
-                return `
-                    <div class="message">
-                        <div class="message-header">
-                            <span class="message-role ${role}">${role}</span>
-                        </div>
-                        <div class="message-content">${renderedContent}</div>
-                    </div>
-                `;
-            }).join('');
-
-            const highlightPythonCallLike = (codeEl) => {
-                if (!codeEl || codeEl.dataset.pyHighlighted === '1') return false;
-                const raw = (codeEl.textContent ?? '');
-                // Focus on "function_call(...)" style snippets commonly produced by KISS tool-calls.
-                const callMatch = raw.match(/^\s*([A-Za-z_]\w*)(?=\s*\()/);
-                if (!callMatch) return false;
-
-                // Only apply this to python (or unlabeled) blocks; avoid corrupting other languages.
-                const cls = (codeEl.getAttribute('class') || '').toLowerCase();
-                const isPython = cls.includes('language-python') || cls.includes('lang-python') || cls.includes('python');
-                if (!isPython && cls.trim() && cls.includes('language-')) return false;
-
-                const tokenRe = /'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|\b\d+(?:\.\d+)?\b|\b(?:True|False|None)\b/g;
-
-                const renderWithValueHighlights = (text) => {
-                    let out = '';
-                    let last = 0;
-                    for (const match of text.matchAll(tokenRe)) {
-                        const idx = match.index ?? 0;
-                        out += escapeHtml(text.slice(last, idx));
-                        const tok = match[0];
-                        if (tok && (tok.startsWith("'") || tok.startsWith('"'))) {
-                            // Display strings with double quotes to avoid confusing &#39; rendering.
-                            const inner = tok.slice(1, -1);
-                            const display = `"${inner}"`;
-                            out += `<span class="py-val">${escapeHtml(display)}</span>`;
-                        } else {
-                            out += `<span class="py-val">${escapeHtml(tok)}</span>`;
-                        }
-                        last = idx + tok.length;
-                    }
-                    out += escapeHtml(text.slice(last));
-                    return out;
-                };
-
-                // Highlight leading function name separately, then highlight value-like tokens in the remainder.
-                const fnMatch = raw.match(/^(\s*)([A-Za-z_]\w*)([\s\S]*)$/);
-                if (!fnMatch) return false;
-                const leadingWs = fnMatch[1] || '';
-                const fn = fnMatch[2] || '';
-                const rest = fnMatch[3] || '';
-                const html = `${escapeHtml(leadingWs)}<span class="py-fn">${escapeHtml(fn)}</span>${renderWithValueHighlights(rest)}`;
-
-                codeEl.innerHTML = html;
-                codeEl.dataset.pyHighlighted = '1';
-                return true;
-            };
-
-            // Syntax highlight fenced code blocks (e.g., ```python).
-            // We apply a lightweight "call-like" Python highlighter first for tool-call snippets,
-            // then fall back to highlight.js for everything else.
-            container.querySelectorAll('pre code').forEach((codeEl) => {
-                const didPy = highlightPythonCallLike(codeEl);
-                if (didPy) return;
-                try { hljs.highlightElement(codeEl); } catch (_) { /* ignore */ }
+            // Update active state in trajectories list
+            $('trajectories-list').querySelectorAll('.list-item').forEach((el, i) => {
+                el.classList.toggle('active', i === index);
             });
+
+            // Update header
+            $('content-header').classList.remove('hidden');
+            $('trajectory-title').textContent = traj.name || 'Unnamed';
+            $('trajectory-command').textContent = traj.command || '';
+            const formatTokens = (used, max) => max > 0 ? `${used.toLocaleString()}/${max.toLocaleString()}` : used.toLocaleString();
+            $('trajectory-meta').innerHTML = `
+                <span>ID: ${escapeHtml(traj.id)}</span>
+                <span>Model: ${escapeHtml(traj.model)}</span>
+                <span>Steps: ${traj.step_count}/${traj.max_steps}</span>
+                <span>Tokens: ${formatTokens(traj.tokens_used || 0, traj.max_tokens || 0)}</span>
+                <span>Agent Budget: ${formatMoney(traj.agent_budget_used)} / ${formatMoney(traj.agent_max_budget, 2)}</span>
+                <span>Global Budget: ${formatMoney(traj.global_budget_used)} / ${formatMoney(traj.global_max_budget, 2)}</span>
+                <span>Start: ${formatTimestamp(traj.run_start_timestamp)}</span>
+                <span>End: ${formatTimestamp(traj.run_end_timestamp)}</span>
+            `;
+
+            renderMessages(traj.messages);
         }
 
-        // Click handling (no inline onclick attributes)
-        el('state-list').addEventListener('click', (e) => {
-            const item = e.target.closest('.state-item');
-            const stateName = item?.getAttribute('data-state');
-            if (stateName) selectState(stateName);
-        });
-        el('trajectory-list').addEventListener('click', (e) => {
-            const item = e.target.closest('.trajectory-item');
-            const indexStr = item?.getAttribute('data-index');
-            const index = indexStr ? Number(indexStr) : NaN;
-            if (Number.isFinite(index)) selectTrajectory(index);
+        // Event handlers
+        $('jobs-list').addEventListener('click', e => {
+            const item = e.target.closest('.list-item');
+            if (item?.dataset.job) selectJob(item.dataset.job);
         });
 
-        // Load trajectories on page load
-        loadTrajectories();
+        $('trajectories-list').addEventListener('click', e => {
+            const item = e.target.closest('.list-item');
+            if (item?.dataset.index != null) selectTrajectory(Number(item.dataset.index));
+        });
+
+        // Initialize
+        (async () => {
+            try {
+                state.jobs = await fetchJSON('/api/jobs');
+                renderJobsList();
+            } catch (e) {
+                console.error(e);
+                $('jobs-list').innerHTML = '<div class="empty-state">Error loading jobs</div>';
+            }
+        })();
     </script>
 </body>
 </html>
-

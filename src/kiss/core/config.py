@@ -16,8 +16,8 @@ from pydantic import BaseModel, Field
 def _generate_artifact_dir() -> str:
     """Generate a unique artifact subdirectory name based on timestamp and random number."""
     from pathlib import Path
-    artifact_name = f"{time.strftime('%S_%M_%H_%d_%m_%Y')}_{random.randint(0, 1000000)}"
-    artifact_path = Path("artifact").resolve() / artifact_name
+    artifact_subdir_name = f"{time.strftime('job_%Y_%m_%d_%H_%M_%S')}_{random.randint(0, 1000000)}"
+    artifact_path = Path("artifacts").resolve() / artifact_subdir_name
     artifact_path.mkdir(parents=True, exist_ok=True)
     return str(artifact_path)
 
