@@ -277,6 +277,113 @@ print(f"Tokens used: {agent.total_tokens_used}")
 print(f"Budget used: ${agent.budget_used:.4f}")
 ```
 
+## 🤝 Multi-Agent Orchestration
+
+Here's where KISS really shines — composing multiple agents into systems greater than the sum of their parts.
+
+KISS includes utility agents that work beautifully together. Let's build a **self-improving coding agent** that writes code, tests it, and refines its own prompts based on failures:
+
+```python
+import json
+from kiss.core.kiss_agent import KISSAgent
+from kiss.agents.kiss import refine_prompt_template, get_run_simple_coding_agent
+
+# Step 1: Define a test function for our coding task
+def test_fibonacci(code: str) -> bool:
+    """Test if the generated fibonacci code is correct."""
+    try:
+        namespace = {}
+        exec(code, namespace)
+        fib = namespace.get('fibonacci')
+        if not fib:
+            return False
+        # Test cases
+        return (fib(0) == 0 and fib(1) == 1 and 
+                fib(10) == 55 and fib(20) == 6765)
+    except Exception:
+        return False
+
+# Step 2: Create the coding agent
+coding_agent_fn = get_run_simple_coding_agent(test_fibonacci)
+
+# Step 3: Define our initial prompt
+prompt_template = """
+Write a Python function called 'fibonacci' that returns the nth Fibonacci number.
+Requirements: {requirements}
+"""
+
+# Step 4: The self-improving loop
+original_prompt = prompt_template
+current_prompt = prompt_template
+max_iterations = 3
+
+for iteration in range(max_iterations):
+    print(f"\n{'='*50}")
+    print(f"Iteration {iteration + 1}")
+    print(f"{'='*50}")
+    
+    # Run the coding agent
+    coding_agent = KISSAgent(name=f"Coder-{iteration}")
+    try:
+        result = coding_agent_fn(
+            prompt_template=current_prompt,
+            arguments={"requirements": "Use recursion with memoization for efficiency"},
+            model_name="gpt-4o"
+        )
+        print(f"✅ Code generated successfully!")
+        print(f"Result: {result[:100]}...")
+        break  # Success! Exit the loop
+        
+    except Exception as e:
+        print(f"❌ Attempt failed: {e}")
+        
+        # Get the trajectory to understand what went wrong
+        trajectory = coding_agent.get_trajectory()
+        
+        # Use the Prompt Refiner agent to improve our prompt
+        print("🔄 Refining prompt based on failure...")
+        current_prompt = refine_prompt_template(
+            original_prompt_template=original_prompt,
+            previous_prompt_template=current_prompt,
+            agent_trajectory=trajectory,
+            model_name="gpt-4o"
+        )
+        print(f"📝 New prompt:\n{current_prompt[:200]}...")
+```
+
+**What's happening here?**
+
+1. **Coding Agent** ['get_run_simple_coding_agent'](https://github.com/ksenxx/kiss_ai/blob/main/src/kiss/agents/kiss.py): Generates code and validates it against test cases
+2. **Prompt Refiner Agent** ['refine_prompt_template'](https://github.com/ksenxx/kiss_ai/blob/main/src/kiss/agents/kiss.py): Analyzes failures and evolves the prompt
+3. **Orchestration**: A simple Python loop (not to be confused with the ReAct loop) coordinates the agents
+
+No special orchestration framework needed. No message buses. No complex state machines. Just Python functions calling Python functions.
+
+### Why This Matters
+
+Most multi-agent frameworks require you to learn a new paradigm: graphs, workflows, channels, and supervisors. KISS takes a different approach: **agents are just functions**.
+
+```python
+# Agent 1: Research
+research_result = research_agent.run(model_name="gpt-4o", more_args)
+
+# Agent 2: Write (uses research)
+draft = writer_agent.run(
+    model_name="claude-sonnet-4-5",
+    arguments={"research": research_result},
+    # ...
+)
+
+# Agent 3: Edit (uses draft)
+final = editor_agent.run(
+    model_name="gemini-3-pro-preview", 
+    arguments={"draft": draft},
+    # ...
+)
+```
+
+Each agent can use a different model. Each agent has its own budget. Each agent saves its own trajectory. And you compose them with the most powerful orchestration tool ever invented: **regular Python code**.
+
 ### Using GEPA for Prompt Optimization
 
 > 📖 **For detailed GEPA documentation, see [GEPA README](src/kiss/agents/gepa/README.md)**
