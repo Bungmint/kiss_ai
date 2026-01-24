@@ -1,18 +1,58 @@
-# KISS Agent Framework (Keep it Simple, Stupid Agent Framework)
+**Version:** 0.1.2
 
-A simple and portable AI agent framework for building and evolving LLM agents. The framework follows the [KISS principle](https://en.wikipedia.org/wiki/KISS_principle) and provides native function calling for seamless tool integration.
+![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/sgowzpvzkfmm0373li3m.png)
 
-**Version:** 0.1.2 (see `kiss.__version__` or `src/kiss/_version.py`)  
-**Description:** KISS Agent Framework - A simple and portable agent framework for building and evolving AI agents  
-**Python:** >=3.13
+# When Simplicity Becomes Your Superpower: Meet KISS Agent Framework
+
+*"Everything should be made as simple as possible, but not simpler." — Albert Einstein*
+
+---
+
+## 🎯 The Problem with AI Agent Frameworks Today
+
+Let's be honest. The AI agent ecosystem has become a jungle.
+
+Every week brings a new framework promising to revolutionize how we build AI agents. They come loaded with abstractions on top of abstractions, configuration files that rival tax forms, and dependency trees that make `node_modules` look tidy. By the time you've figured out how to make your first tool call, you've already burned through half your patience and all your enthusiasm.
+
+**What if there was another way?**
+
+What if building AI agents could be as straightforward as the name suggests?
+
+Enter **KISS** — the *Keep It Simple, Stupid* Agent Framework.
+
+
+## 🚀 Your First Agent in 30 Seconds
+
+Let me show you something beautiful:
+
+```python
+from kiss.core.kiss_agent import KISSAgent
+
+def calculate(expression: str) -> str:
+    """Evaluate a math expression."""
+    return str(eval(expression))
+
+agent = KISSAgent(name="Math Buddy")
+result = agent.run(
+    model_name="gemini-3-flash-preview",
+    prompt_template="Calculate: {question}",
+    arguments={"question": "What is 15% of 847?"},
+    tools=[calculate]
+)
+print(result)  # 127.05
+```
+
+That's a fully functional AI agent that uses tools. No boilerplate. No ceremony. Just intent, directly expressed.
+
+KISS uses **native function calling** from the LLM providers. Your Python functions become tools automatically. Type hints become schemas. Docstrings become descriptions. Everything just works.
 
 ## Overview
 
 KISS is a lightweight agent framework that implements a ReAct (Reasoning and Acting) loop for LLM agents. The framework provides:
 
 - **Simple Architecture**: Clean, minimal core that's easy to understand and extend
-- **GEPA Integration**: Genetic-Pareto prompt optimization for compound AI systems
-- **KISSEvolve Integration**: Evolutionary algorithm discovery framework with LLM-guided mutation and crossover
+- **GEPA Implementation From Scratch**: Genetic-Pareto prompt optimization for compound AI systems
+- **KISSEvolve Implementation From Sratch**: Evolutionary algorithm discovery framework with LLM-guided mutation and crossover
 - **Model Agnostic**: Support for multiple LLM providers (OpenAI, Anthropic, Gemini, Together AI, OpenRouter)
 - **Native Function Calling**: Seamless tool integration using native function calling APIs (OpenAI, Anthropic, Gemini, Together AI, and OpenRouter)
 - **Docker Integration**: Built-in Docker manager for running agents in isolated environments
@@ -25,38 +65,6 @@ KISS is a lightweight agent framework that implements a ReAct (Reasoning and Act
 - **Useful Agents**: Pre-built utility agents including prompt refinement and general bash execution agents
 - **Multiprocessing Support**: Utilities for parallel execution of functions using multiprocessing
 - **Trajectory Visualization**: Web-based visualizer for viewing agent execution trajectories with modern UI
-
-## Architecture
-
-The framework centers around the `KISSAgent` class, which implements a ReAct agent using native function calling of LLMs:
-
-1. **Prompt Setup**: Agent receives a prompt template (no response format needed)
-2. **Model Generation**: LLM generates a response with native function calls
-3. **Function Call Extraction**: Framework extracts function calls directly from the API response
-4. **Tool Execution**: Tools are executed and results are returned via the model's native function response format
-5. **Loop**: Process repeats until the agent calls `finish()` or max steps are reached
-
-### Key Components
-
-- **`KISSAgent`**: Main agent class with native function calling support
-  - Supports both agentic mode (with tools) and non-agentic mode (simple LLM calls)
-  - Model name is passed to the `run()` method
-  - Tracks token usage throughout the run and appends token information to messages
-- **`Model`**: Abstract base class for LLM providers (located in `core/models/`)
-  - **`GeminiModel`**: Gemini model implementation with native function calling
-  - **`OpenAICompatibleModel`**: OpenAI-compatible API model implementation with native function calling (supports OpenAI, Together AI, OpenRouter, and other OpenAI-compatible providers)
-  - **`AnthropicModel`**: Anthropic Claude model implementation with native function calling
-  - Automatic context length detection for supported models (OpenAI, Anthropic, Gemini, Together AI, OpenRouter)
-  - Token count extraction from API responses
-  - Embedding support: OpenAI, Together AI, and Gemini models support embeddings via `get_embedding()` method (Anthropic does not support embeddings)
-- **`Formatter`**: Abstract base class for output formatting and status messages
-  - **`SimpleFormatter`**: Rich-formatted output with colored status messages
-- **`DockerManager`**: Manages Docker containers for isolated execution
-  - Supports optional shared volume mounting (configurable via `mount_shared_volume` parameter)
-  - Set `mount_shared_volume=False` for images with pre-existing content (e.g., SWE-bench)
-- **`Config`**: Centralized configuration management
-- **`multiprocess`**: Utilities for parallel execution of functions using ProcessPoolExecutor
-- **`SimpleRAG`**: Simple retrieval-augmented generation system with in-memory vector store and cosine/L2 similarity search
 
 ## Installation
 
@@ -88,7 +96,9 @@ export OPENROUTER_API_KEY="your-key-here"
 
 ### KISSAgent API Reference
 
-The `KISSAgent` class is the core component of the framework, providing native function calling support for LLM agents.
+## Architecture
+
+The framework centers around the `KISSAgent` class, which implements a ReAct agent using native function calling of LLMs.
 
 #### Constructor
 
@@ -145,6 +155,10 @@ def get_trajectory(self) -> str
 
 Returns the agent's conversation trajectory as a JSON string.
 
+
+Built-in tool that the agent must call to complete its task and return the final answer.
+The tool is added by default to any KISSAgent.
+
 **Returns:**
 - `str`: JSON-formatted string containing the list of messages with roles and content.
 
@@ -153,8 +167,6 @@ Returns the agent's conversation trajectory as a JSON string.
 ```python
 def finish(self, result: str) -> str
 ```
-
-Built-in tool that the agent must call to complete its task and return the final answer.
 
 **Parameters:**
 - `result` (str): The final result/answer from the agent.
@@ -176,7 +188,7 @@ Built-in tool that the agent must call to complete its task and return the final
 - `step_count` (int): Current step number in the ReAct loop.
 - `total_tokens_used` (int): Total tokens used in this run.
 - `budget_used` (float): Budget used in this run.
-- `message_ids_of_trajectory` (list[int]): List of message IDs in the trajectory.
+- `messages` (list[dict[str, Any]]): List of messages in the trajectory.
 
 #### Tool Definition
 
@@ -269,7 +281,7 @@ print(f"Budget used: ${agent.budget_used:.4f}")
 
 > 📖 **For detailed GEPA documentation, see [GEPA README](src/kiss/agents/gepa/README.md)**
 
-GEPA (Genetic-Pareto) is a prompt optimization framework that uses natural language reflection to evolve prompts. It maintains an instance-level Pareto frontier of top-performing prompts and combines complementary lessons through structural merge. GEPA is based on the paper ["GEPA: REFLECTIVE PROMPT EVOLUTION CAN OUTPERFORM REINFORCEMENT LEARNING"](https://arxiv.org/pdf/2507.19457).
+KISS a fresh implementation of GEPA with some improvement.  GEPA (Genetic-Pareto) is a prompt optimization framework that uses natural language reflection to evolve prompts. It maintains an instance-level Pareto frontier of top-performing prompts and combines complementary lessons through structural merge. GEPA is based on the paper ["GEPA: REFLECTIVE PROMPT EVOLUTION CAN OUTPERFORM REINFORCEMENT LEARNING"](https://arxiv.org/pdf/2507.19457).
 
 For usage examples, API reference, and configuration options, please see the [GEPA README](src/kiss/agents/gepa/README.md).
 
@@ -285,7 +297,7 @@ For usage examples, API reference, and configuration options, please see the [KI
 
 > 📖 **For detailed Self-Evolving Multi-Agent documentation, see [Self-Evolving Multi-Agent README](src/kiss/agents/self_evolving_multi_agent/README.md)**
 
-The Self-Evolving Multi-Agent is an advanced agent with planning, error recovery, dynamic tool creation, and the ability to evolve itself for better efficiency and accuracy.
+The goal of this project is to create an optimal multi-agent using KISSAgent and ClaudeCodingAgent given a set of tasks.
 
 ```python
 from kiss.agents.self_evolving_multi_agent import SelfEvolvingMultiAgent, run_task
@@ -320,27 +332,26 @@ The Claude Coding Agent uses the Claude Agent SDK to generate tested Python prog
 
 ```python
 from kiss.agents.claudecodingagent import ClaudeCodingAgent
-
-# Create agent with path restrictions
-agent = ClaudeCodingAgent(
-    model_name="claude-sonnet-4-5",
-    readable_paths=["src/"],  # Allowed read paths
-    writable_paths=["output/"],  # Allowed write paths
-    base_dir="workdir"  # Base working directory
-)
-
-# Run a coding task
 import anyio
 
+# Create agent with a name
+agent = ClaudeCodingAgent(name="My Coding Agent")
+
 async def main():
-    result = await agent.run("""
-        Write, test, and optimize a fibonacci function in Python
-        that is efficient and correct.
-    """)
+    # Run a coding task with path restrictions
+    result = await agent.run(
+        task="""
+            Write, test, and optimize a fibonacci function in Python
+            that is efficient and correct.
+        """,
+        model_name="claude-sonnet-4-5",
+        readable_paths=["src/"],  # Allowed read paths
+        writable_paths=["output/"],  # Allowed write paths
+        base_dir="workdir"  # Base working directory
+    )
     if result:
-        print(f"Success: {result['status']}")
-        print(f"Summary: {result['summary']}")
-        print(f"Insights: {result['insights']}")
+        print(f"Success: {result['success']}")
+        print(f"Result: {result['result']}")
 
 anyio.run(main)
 ```
@@ -659,7 +670,7 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
   - `pareto_size`: Maximum size of Pareto frontier (default: 4)
   - `mutation_rate`: Probability of mutating a prompt template (default: 0.5)
 - **AlgoTune Settings**: Modify `DEFAULT_CONFIG.algotune` in `src/kiss/agents/kiss_evolve/algotune/config.py`:
-  - `task`: Specific task name to solve (default: "svm")
+  - `task`: Specific task name to solve (default: "matrix_multiplication")
   - `all_tasks`: Solve all tasks in AlgoTuneTasks directory (default: False)
 
 ## Available Commands
@@ -786,8 +797,8 @@ The framework provides embedding generation capabilities through the `get_embedd
   - Default model: `text-embedding-3-small` (can be customized)
   - Usage: `model.get_embedding(text, embedding_model="text-embedding-3-small")`
 - **Together AI Models**: Full embedding support via Together AI's embeddings API
-  - Default model: `togethercomputer/m2-bert-80M-8k-retrieval` (can be customized)
-  - Usage: `model.get_embedding(text, embedding_model="togethercomputer/m2-bert-80M-8k-retrieval")`
+  - Default model: `togethercomputer/m2-bert-80M-32k-retrieval` (can be customized)
+  - Usage: `model.get_embedding(text, embedding_model="togethercomputer/m2-bert-80M-32k-retrieval")`
 - **Gemini Models**: Full embedding support via Google's embedding API
   - Default model: `text-embedding-004` (can be customized)
   - Usage: `model.get_embedding(text, embedding_model="text-embedding-004")`

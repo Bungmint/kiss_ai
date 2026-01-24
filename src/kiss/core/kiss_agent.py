@@ -173,7 +173,23 @@ class KISSAgent:
                             )
                             self._add_and_print_message("user", user_content)
                         else:
-                            call_results = self._process_function_calls(function_calls)
+                            function_call = function_calls[0]
+                            function_name = function_call["name"]
+                            function_args = function_call.get("arguments", {})
+
+                            try:
+                                if function_name not in self.function_map:
+                                    raise KISSError(f"Function {function_name} is not a registered tool")
+                                args_str = ", ".join(f"{k}={v!r}" for k, v in function_args.items())
+                                call_repr = f"```python\n{function_name}({args_str})\n```"
+                                self.function_calls_as_str.append(call_repr)
+                                result_raw = self.function_map[function_name](**function_args)
+                                function_response = str(result_raw)
+                            except Exception as e:
+                                args_str = str(function_args)
+                                function_response = (
+                                    f"Failed to call {function_name} with {args_str}: {e}\n{traceback.format_exc()}"
+                                )
 
                             function_calls_str = "\n".join(self.function_calls_as_str)
                             usage_info_str = self._get_usage_info_string()
@@ -184,12 +200,16 @@ class KISSAgent:
 
                             user_content = (
                                 f"Tools call(s) successful.\nResult(s):\n"
-                                f"{call_results['all_responses']}"
+                                f"{function_response}"
                             )
                             self._add_and_print_message("user", user_content)
 
-                            if call_results["finish_response"] is not None:
-                                return call_results["finish_response"]
+                            if function_name == "finish":
+                                return function_response
+
+                            self.model.add_function_results_to_conversation_and_return(
+                                [(function_name, {"result": function_response})]
+                            )
 
                 except (KISSError, RuntimeError) as e:
                     content = f"Failed to get response from Model: {e}.\nPlease try again.\n"
@@ -359,69 +379,6 @@ class KISSAgent:
         filename = folder_path / f"trajectory_{name_safe}_{self.id}_{self.run_start_timestamp}.yaml"
         with filename.open("w", encoding="utf-8") as f:
             yaml.dump(state, f, indent=2)
-
-    def _process_function_calls(
-        self, function_calls: list[dict[str, Any]]
-    ) -> dict[str, str | None]:
-        """Processes all function calls and returns finish result if called.
-
-        Args:
-            function_calls (list[dict[str, Any]]): List of function call dictionaries.
-
-        Returns:
-            dict[str, str | None]: Dictionary with 'all_responses' and 'finish_response' keys.
-        """
-        function_results = []
-        function_response = ""
-        for function_call in function_calls:
-            this_function_response = self._execute_function_call(function_call)
-            function_response += this_function_response
-
-            if function_call["name"] == "finish":
-                return {
-                    "all_responses": function_response,
-                    "finish_response": this_function_response,
-                }
-
-            function_results.append((function_call["name"], {"result": this_function_response}))
-
-        if function_results:
-            self.model.add_function_results_to_conversation_and_return(function_results)
-        return {"all_responses": function_response, "finish_response": None}
-
-    def _execute_function_call(self, function_call: dict[str, Any]) -> str:
-        """Executes a single function call and returns the response.
-
-        Args:
-            function_call (dict[str, Any]): Dictionary with 'name' and 'arguments' keys.
-
-        Returns:
-            str: The raw result from the function call, or error message on failure.
-        """
-
-        try:
-            function_name = function_call["name"]
-            if function_name not in self.function_map:
-                raise KISSError(f"Function {function_name} is not a registered tool")
-            args_str = ", ".join(
-                f"{k}={v!r}" for k, v in function_call.get("arguments", {}).items()
-            )
-            call_repr = f"```python\n{function_name}({args_str})\n```"
-            self.function_calls_as_str.append(call_repr)
-
-            ###########################################################################
-            # The actual function call is here.
-            ###########################################################################
-            result_raw = self.function_map[function_name](**function_call["arguments"])
-
-        except Exception as e:
-            fn_name = function_call.get("name", "unknown")
-            args_str = str(function_call.get("arguments", {}))
-            error_msg = (
-                f"Failed to call {fn_name} with {args_str}: {e}\n{traceback.format_exc()}"
-            )
-            return error_msg
-        return str(result_raw)
 
     def finish(self, result: str) -> str:
         """
