@@ -12,10 +12,13 @@ WebSearch, etc.) and custom tools like read_project_file.
 
 import json
 import re
+import sys
+import time
 from pathlib import Path
 from typing import Any
 
 import anyio
+import yaml
 from claude_agent_sdk import (
     AssistantMessage,
     ClaudeAgentOptions,
@@ -32,9 +35,10 @@ from claude_agent_sdk import (
 from pydantic import BaseModel, Field
 
 from kiss.core import DEFAULT_CONFIG
+from kiss.core.kiss_agent import KISSAgent
+from kiss.core.models.model_info import get_max_context_length
+from kiss.core.utils import config_to_dict
 
-# Built-in tools available in Claude Agent SDK
-# These can be enabled via the allowed_tools parameter
 BUILTIN_TOOLS = {
     "Read": "Read files from the working directory",
     "Write": "Create or overwrite files",
@@ -48,7 +52,6 @@ BUILTIN_TOOLS = {
 }
 
 
-# System prompt for generating robust, tested code
 SYSTEMS_PROMPT = """You are an expert Python programmer who writes clean, simple, \
 and robust code.
 
@@ -111,6 +114,14 @@ summary: >
 """
 
 
+# - `id` (int): Unique identifier for this agent instance.
+# - `name` (str): The agent's name.
+# - `model`: The model instance being used.
+# - `step_count` (int): Current step number in the ReAct loop.
+# - `total_tokens_used` (int): Total tokens used in this run.
+# - `budget_used` (float): Budget used in this run.
+# - `messages` (list\[dict[str, Any]\]): List of messages in the trajectory.
+
 class TaskResult(BaseModel):
     success: bool = Field(
         description=(
@@ -128,7 +139,6 @@ class ClaudeCodingAgent:
 
     def __init__(self, name: str) -> None:
         self.name = name
-        self.mlist: list[dict[str, object]] = []
 
     def _reset(
         self,
@@ -136,6 +146,7 @@ class ClaudeCodingAgent:
         readable_paths: list[str] | None,
         writable_paths: list[str] | None,
         base_dir: str,
+        max_steps: int,
     ) -> None:
         if readable_paths is None:
             readable_paths = []
@@ -143,10 +154,20 @@ class ClaudeCodingAgent:
             writable_paths = []
         self.base_dir = base_dir
         Path(self.base_dir).mkdir(parents=True, exist_ok=True)
+
+        self.id = KISSAgent.agent_counter
+        KISSAgent.agent_counter += 1
         self.model_name = model_name
         self.readable_paths = {Path(p).resolve() for p in readable_paths}
         self.writable_paths = {Path(p).resolve() for p in writable_paths}
-        self.mlist = []
+        self.messages: list[dict[str, object]] = []
+        self.step_count = 0
+        self.total_tokens_used = 0
+        self.budget_used = 0.0
+        self.run_start_timestamp = int(time.time())
+        self.max_tokens = get_max_context_length(model_name)
+        self.is_agentic = True
+        self.max_steps = max_steps
 
     def _is_subpath(self, target: Path, whitelist: set[Path]) -> bool:
         """Checks if the target path is or is inside any of the whitelisted paths."""
@@ -198,6 +219,7 @@ class ClaudeCodingAgent:
         ),
         readable_paths: list[str] | None = None,
         writable_paths: list[str] | None = None,
+        max_steps: int = DEFAULT_CONFIG.agent.max_steps,
     ) -> dict[str, object] | None:
         """Run the claude coding agent for a given task.
 
@@ -211,7 +233,7 @@ class ClaudeCodingAgent:
         Returns:
             The result of the claude coding agent's task.
         """
-        self._reset(model_name, readable_paths, writable_paths, base_dir)
+        self._reset(model_name, readable_paths, writable_paths, base_dir, max_steps)
         options = ClaudeAgentOptions(
             model=model_name,
             system_prompt=SYSTEMS_PROMPT,
@@ -222,9 +244,18 @@ class ClaudeCodingAgent:
             cwd=str(self.base_dir)
         )
 
+        timestamp = int(time.time())
         final_result: dict[str, object] | None = None
+        self.task = task
         async for message in query(prompt=self._prompt_stream(task), options=options):
             if isinstance(message, AssistantMessage):
+                self.step_count += 1
+                # Update token usage if available
+                if hasattr(message, "usage") and message.usage is not None:
+                    if hasattr(message.usage, "input_tokens"):
+                        self.total_tokens_used += message.usage.input_tokens
+                    if hasattr(message.usage, "output_tokens"):
+                        self.total_tokens_used += message.usage.output_tokens
                 thought = ""
                 tool_call = ""
                 for block in message.content:
@@ -237,8 +268,13 @@ class ClaudeCodingAgent:
                     elif isinstance(block, TextBlock):
                         thought += f"{block.text}"
                         print(f"[THOUGHT] {block.text}")
-                msg: dict[str, object] = {"role": "model", "content": thought + tool_call}
-                self.mlist.append(msg)
+                msg: dict[str, object] = {
+                    "role": "model",
+                    "content": thought + tool_call,
+                    "timestamp": timestamp,
+                    "unique_id": len(self.messages),
+                }
+                self.messages.append(msg)
             elif isinstance(message, UserMessage):
                 result = ""
                 full = ""
@@ -262,22 +298,85 @@ class ClaudeCodingAgent:
                             status = "Tool Call Succeeded"
                         print(f"[TOOL RESULT] {status}: {display}")
                         result += f"{status}\n{full}\n"
-                msg = {"role": "user", "content": result}
-                self.mlist.append(msg)
+                msg = {
+                    "role": "user",
+                    "content": result,
+                    "timestamp": timestamp,
+                    "unique_id": len(self.messages),
+                }
+                self.messages.append(msg)
             elif isinstance(message, ResultMessage):
+                # Update token usage from final result if available
+                if hasattr(message, "usage") and message.usage is not None:
+                    if hasattr(message.usage, "input_tokens"):
+                        self.total_tokens_used += message.usage.input_tokens
+                    if hasattr(message.usage, "output_tokens"):
+                        self.total_tokens_used += message.usage.output_tokens
+                # Update budget_used if cost info is available
+                if hasattr(message, "cost") and message.cost is not None:
+                    self.budget_used += message.cost
+                    KISSAgent.global_budget_used += message.cost
                 if message.structured_output is not None:
                     final_result = message.structured_output  # type: ignore[assignment]
                 elif message.result:
                     final_result = self._parse_result_json(message.result)
-                msg = {"role": "model", "content": final_result}
-                self.mlist.append(msg)
+                msg = {
+                    "role": "model",
+                    "content": final_result,
+                    "timestamp": timestamp,
+                    "unique_id": len(self.messages),
+                }
+                self.messages.append(msg)
+            timestamp = int(time.time())
+        self._save()
         return final_result
+
+
+    def _build_state_dict(self) -> dict[str, Any]:
+        """Builds the state dictionary for saving."""
+        try:
+            max_tokens = get_max_context_length(self.model_name)
+        except Exception:
+            max_tokens = None
+
+        return {
+            "name": self.name,
+            "id": self.id,
+            "messages": self.messages,
+            "function_map": list(BUILTIN_TOOLS.keys()),
+            "run_start_timestamp": self.run_start_timestamp,
+            "run_end_timestamp": int(time.time()),
+            "config": config_to_dict(),
+            "arguments": {},
+            "prompt_template": self.task,
+            "is_agentic": self.is_agentic,
+            "model": self.model_name,
+            "budget_used": self.budget_used,
+            "total_budget": DEFAULT_CONFIG.agent.max_agent_budget,
+            "global_budget_used": KISSAgent.global_budget_used,
+            "global_max_budget": DEFAULT_CONFIG.agent.global_max_budget,
+            "tokens_used": self.total_tokens_used,
+            "max_tokens": max_tokens,
+            "step_count": self.step_count,
+            "max_steps": self.max_steps,
+            "command": " ".join(sys.argv),
+        }
+
+    def _save(self) -> None:
+        """Save the agent's state to a file."""
+        state = self._build_state_dict()
+        folder_path = Path(DEFAULT_CONFIG.agent.artifact_dir) / "trajectories"
+        folder_path.mkdir(parents=True, exist_ok=True)
+        name_safe = self.name.replace(" ", "_").replace("/", "_")
+        filename = folder_path / f"trajectory_{name_safe}_{self.id}_{self.run_start_timestamp}.yaml"
+        with filename.open("w", encoding="utf-8") as f:
+            yaml.dump(state, f, indent=2)
 
 
     def get_trajectory(self) -> str:
         """Returns the trajectory of the agent in standard JSON format for visualization."""
         trajectory = []
-        for message in self.mlist:
+        for message in self.messages:
             trajectory.append(message)
         return json.dumps(trajectory, indent=2)
 
