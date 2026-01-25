@@ -113,15 +113,6 @@ summary: >
 ```
 """
 
-
-# - `id` (int): Unique identifier for this agent instance.
-# - `name` (str): The agent's name.
-# - `model`: The model instance being used.
-# - `step_count` (int): Current step number in the ReAct loop.
-# - `total_tokens_used` (int): Total tokens used in this run.
-# - `budget_used` (float): Budget used in this run.
-# - `messages` (list\[dict[str, Any]\]): List of messages in the trajectory.
-
 class TaskResult(BaseModel):
     success: bool = Field(
         description=(
@@ -147,6 +138,7 @@ class ClaudeCodingAgent:
         writable_paths: list[str] | None,
         base_dir: str,
         max_steps: int,
+        max_budget: float,
     ) -> None:
         if readable_paths is None:
             readable_paths = []
@@ -168,6 +160,7 @@ class ClaudeCodingAgent:
         self.max_tokens = get_max_context_length(model_name)
         self.is_agentic = True
         self.max_steps = max_steps
+        self.max_budget = max_budget
 
     def _is_subpath(self, target: Path, whitelist: set[Path]) -> bool:
         """Checks if the target path is or is inside any of the whitelisted paths."""
@@ -212,14 +205,16 @@ class ClaudeCodingAgent:
 
     async def run(
         self,
-        task: str,
-        model_name: str = "claude-sonnet-4-5",
+        model_name: str,
+        prompt_template: str,
+        arguments: dict[str, str] | None = None,
+        max_steps: int = DEFAULT_CONFIG.agent.max_steps,
+        max_budget: float = DEFAULT_CONFIG.agent.max_agent_budget,
         base_dir: str = str(
             Path(DEFAULT_CONFIG.agent.artifact_dir).resolve() / "claude_workdir"
         ),
         readable_paths: list[str] | None = None,
         writable_paths: list[str] | None = None,
-        max_steps: int = DEFAULT_CONFIG.agent.max_steps,
     ) -> dict[str, object] | None:
         """Run the claude coding agent for a given task.
 
@@ -233,7 +228,7 @@ class ClaudeCodingAgent:
         Returns:
             The result of the claude coding agent's task.
         """
-        self._reset(model_name, readable_paths, writable_paths, base_dir, max_steps)
+        self._reset(model_name, readable_paths, writable_paths, base_dir, max_steps, max_budget)
         options = ClaudeAgentOptions(
             model=model_name,
             system_prompt=SYSTEMS_PROMPT,
@@ -246,7 +241,10 @@ class ClaudeCodingAgent:
 
         timestamp = int(time.time())
         final_result: dict[str, object] | None = None
-        self.task = task
+        self.prompt_template = prompt_template
+        self.arguments = arguments or {}
+        task = self.prompt_template.format(**self.arguments)
+
         async for message in query(prompt=self._prompt_stream(task), options=options):
             if isinstance(message, AssistantMessage):
                 self.step_count += 1
@@ -347,12 +345,12 @@ class ClaudeCodingAgent:
             "run_start_timestamp": self.run_start_timestamp,
             "run_end_timestamp": int(time.time()),
             "config": config_to_dict(),
-            "arguments": {},
-            "prompt_template": self.task,
+            "arguments": self.arguments,
+            "prompt_template": self.prompt_template,
             "is_agentic": self.is_agentic,
             "model": self.model_name,
             "budget_used": self.budget_used,
-            "total_budget": DEFAULT_CONFIG.agent.max_agent_budget,
+            "total_budget": self.max_budget,
             "global_budget_used": KISSAgent.global_budget_used,
             "global_max_budget": DEFAULT_CONFIG.agent.global_max_budget,
             "tokens_used": self.total_tokens_used,
@@ -401,7 +399,7 @@ async def main() -> None:
     task_description = """
     can you write, test, and optimize a fibonacci function in Python that is efficient and correct?
     """
-    result = await agent.run(task_description)
+    result = await agent.run(model_name="claude-sonnet-4-5", prompt_template=task_description)
 
     if result:
         print("\n--- FINAL AGENT REPORT ---")
