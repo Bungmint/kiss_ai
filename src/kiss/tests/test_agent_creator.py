@@ -701,9 +701,7 @@ if __name__ == "__main__":
         evolver = RealEvolver(
             task_description=task,
             max_generations=2,
-            population_size=2,
-            pareto_size=2,
-            work_dir=os.path.join(self.test_dir, "evolver"),
+            max_frontier_size=2,
         )
 
         async def run_test() -> RealVariant:
@@ -713,7 +711,7 @@ if __name__ == "__main__":
 
         self.assertIsNotNone(best)
         self.assertTrue(Path(best.folder_path).exists())
-        self.assertGreater(len(evolver.all_variants), 0)
+        self.assertGreater(len(evolver.pareto_frontier), 0)
 
 
 if __name__ == "__main__":

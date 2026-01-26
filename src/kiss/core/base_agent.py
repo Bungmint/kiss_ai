@@ -25,6 +25,36 @@ def _str_presenter(dumper: yaml.Dumper, data: str) -> yaml.ScalarNode:
 yaml.add_representer(str, _str_presenter)
 
 
+DEFAULT_SYSTEM_PROMPT = """You are an expert SWE who writes clean, simple, \
+and robust code.
+
+## Code Style Guidelines
+- Write simple, readable code with minimal indirection
+- Avoid unnecessary object attributes and local variables
+- No redundant abstractions or duplicate code
+- Each function should do one thing well
+- Use clear, descriptive names
+
+## Testing Requirements
+- Generate comprehensive tests for EVERY function and feature
+- Tests MUST NOT use mocks, patches, or any form of test doubles
+- Test with real inputs and verify real outputs
+- Test edge cases: empty inputs, None values, boundary conditions
+- Test error conditions with actual invalid inputs
+- Each test should be independent and verify actual behavior
+
+## Code Structure
+- Main implementation code first
+- Test code in a separate section using unittest or pytest
+- Include a __main__ block to run tests
+
+Use tools when you need to:
+- Look up API documentation or library usage
+- Find examples of similar implementations
+- Understand existing code in the project
+"""
+
+
 class BaseAgent:
     """Base class for all KISS agents with common state management and persistence."""
 

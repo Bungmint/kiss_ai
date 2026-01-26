@@ -18,7 +18,7 @@ Both components use a **Pareto frontier** approach to track non-dominated soluti
 - **Evolutionary Operations**: Supports mutation (improving one variant) and crossover (combining ideas from two variants)
 - **Automatic Pruning**: Removes dominated variants to manage memory and storage
 - **Lineage Tracking**: Records parent relationships and improvement history
-- **Configurable Parameters**: Extensive configuration options for generations, population size, thresholds, etc.
+- **Configurable Parameters**: Extensive configuration options for generations, frontier size, thresholds, etc.
 
 ## Installation
 
@@ -34,8 +34,9 @@ from kiss.agents.agent_creator import ImproverAgent
 
 async def improve_agent():
     improver = ImproverAgent(
-        num_generations=5,
-        pareto_frontier_size=4,
+        model_name="claude-sonnet-4-5",
+        max_steps=150,
+        max_budget=15.0,
     )
 
     success, report = await improver.improve(
@@ -43,9 +44,9 @@ async def improve_agent():
         target_folder="/path/to/improved_agent",
     )
 
-    if success:
-        print(f"Token improvement: {report.token_improvement_pct:.1f}%")
-        print(f"Time improvement: {report.time_improvement_pct:.1f}%")
+    if success and report:
+        print(f"Improvement completed in {report.improved_time:.2f}s")
+        print(f"Tokens used: {report.improved_tokens}")
 
 anyio.run(improve_agent)
 ```
@@ -60,8 +61,8 @@ async def evolve_agent():
     evolver = AgentEvolver(
         task_description="Build a code analysis assistant that can parse and analyze large codebases",
         max_generations=10,
-        population_size=8,
-        pareto_size=6,
+        max_frontier_size=6,
+        mutation_probability=0.8,
     )
 
     best_variant = await evolver.evolve()
@@ -77,23 +78,18 @@ anyio.run(evolve_agent)
 
 ### ImproverAgent
 
-The `ImproverAgent` optimizes existing agent code through multiple generations of improvement.
+The `ImproverAgent` optimizes existing agent code by analyzing and improving it for token efficiency and execution speed.
 
 **Parameters:**
 
-- `model`: LLM model to use (default: `"claude-sonnet-4-5"`)
-- `max_steps`: Maximum steps per generation (default: `150`)
-- `max_budget`: Maximum USD budget per generation (default: `15.0`)
-- `num_generations`: Number of improvement generations (default: `5`)
-- `pareto_frontier_size`: Maximum Pareto frontier size (default: `4`)
-- `mutation_probability`: Probability of mutation vs crossover (default: `0.5`)
-- `min_improvement_threshold`: Minimum improvement to keep a variant (default: `0.01`)
-- `prune_non_frontier`: Whether to prune non-frontier variants (default: `True`)
+- `model_name`: LLM model to use (default: `"claude-sonnet-4-5"`)
+- `max_steps`: Maximum steps for the improvement agent (default: `150`)
+- `max_budget`: Maximum USD budget for improvement (default: `15.0`)
 
 **Methods:**
 
-- `improve(source_folder, target_folder, ...)`: Improve an agent over multiple generations
-- `crossover_improve(primary_folder, ..., secondary_report_path, ...)`: Combine ideas from two agents
+- `improve(source_folder, target_folder, report_path, base_dir)`: Improve an agent's code
+- `crossover_improve(primary_folder, primary_report_path, secondary_report_path, target_folder, base_dir)`: Combine ideas from two agents
 
 ### AgentEvolver
 
@@ -103,12 +99,10 @@ The `AgentEvolver` creates and evolves agent populations from a task description
 
 - `task_description`: Description of the task the agent should solve
 - `evaluation_fn`: Optional custom evaluation function `(folder_path) -> (tokens, time)`
-- `model`: LLM model for orchestration (default: `"claude-sonnet-4-5"`)
+- `model_name`: LLM model for orchestration (default: `"claude-sonnet-4-5"`)
 - `max_generations`: Maximum evolutionary generations (default: `10`)
-- `population_size`: Maximum population size (default: `8`)
-- `pareto_size`: Maximum Pareto frontier size (default: `6`)
-- `mutation_probability`: Probability of mutation vs crossover (default: `0.5`)
-- `work_dir`: Working directory for variants
+- `max_frontier_size`: Maximum Pareto frontier size (default: `6`)
+- `mutation_probability`: Probability of mutation vs crossover (default: `0.8`)
 
 **Methods:**
 
@@ -121,23 +115,23 @@ The `AgentEvolver` creates and evolves agent populations from a task description
 
 **ImprovementReport**: Tracks improvements made to an agent
 
-- Baseline and improved metrics (tokens, time)
-- Implemented and failed optimization ideas
-- Lineage tracking (parent folder, generation)
-- Estimated improvements
+- `implemented_ideas`: List of successful optimizations with idea and source
+- `failed_ideas`: List of failed optimizations with idea and reason
+- `generation`: The generation number of this improvement
+- `improved_tokens`: Tokens used during improvement
+- `improved_time`: Time taken for improvement
+- `summary`: Summary of the improvement
 
 **AgentVariant**: Represents an agent variant in the Pareto frontier
 
-- Folder and report paths
-- Measured metrics
-- Generation and parent tracking
-- Pareto dominance checking
-
-**ImproverVariant**: Internal variant representation for the improver
-
-- Folder path and report
-- Estimated cumulative improvements
-- Pareto dominance checking
+- `folder_path`: Path to the variant's source code
+- `report_path`: Path to the variant's improvement report
+- `report`: The ImprovementReport instance
+- `tokens_used`: Measured token usage
+- `execution_time`: Measured execution time
+- `id`: Unique variant identifier
+- `generation`: Generation when created
+- `parent_ids`: List of parent variant IDs
 
 ## Configuration
 
@@ -150,14 +144,17 @@ from kiss.core.config import DEFAULT_CONFIG
 cfg = DEFAULT_CONFIG.agent_creator
 
 # Improver settings
-cfg.improver.model = "claude-sonnet-4-5"
-cfg.improver.num_generations = 5
-cfg.improver.pareto_frontier_size = 4
+cfg.improver.model_name = "claude-sonnet-4-5"
+cfg.improver.max_steps = 150
+cfg.improver.max_budget = 15.0
 
 # Evolver settings
+cfg.evolver.model_name = "claude-sonnet-4-5"
 cfg.evolver.max_generations = 10
-cfg.evolver.population_size = 8
-cfg.evolver.mutation_probability = 0.5
+cfg.evolver.max_frontier_size = 6
+cfg.evolver.mutation_probability = 0.8
+cfg.evolver.initial_agent_max_steps = 50
+cfg.evolver.initial_agent_max_budget = 5.0
 ```
 
 ## How It Works
@@ -181,9 +178,8 @@ The Pareto frontier contains all non-dominated solutions, representing the best 
 1. Copy source agent to target folder
 1. Analyze code structure and existing optimizations
 1. Apply optimizations (prompt reduction, caching, batching, etc.)
-1. Generate improvement report with estimates
+1. Generate improvement report with metrics
 1. Update Pareto frontier and prune dominated variants
-1. Repeat for configured number of generations
 
 ### Agent Creation
 
@@ -201,19 +197,16 @@ The `AgentEvolver` creates agents with these patterns:
 
 ```json
 {
-    "baseline_tokens": 10000,
-    "baseline_time": 30.0,
-    "improved_tokens": 8000,
-    "improved_time": 25.0,
-    "token_improvement_pct": 20.0,
-    "time_improvement_pct": 16.7,
     "implemented_ideas": [
-        {"idea": "Reduced prompt verbosity", "expected_impact": "10% token reduction"}
+        {"idea": "Reduced prompt verbosity", "source": "improver"}
     ],
     "failed_ideas": [
         {"idea": "Aggressive caching", "reason": "Caused correctness issues"}
     ],
-    "generation": 5
+    "generation": 5,
+    "improved_tokens": 8000,
+    "improved_time": 25.0,
+    "summary": "Optimized prompts and added caching for repeated operations"
 }
 ```
 
@@ -224,8 +217,17 @@ The `AgentEvolver` creates agents with these patterns:
     "task_description": "Build a code analysis assistant...",
     "generation": 10,
     "variant_counter": 15,
-    "all_variants": [...],
-    "pareto_frontier_ids": [3, 7, 12]
+    "pareto_frontier": [
+        {
+            "folder_path": "/path/to/variant_3",
+            "report_path": "/path/to/variant_3/improvement_report.json",
+            "tokens_used": 5000,
+            "execution_time": 12.5,
+            "id": 3,
+            "generation": 4,
+            "parent_ids": [1]
+        }
+    ]
 }
 ```
 
@@ -248,6 +250,13 @@ The improver applies various optimization strategies:
 
 ```python
 class ImproverAgent:
+    def __init__(
+        self,
+        model_name: str | None = None,
+        max_steps: int | None = None,
+        max_budget: float | None = None,
+    ): ...
+
     async def improve(
         self,
         source_folder: str,
@@ -270,10 +279,20 @@ class ImproverAgent:
 
 ```python
 class AgentEvolver:
+    def __init__(
+        self,
+        task_description: str,
+        evaluation_fn: Any = None,
+        model_name: str | None = None,
+        max_generations: int | None = None,
+        max_frontier_size: int | None = None,
+        mutation_probability: float | None = None,
+    ): ...
+
     async def evolve(self) -> AgentVariant: ...
     def get_best_variant(self) -> AgentVariant: ...
     def get_pareto_frontier(self) -> list[AgentVariant]: ...
-    def save_state(self, path: str | None = None) -> None: ...
+    def save_state(self, path: str) -> None: ...
 ```
 
 ## License

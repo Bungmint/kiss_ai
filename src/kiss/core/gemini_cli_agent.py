@@ -17,36 +17,12 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 from kiss.core import DEFAULT_CONFIG
-from kiss.core.base_agent import BaseAgent
+from kiss.core.base_agent import DEFAULT_SYSTEM_PROMPT, BaseAgent
 from kiss.core.formatter import Formatter
 from kiss.core.models.model_info import get_max_context_length
 from kiss.core.simple_formatter import SimpleFormatter
 
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
-
-SYSTEMS_PROMPT = """You are an expert Python programmer who writes clean, simple, \
-and robust code.
-
-## Code Style Guidelines
-- Write simple, readable code with minimal indirection
-- Avoid unnecessary object attributes and local variables
-- No redundant abstractions or duplicate code
-- Each function should do one thing well
-- Use clear, descriptive names
-
-## Testing Requirements
-- Generate comprehensive tests for EVERY function and feature
-- Tests MUST NOT use mocks, patches, or any form of test doubles
-- Test with real inputs and verify real outputs
-- Test edge cases: empty inputs, None values, boundary conditions
-- Test error conditions with actual invalid inputs
-- Each test should be independent and verify actual behavior
-
-## Code Structure
-- Main implementation code first
-- Test code in a separate section using unittest or pytest
-- Include a __main__ block to run tests
-"""
 
 
 class GeminiCliAgent(BaseAgent):
@@ -277,7 +253,7 @@ class GeminiCliAgent(BaseAgent):
         agent = Agent(
             model=model_name,
             name=self.name,
-            instruction=SYSTEMS_PROMPT,
+            instruction=DEFAULT_SYSTEM_PROMPT,
             description="An expert Python programmer that writes clean, simple, robust code.",
             tools=tools,
         )

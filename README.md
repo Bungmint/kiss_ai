@@ -208,6 +208,65 @@ final = editor_agent.run(
 
 Each agent can use a different model. Each agent has its own budget. Each agent saves its own trajectory. And you compose them with the most powerful orchestration tool ever invented: **regular Python code**.
 
+### Using Agent Creator and Optimizer
+
+> 📖 **For detailed Agent Creator documentation, see [Agent Creator README](src/kiss/agents/agent_creator/README.md)**
+
+The Agent Creator module provides tools to automatically evolve and optimize AI agents for **token efficiency** and **execution speed** using evolutionary algorithms with Pareto frontier maintenance.
+
+**Key Components:**
+
+- **ImproverAgent**: Optimizes existing agent code through iterative improvement
+- **AgentEvolver**: Maintains a population of agent variants and evolves them using mutation and crossover operations
+
+```python
+import anyio
+from kiss.agents.agent_creator import ImproverAgent, AgentEvolver
+
+# Option 1: Improve an existing agent
+async def improve_existing_agent():
+    improver = ImproverAgent(
+        model_name="claude-sonnet-4-5",
+        max_steps=150,
+        max_budget=15.0,
+    )
+
+    success, report = await improver.improve(
+        source_folder="/path/to/agent",
+        target_folder="/path/to/improved_agent",
+    )
+
+    if success and report:
+        print(f"Improvement completed in {report.improved_time:.2f}s")
+        print(f"Tokens used: {report.improved_tokens}")
+
+# Option 2: Evolve a new agent from a task description
+async def evolve_new_agent():
+    evolver = AgentEvolver(
+        task_description="Build a code analysis assistant that can parse and analyze large codebases",
+        max_generations=10,
+        max_frontier_size=6,
+        mutation_probability=0.8,
+    )
+
+    best_variant = await evolver.evolve()
+
+    print(f"Best agent: {best_variant.folder_path}")
+    print(f"Tokens used: {best_variant.tokens_used}")
+    print(f"Execution time: {best_variant.execution_time:.2f}s")
+
+anyio.run(improve_existing_agent)
+```
+
+**Features:**
+
+- **Multi-Objective Optimization**: Optimizes for both token usage and execution time
+- **Pareto Frontier Maintenance**: Keeps track of all non-dominated solutions
+- **Evolutionary Operations**: Supports mutation (improving one variant) and crossover (combining ideas from two variants)
+- **Automatic Pruning**: Removes dominated variants to manage memory and storage
+
+For usage examples, API reference, and configuration options, please see the [Agent Creator README](src/kiss/agents/agent_creator/README.md).
+
 ### Using GEPA for Prompt Optimization
 
 > 📖 **For detailed GEPA documentation, see [GEPA README](src/kiss/agents/gepa/README.md)**

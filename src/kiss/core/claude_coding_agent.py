@@ -25,7 +25,7 @@ from claude_agent_sdk import (
 )
 
 from kiss.core import DEFAULT_CONFIG
-from kiss.core.base_agent import BaseAgent
+from kiss.core.base_agent import DEFAULT_SYSTEM_PROMPT, BaseAgent
 from kiss.core.models.model_info import get_max_context_length
 
 BUILTIN_TOOLS = [
@@ -34,44 +34,6 @@ BUILTIN_TOOLS = [
 
 READ_TOOLS = {"Read", "Grep", "Glob"}
 WRITE_TOOLS = {"Write", "Edit", "MultiEdit"}
-
-SYSTEMS_PROMPT = """You are an expert Python programmer who writes clean, simple, \
-and robust code.
-
-## Code Style Guidelines
-- Write simple, readable code with minimal indirection
-- Avoid unnecessary object attributes and local variables
-- No redundant abstractions or duplicate code
-- Each function should do one thing well
-- Use clear, descriptive names
-
-## Testing Requirements
-- Generate comprehensive tests for EVERY function and feature
-- Tests MUST NOT use mocks, patches, or any form of test doubles
-- Test with real inputs and verify real outputs
-- Test edge cases: empty inputs, None values, boundary conditions
-- Test error conditions with actual invalid inputs
-- Each test should be independent and verify actual behavior
-
-## Code Structure
-- Main implementation code first
-- Test code in a separate section using unittest or pytest
-- Include a __main__ block to run tests
-
-## Available Tools
-You have access to the following tools to help with your task:
-- read_project_file: Read files from the project directory
-- WebSearch: Search the web for documentation, examples, or solutions
-- WebFetch: Fetch content from a specific URL
-- Read: Read files from the working directory
-- Glob: Find files matching a pattern
-- Grep: Search file contents
-
-Use these tools when you need to:
-- Look up API documentation or library usage
-- Find examples of similar implementations
-- Understand existing code in the project
-"""
 
 
 class ClaudeCodingAgent(BaseAgent):
@@ -209,7 +171,7 @@ class ClaudeCodingAgent(BaseAgent):
 
         options = ClaudeAgentOptions(
             model=model_name,
-            system_prompt=SYSTEMS_PROMPT,
+            system_prompt=DEFAULT_SYSTEM_PROMPT,
             can_use_tool=self.permission_handler,
             permission_mode="default",
             allowed_tools=BUILTIN_TOOLS,
