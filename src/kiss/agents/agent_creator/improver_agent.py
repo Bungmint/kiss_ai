@@ -3,11 +3,11 @@
 # Koushik Sen (ksen@berkeley.edu)
 # add your name here
 
-"""ImproverAgent - Improves existing agent code using ClaudeCodingAgent.
+"""ImproverAgent - Improves existing agent code using a configurable coding agent.
 
 The ImproverAgent takes an existing agent's source code folder and a report,
-copies the folder to a new location, and uses ClaudeCodingAgent to improve
-the code to reduce token usage and execution time.
+copies the folder to a new location, and uses a coding agent (Claude, Gemini,
+or OpenAI Codex) to improve the code to reduce token usage and execution time.
 """
 
 import json
@@ -15,13 +15,38 @@ import shutil
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
 import anyio
 
 import kiss.agents.agent_creator.config  # noqa: F401
 from kiss.core.claude_coding_agent import ClaudeCodingAgent
 from kiss.core.config import DEFAULT_CONFIG
+from kiss.core.gemini_cli_agent import GeminiCliAgent
+from kiss.core.kiss_error import KISSError
+from kiss.core.openai_codex_agent import OpenAICodexAgent
 from kiss.core.utils import get_config_value
+
+
+def create_coding_agent(
+    coding_agent_type: Literal["claude code", "gemini cli", "openai codex"], name: str
+) -> ClaudeCodingAgent | GeminiCliAgent | OpenAICodexAgent:
+    """Create a Claude coding agent.
+
+    Args:
+        name: The name for the agent instance.
+
+    Returns:
+        An instance of ClaudeCodingAgent.
+    """
+    if coding_agent_type == "claude code":
+        return ClaudeCodingAgent(name)
+    elif coding_agent_type == "gemini cli":
+        return GeminiCliAgent(name)
+    elif coding_agent_type == "openai codex":
+        return OpenAICodexAgent(name)
+    else:
+        raise KISSError(f"Unknown coding agent type: {coding_agent_type}")
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 
@@ -110,6 +135,13 @@ Your goal is to improve this agent to:
 - Consolidate duplicate functions
 - Use more efficient algorithms
 
+### Agentic Patterns
+- Search the web for information about various agentic patterns
+- patterns that solve long-horizon tasks scalably, efficiently and accurately.
+- patterns that makes Python code faster
+- patterns that make bash commands faster
+- implement these patterns in the agent's code
+
 ## Previous Improvement Report
 
 {previous_report}
@@ -130,21 +162,31 @@ When complete, provide a summary of:
 
 
 class ImproverAgent:
-    """Agent that improves existing agent code using ClaudeCodingAgent."""
+    """Agent that improves existing agent code using a configurable coding agent."""
 
     def __init__(
         self,
         model_name: str | None = None,
         max_steps: int | None = None,
         max_budget: float | None = None,
+        coding_agent_type: Literal["claude code", "gemini cli", "openai codex"] | None = None,
     ):
-        """Initialize the ImproverAgent."""
+        """Initialize the ImproverAgent.
+
+        Args:
+            model_name: LLM model to use for improvement.
+            max_steps: Maximum steps for the coding agent.
+            max_budget: Maximum budget in USD for the coding agent.
+        """
         cfg = getattr(DEFAULT_CONFIG, "agent_creator", None)
         improver_cfg = cfg.improver if cfg else None
 
         self.model_name = get_config_value(model_name, improver_cfg, "model_name")
         self.max_steps = get_config_value(max_steps, improver_cfg, "max_steps")
         self.max_budget = get_config_value(max_budget, improver_cfg, "max_budget")
+        self.coding_agent_type: Literal["claude code", "gemini cli", "openai codex"] = (
+            coding_agent_type or "claude code"
+        )
 
     def _load_report(self, path: str | None) -> ImprovementReport | None:
         """Load a report from a path, returning None if it fails."""
@@ -211,7 +253,7 @@ class ImproverAgent:
         if base_dir is None:
             base_dir = str(Path(DEFAULT_CONFIG.agent.artifact_dir) / "improver_workdir")
 
-        agent = ClaudeCodingAgent("ImproverAgent")
+        agent = create_coding_agent(self.coding_agent_type, "ImproverAgent")
 
         print(f"Running improvement on {target_folder}")
         start_time = time.time()

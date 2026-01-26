@@ -12,6 +12,7 @@ from typing import Any
 
 from kiss.core.base_agent import BaseAgent
 from kiss.core.config import DEFAULT_CONFIG
+from kiss.core.formatter import Formatter
 from kiss.core.kiss_error import KISSError
 from kiss.core.models.model_info import calculate_cost, get_max_context_length, model
 from kiss.core.simple_formatter import SimpleFormatter
@@ -45,7 +46,7 @@ class KISSAgent(BaseAgent):
         prompt_template: str,
         arguments: dict[str, str] | None = None,
         tools: list[Callable[..., Any]] | None = None,
-        formatter: Any = None,
+        formatter: Formatter | None = None,
         is_agentic: bool = True,
         max_steps: int = DEFAULT_CONFIG.agent.max_steps,
         max_budget: float = DEFAULT_CONFIG.agent.max_agent_budget,
@@ -102,7 +103,7 @@ class KISSAgent(BaseAgent):
     def _initialize_run(
         self,
         model_name: str,
-        formatter: Any,
+        formatter: Formatter | None,
         is_agentic: bool,
         max_steps: int,
         max_budget: float,

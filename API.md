@@ -9,6 +9,8 @@
 - [DockerManager](#dockermanager) - Docker container management
 - [Multiprocessing](#multiprocessing) - Parallel execution utilities
 - [SimpleRAG](#simplerag) - Simple RAG system for document retrieval
+- [AgentEvolver](#agentevolver) - Evolutionary agent optimization
+- [ImproverAgent](#improveragent) - Multi agent creator and optimizer
 - [GEPA](#gepa) - Genetic-Pareto prompt optimizer
 - [KISSEvolve](#kissevolve) - Evolutionary algorithm discovery
 - [Utility Functions](#utility-functions) - Helper functions
@@ -807,6 +809,243 @@ rag.add_documents(documents)
 results = rag.query("What is Python?", top_k=2)
 for result in results:
     print(f"Text: {result['text']}, Score: {result['score']}")
+```
+
+______________________________________________________________________
+
+## AgentEvolver
+
+AgentEvolver evolves AI agents using a Pareto frontier approach, optimizing for both token efficiency and execution time. It uses mutation and crossover operations to create new agent variants.
+
+### Constructor
+
+```python
+AgentEvolver(
+    task_description: str,
+    evaluation_fn: Callable[[str], tuple[int, float]] | None = None,
+    model_name: str | None = None,
+    max_generations: int | None = None,
+    max_frontier_size: int | None = None,
+    mutation_probability: float | None = None,
+    coding_agent_type: Literal["claude code", "gemini cli", "openai codex"] | None = None,
+)
+```
+
+**Parameters:**
+
+- `task_description` (str): Description of the task the agent should perform.
+- `evaluation_fn` (Callable | None): Optional function to evaluate agent variants. Takes folder path, returns `(tokens_used, execution_time)`. If None, uses placeholder evaluation.
+- `model_name` (str | None): LLM model to use for agent creation and improvement. Uses config default if None.
+- `max_generations` (int | None): Maximum number of improvement generations. Uses config default if None.
+- `max_frontier_size` (int | None): Maximum size of the Pareto frontier. Uses config default if None.
+- `mutation_probability` (float | None): Probability of mutation vs crossover (1.0 = always mutate). Uses config default if None.
+- `coding_agent_type` (Literal | None): Which coding agent to use: `"claude code"`, `"gemini cli"`, or `"openai codex"`. Uses config default if None.
+
+### Methods
+
+#### `evolve()`
+
+```python
+async def evolve(self) -> AgentVariant
+```
+
+Run the evolutionary optimization process.
+
+**Returns:**
+
+- `AgentVariant`: The best agent variant found during evolution.
+
+#### `get_best_variant()`
+
+```python
+def get_best_variant(self) -> AgentVariant
+```
+
+Get the best variant from the Pareto frontier by combined score.
+
+**Returns:**
+
+- `AgentVariant`: The best agent variant (lowest combined score of tokens + time).
+
+**Raises:**
+
+- `RuntimeError`: If no variants are available.
+
+#### `get_pareto_frontier()`
+
+```python
+def get_pareto_frontier(self) -> list[AgentVariant]
+```
+
+Get all variants in the Pareto frontier.
+
+**Returns:**
+
+- `list[AgentVariant]`: Copy of the current Pareto frontier.
+
+#### `save_state()`
+
+```python
+def save_state(self, path: str) -> None
+```
+
+Save the evolver state to a JSON file.
+
+**Parameters:**
+
+- `path` (str): Path where to save the state JSON file.
+
+### AgentVariant
+
+```python
+@dataclass
+class AgentVariant:
+    folder_path: str
+    report_path: str
+    report: ImprovementReport
+    tokens_used: int = 0
+    execution_time: float = 0.0
+    id: int = 0
+    generation: int = 0
+    parent_ids: list[int] = field(default_factory=list)
+```
+
+### ImprovementReport
+
+```python
+@dataclass
+class ImprovementReport:
+    implemented_ideas: list[dict[str, str]] = field(default_factory=list)
+    failed_ideas: list[dict[str, str]] = field(default_factory=list)
+    generation: int = 0
+    improved_tokens: int = 0
+    improved_time: float = 0.0
+    summary: str = ""
+```
+
+### Example
+
+```python
+import anyio
+from kiss.agents.agent_creator import AgentEvolver
+
+async def main():
+    evolver = AgentEvolver(
+        task_description="Build a code analysis assistant that reviews Python files",
+        max_generations=5,
+        max_frontier_size=4,
+        mutation_probability=0.8,
+    )
+
+    best = await evolver.evolve()
+
+    print(f"Best variant: {best.folder_path}")
+    print(f"Tokens used: {best.tokens_used}")
+    print(f"Execution time: {best.execution_time:.2f}s")
+
+    # Save state for later analysis
+    evolver.save_state("evolver_state.json")
+
+anyio.run(main)
+```
+
+______________________________________________________________________
+
+## ImproverAgent
+
+ImproverAgent optimizes existing agent code to reduce token usage and execution time using a configurable coding agent.
+
+### Constructor
+
+```python
+ImproverAgent(
+    model_name: str | None = None,
+    max_steps: int | None = None,
+    max_budget: float | None = None,
+    coding_agent_type: Literal["claude code", "gemini cli", "openai codex"] | None = None,
+)
+```
+
+**Parameters:**
+
+- `model_name` (str | None): LLM model to use for improvement. Uses config default if None.
+- `max_steps` (int | None): Maximum steps for the coding agent. Uses config default if None.
+- `max_budget` (float | None): Maximum budget in USD for the coding agent. Uses config default if None.
+- `coding_agent_type` (Literal | None): Which coding agent to use. Defaults to `"claude code"` if None.
+
+### Methods
+
+#### `improve()`
+
+```python
+async def improve(
+    self,
+    source_folder: str,
+    target_folder: str,
+    report_path: str | None = None,
+    base_dir: str | None = None,
+) -> tuple[bool, ImprovementReport | None]
+```
+
+Improve an agent's code to reduce token usage and execution time.
+
+**Parameters:**
+
+- `source_folder` (str): Path to the folder containing the agent's source code.
+- `target_folder` (str): Path where the improved agent will be written.
+- `report_path` (str | None): Optional path to a previous improvement report.
+- `base_dir` (str | None): Working directory for the coding agent.
+
+**Returns:**
+
+- `tuple[bool, ImprovementReport | None]`: Tuple of (success, report). Report is None if improvement failed.
+
+#### `crossover_improve()`
+
+```python
+async def crossover_improve(
+    self,
+    primary_folder: str,
+    primary_report_path: str,
+    secondary_report_path: str,
+    target_folder: str,
+    base_dir: str | None = None,
+) -> tuple[bool, ImprovementReport | None]
+```
+
+Improve an agent by combining ideas from two variants.
+
+**Parameters:**
+
+- `primary_folder` (str): Path to the primary variant's source code.
+- `primary_report_path` (str): Path to the primary variant's improvement report.
+- `secondary_report_path` (str): Path to the secondary variant's improvement report.
+- `target_folder` (str): Path where the improved agent will be written.
+- `base_dir` (str | None): Working directory for the coding agent.
+
+**Returns:**
+
+- `tuple[bool, ImprovementReport | None]`: Tuple of (success, report).
+
+### Example
+
+```python
+import anyio
+from kiss.agents.agent_creator import ImproverAgent
+
+async def main():
+    improver = ImproverAgent(model_name="claude-sonnet-4-5")
+
+    success, report = await improver.improve(
+        source_folder="/path/to/original/agent",
+        target_folder="/path/to/improved/agent",
+    )
+
+    if success and report:
+        print(f"Improvement completed in {report.improved_time:.2f}s")
+        print(f"Tokens used: {report.improved_tokens}")
+
+anyio.run(main)
 ```
 
 ______________________________________________________________________

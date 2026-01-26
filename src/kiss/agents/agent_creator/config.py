@@ -5,6 +5,8 @@
 
 """Configuration for Agent Creator - Improver and Evolver agents."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from kiss.core.config_builder import add_config
@@ -53,6 +55,10 @@ class EvolverConfig(BaseModel):
     initial_agent_max_budget: float = Field(
         default=5.0,
         description="Maximum budget in USD for creating the initial agent",
+    )
+    coding_agent_type: Literal["claude code", "gemini cli", "openai codex"] = Field(
+        default="claude code",
+        description="Type of coding agent to use for the improver agent",
     )
 
 

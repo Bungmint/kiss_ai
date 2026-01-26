@@ -76,7 +76,7 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import anyio
 
@@ -84,10 +84,12 @@ import kiss.agents.agent_creator.config  # noqa: F401
 from kiss.agents.agent_creator.improver_agent import (
     ImprovementReport,
     ImproverAgent,
+    create_coding_agent,
 )
-from kiss.core.claude_coding_agent import ClaudeCodingAgent
 from kiss.core.config import DEFAULT_CONFIG
 from kiss.core.utils import get_config_value
+
+PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 
 
 @dataclass
@@ -141,13 +143,16 @@ Your task is to create an initial agent implementation based on the following re
 
 ## Agent Requirements
 
-The agent must be designed for **long-running, complex tasks** and should implement:
+The agent must be designed for **long-running, complex tasks** using
+the Agent API available at {kiss_folder}/API.md and should implement:
 
 ### 1. Orchestrator Pattern
+- Creates a workflow for the agent to follow.
 - Central coordinator that manages the overall workflow
 - Maintains high-level state and progress tracking
 - Delegates subtasks to specialized sub-agents
 - Handles error recovery and retries
+- Create informative and concise contexts (prompts) for the sub-agents.
 
 ### 2. Dynamic To-Do List
 - Maintain a structured task list that evolves during execution
@@ -176,27 +181,21 @@ The agent must be designed for **long-running, complex tasks** and should implem
 - Early termination when goals are achieved
 - Caching of intermediate results
 
+## 7. Search the web for information about
+- patterns that solve long-horizon tasks scalably, efficiently and accurately.
+- patterns that makes Python code faster
+- patterns that make bash commands faster
+
 ## Output Structure
 
 Create the following files in {target_folder}:
 
 1. `agent.py` - Main agent implementation with:
-   - Orchestrator class
-   - TodoList class
-   - ToolRegistry class
-   - Checkpoint management
-   - Sub-agent creation utilities
-
 2. `config.py` - Agent configuration
-
 3. `__init__.py` - Agent package initialization
-
 4. `README.md` - Agent documentation
-
 5. `test_agent.py` - Tests for the agent
-
 6. `requirements.txt` - Dependencies for the agent
-
 7. Any other files necessary for the agent to function properly.
 
 When complete, provide a summary of the agent created and the files that were written.
@@ -219,8 +218,19 @@ class AgentEvolver:
         max_generations: int | None = None,
         max_frontier_size: int | None = None,
         mutation_probability: float | None = None,
+        coding_agent_type: Literal["claude code", "gemini cli", "openai codex"] | None = None,
     ):
-        """Initialize the AgentEvolver."""
+        """Initialize the AgentEvolver.
+
+        Args:
+            task_description: Description of the task the agent should perform.
+            evaluation_fn: Optional function to evaluate agent variants.
+            model_name: LLM model to use for agent creation and improvement.
+            max_generations: Maximum number of improvement generations.
+            max_frontier_size: Maximum size of the Pareto frontier.
+            mutation_probability: Probability of mutation vs crossover.
+            coding_agent_type: Which coding agent to use: 'claude', 'gemini', or 'openai_codex'.
+        """
         cfg = getattr(DEFAULT_CONFIG, "agent_creator", None)
         evolver_cfg = cfg.evolver if cfg else None
 
@@ -240,6 +250,9 @@ class AgentEvolver:
         self.initial_agent_max_budget: float = get_config_value(
             None, evolver_cfg, "initial_agent_max_budget"
         )
+        self.coding_agent_type: Literal["claude code", "gemini cli", "openai codex"] = (
+            get_config_value(coding_agent_type, evolver_cfg, "coding_agent_type")
+        )
 
         self.work_dir = Path(tempfile.mkdtemp())
         self.optimal_dir = Path(DEFAULT_CONFIG.agent.artifact_dir) / "optimal_agent"
@@ -247,7 +260,9 @@ class AgentEvolver:
         self.pareto_frontier: list[AgentVariant] = []
         self._variant_counter = 0
         self._generation = 0
-        self.improver = ImproverAgent(model_name=self.model_name)
+        self.improver = ImproverAgent(
+            model_name=self.model_name, coding_agent_type=self.coding_agent_type
+        )
 
     def _next_variant_id(self) -> int:
         """Get the next unique variant ID."""
@@ -266,13 +281,14 @@ class AgentEvolver:
         target_folder, report_path = self._get_variant_paths(variant_id)
         Path(target_folder).mkdir(parents=True, exist_ok=True)
 
-        agent = ClaudeCodingAgent("Initial Agent Creator")
+        agent = create_coding_agent(self.coding_agent_type, "Initial Agent Creator")
         result = await agent.run(
             model_name=self.model_name,
             prompt_template=INITIAL_AGENT_PROMPT,
             arguments={
                 "task_description": self.task_description,
                 "target_folder": target_folder,
+                "kiss_folder": str(PROJECT_ROOT),
             },
             max_steps=self.initial_agent_max_steps,
             max_budget=self.initial_agent_max_budget,
@@ -572,83 +588,26 @@ class AgentEvolver:
 
 # Very long task description for testing
 LONG_RUNNING_TASK = """
-Build a comprehensive code analysis and refactoring assistant that can:
-
-## Phase 1: Code Understanding (Long-running analysis)
-1. Parse and understand large codebases (1000+ files)
-2. Build dependency graphs between modules
-3. Identify code patterns and anti-patterns
-4. Create semantic embeddings for code search
-5. Generate documentation from code
-
-## Phase 2: Intelligent Refactoring
-1. Identify code duplication across the codebase
-2. Suggest and apply DRY principle improvements
-3. Detect and fix common bugs (null checks, resource leaks)
-4. Modernize legacy code patterns
-5. Optimize performance bottlenecks
-
-## Phase 3: Test Generation
-1. Analyze existing test coverage
-2. Generate unit tests for uncovered code
-3. Create integration tests for critical paths
-4. Generate property-based tests
-5. Create regression test suites
-
-## Phase 4: Documentation
-1. Generate API documentation
-2. Create architecture diagrams
-3. Write user guides
-4. Generate changelog from commits
-5. Create onboarding documentation
-
-## Requirements
-
-### Orchestrator Pattern
-The agent must use a central orchestrator that:
-- Maintains overall progress across all phases
-- Coordinates between specialized sub-agents
-- Handles failures gracefully with retry logic
-- Reports progress periodically
-
-### Dynamic To-Do List
-Implement a task management system that:
-- Tracks tasks at multiple granularity levels (phase, task, subtask)
-- Supports task dependencies
-- Allows dynamic task addition during execution
-- Prioritizes tasks based on impact
-
-### Dynamic Tool Creation
-The agent should create tools dynamically for:
-- Language-specific parsers
-- Pattern matchers
-- Code generators
-- Test runners
-
-### Checkpointing
-Implement checkpointing that:
-- Saves state after each major milestone
-- Allows resumption from any checkpoint
-- Tracks what has been analyzed/modified
-
-### Sub-Agent Delegation
-Create specialized sub-agents for:
-- Code parsing (per language)
-- Pattern detection
-- Test generation
-- Documentation writing
-
-### Efficiency Requirements
-- Minimize redundant parsing (cache ASTs)
-- Batch API calls where possible
-- Use incremental processing
-- Early termination when possible
-
-The entire process should complete within reasonable time despite
-the massive scope, by using intelligent prioritization and
-parallelization where possible.
+> **Task:** Create a robust database engine using only Bash scripts.
+>
+> **Requirements:**
+> 1.  Create a script named `db.sh` that interacts with a local data folder.
+> 2.  **Basic Operations:** Implement `db.sh set <key> <value>`,
+>     `db.sh get <key>`, and `db.sh delete <key>`.
+> 3.  **Atomicity:** Implement transaction support.
+>     *   `db.sh begin` starts a session where writes are cached but not visible to others.
+>     *   `db.sh commit` atomically applies all cached changes.
+>     *   `db.sh rollback` discards pending changes.
+> 4.  **Concurrency:** Ensure that if two different terminal windows run `db.sh`
+>     simultaneously, the data is never corrupted (use `mkdir`-based mutex locking).
+> 5.  **Validation:** Write a test script `test_stress.sh` that launches 10
+>     concurrent processes to spam the database, verifying no data is lost.
+>
+> **Constraints:**
+> *   No external database tools (no sqlite3, no python).
+> *   Standard Linux utilities only (sed, awk, grep, flock/mkdir).
+> *   Safe: Operate entirely within a `./my_db` directory.
 """
-
 
 async def main() -> None:
     """Run the AgentEvolver on a long-running task."""
