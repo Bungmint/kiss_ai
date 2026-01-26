@@ -133,11 +133,12 @@ Your goal is to improve this agent to:
 - Use more efficient algorithms
 
 ### Agentic Patterns
-- Search the web for information about various agentic patterns
-- patterns that solve long-horizon tasks scalably, efficiently and accurately.
+- search the web for information about various agentic patterns
+- consider using planning and sub-agents
+- patterns that solve long-horizon tasks scalably, efficiently and accurately
 - patterns that makes Python code faster
 - patterns that make bash commands faster
-- implement these patterns in the agent's code if necessary
+- try some of these patterns in the agent's source code based on your needs
 
 ## Previous Improvement Report
 

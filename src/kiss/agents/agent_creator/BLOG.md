@@ -65,7 +65,7 @@ The system uses crowding distance to maintain diversity—ensuring that even whe
 
 ## Beyond Prompt Optimization
 
-This is what separates Agent Evolver from tools like DSPy or prompt tuning frameworks. Those systems optimize your prompts while leaving your code untouched. Agent Evolver optimizes **everything**:
+This is what separates Agent Evolver from tools like prompt tuning frameworks. Those systems optimize your prompts while leaving your code untouched. Agent Evolver optimizes **everything**:
 
 | Traditional Prompt Optimization | Agent Evolver |
 |--------------------------------|---------------|
