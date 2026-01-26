@@ -1,0 +1,49 @@
+{
+  "task_description": "\n> **Task:** Create a robust database engine using only Bash scripts.\n>\n> **Requirements:**\n> 1.  Create a script named `db.sh` that interacts with a local data folder.\n> 2.  **Basic Operations:** Implement `db.sh set <key> <value>`,\n>     `db.sh get <key>`, and `db.sh delete <key>`.\n> 3.  **Atomicity:** Implement transaction support.\n>     *   `db.sh begin` starts a session where writes are cached but not visible to others.\n>     *   `db.sh commit` atomically applies all cached changes.\n>     *   `db.sh rollback` discards pending changes.\n> 4.  **Concurrency:** Ensure that if two different terminal windows run `db.sh`\n>     simultaneously, the data is never corrupted (use `mkdir`-based mutex locking).\n> 5.  **Validation:** Write a test script `test_stress.sh` that launches 10\n>     concurrent processes to spam the database, verifying no data is lost.\n>\n> **Constraints:**\n> *   No external database tools (no sqlite3, no python).\n> *   Standard Linux utilities only (sed, awk, grep, flock/mkdir).\n> *   Safe: Operate entirely within a `./my_db` directory.\n",
+  "generation": 5,
+  "variant_counter": 6,
+  "pareto_frontier": [
+    {
+      "folder_path": "/var/folders/r2/wr1pwrgn36q3gg6248xtxf380000gn/T/tmpw9p_0j28/variant_1",
+      "report_path": "/var/folders/r2/wr1pwrgn36q3gg6248xtxf380000gn/T/tmpw9p_0j28/variant_1/improvement_report.json",
+      "tokens_used": 6189,
+      "execution_time": 1.7840093780192423,
+      "id": 1,
+      "generation": 0,
+      "parent_ids": []
+    },
+    {
+      "folder_path": "/var/folders/r2/wr1pwrgn36q3gg6248xtxf380000gn/T/tmpw9p_0j28/variant_3",
+      "report_path": "/var/folders/r2/wr1pwrgn36q3gg6248xtxf380000gn/T/tmpw9p_0j28/variant_3/improvement_report.json",
+      "tokens_used": 5868,
+      "execution_time": 3.160547464570369,
+      "id": 3,
+      "generation": 2,
+      "parent_ids": [
+        1
+      ]
+    },
+    {
+      "folder_path": "/var/folders/r2/wr1pwrgn36q3gg6248xtxf380000gn/T/tmpw9p_0j28/variant_4",
+      "report_path": "/var/folders/r2/wr1pwrgn36q3gg6248xtxf380000gn/T/tmpw9p_0j28/variant_4/improvement_report.json",
+      "tokens_used": 2033,
+      "execution_time": 9.66584895635047,
+      "id": 4,
+      "generation": 3,
+      "parent_ids": [
+        3
+      ]
+    },
+    {
+      "folder_path": "/var/folders/r2/wr1pwrgn36q3gg6248xtxf380000gn/T/tmpw9p_0j28/variant_6",
+      "report_path": "/var/folders/r2/wr1pwrgn36q3gg6248xtxf380000gn/T/tmpw9p_0j28/variant_6/improvement_report.json",
+      "tokens_used": 1682,
+      "execution_time": 9.838403775218183,
+      "id": 6,
+      "generation": 5,
+      "parent_ids": [
+        1
+      ]
+    }
+  ]
+}
