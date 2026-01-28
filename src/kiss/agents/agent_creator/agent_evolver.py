@@ -214,7 +214,8 @@ the Agent API available at {kiss_folder}.  Specifically, you should
 look at API.md and README.md first, and then look at code under the
 src folder as required.  You **MUST not make the agent specific to any
 particular task, but rather make it a general purpose agent that can
-be used for any task**. Create the following files in {target_folder}:
+be used for any task**. Try to use claude opus or sonnet 4.5 models 
+in the agent. Create the following files in {target_folder}:
 
 1. `agent.py` - Main agent implementation that MUST include an
    `def agent_run(task: str) -> dict[str, Any]` function.
@@ -666,9 +667,9 @@ async def main() -> None:
     """Run the AgentEvolver on a long-running task."""
     evolver = AgentEvolver(
         task_description=LONG_RUNNING_TASK,
-        max_generations=5,  # Reduced for testing
-        max_frontier_size=4,
-        mutation_probability=0.5,
+        max_generations=20,  # Reduced for testing
+        max_frontier_size=6,
+        mutation_probability=0.8,
     )
 
     best = await evolver.evolve()

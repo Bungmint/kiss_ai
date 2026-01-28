@@ -88,8 +88,16 @@ IMPROVE_AGENT_PROMPT = """You are an expert at optimizing AI agent code for effi
 ## Your Task
 
 
-You have been given an agent's source code in the folder: {source_folder}
-and the KISSAgent API implementation in the folder: {kiss_folder}
+You have been given an agent's source code in the folder: {source_folder}.
+The agent must be designed for **long-running, complex tasks** using
+the Agent API available at {kiss_folder}.  Specifically, you should
+look at API.md and README.md first, and then look at code under the
+src folder as required.  Try to use claude opus or sonnet 4.5 models 
+in the agent.  You **MUST not make the agent specific to any
+particular task, but rather make it a general purpose agent that can
+be used for any task**.
+
+## Goals
 
 Your goal is to improve this agent to:
 1. **Reduce token usage** - Minimize tokens in prompts and responses
