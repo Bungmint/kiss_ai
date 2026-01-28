@@ -357,7 +357,8 @@ class AgentEvolver:
         """Run the agent on the long-running task and collect metrics.
 
         Dynamically imports the agent from folder_path and calls the agent_run(task)
-        function with self.task_description.
+        function with self.task_description. The agent runs in a temporary directory
+        which is cleaned up before this method returns.
 
         The agent.py is expected to have an `agent_run(task: str)` function that
         runs the agent on the given task and returns a result.
@@ -373,23 +374,30 @@ class AgentEvolver:
         """
         print(f"Evaluating variant {variant.id}...")
 
-        agent_file = Path(variant.folder_path) / "agent.py"
-        module_name = f"agent_variant_{id(self)}_{random.randint(0, 10000)}"
-
+        # Create a temporary directory and copy the variant's code into it
+        temp_dir = Path(tempfile.mkdtemp(prefix=f"eval_variant_{variant.id}_"))
         try:
-            sys.path.insert(0, variant.folder_path)
-            agent_module = self._load_module_from_path(module_name, str(agent_file))
-            if agent_module is None:
-                print(f"Failed to load module from {agent_file}")
+            shutil.copytree(variant.folder_path, temp_dir / "agent_code", dirs_exist_ok=True)
+            agent_dir = str(temp_dir / "agent_code")
+            agent_file = temp_dir / "agent_code" / "agent.py"
+            module_name = f"agent_variant_{id(self)}_{random.randint(0, 10000)}"
+
+            try:
+                sys.path.insert(0, agent_dir)
+                agent_module = self._load_module_from_path(module_name, str(agent_file))
+                if agent_module is None:
+                    print(f"Failed to load module from {agent_file}")
+                    return {"success": 0, "tokens_used": 0, "execution_time": 0.0}
+                result: dict[str, Any] = agent_module.agent_run(self.task_description)
+                return result
+            except Exception:
                 return {"success": 0, "tokens_used": 0, "execution_time": 0.0}
-            result: dict[str, Any] = agent_module.agent_run(self.task_description)
-            return result
-        except Exception:
-            return {"success": 0, "tokens_used": 0, "execution_time": 0.0}
+            finally:
+                if agent_dir in sys.path:
+                    sys.path.remove(agent_dir)
+                sys.modules.pop(module_name, None)
         finally:
-            if variant.folder_path in sys.path:
-                sys.path.remove(variant.folder_path)
-            sys.modules.pop(module_name, None)
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
     def _update_pareto_frontier(self, new_variant: AgentVariant) -> bool:
         """Update the Pareto frontier with a new variant.

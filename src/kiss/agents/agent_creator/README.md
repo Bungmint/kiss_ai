@@ -13,11 +13,12 @@ Both components use a **Pareto frontier** approach to track non-dominated soluti
 
 ## Key Features
 
-- **Multi-Objective Optimization**: Optimizes for both token usage and execution time
+- **Multi-Objective Optimization**: Optimizes for flexible metrics (e.g., success, token usage, execution time)
 - **Pareto Frontier Maintenance**: Keeps track of all non-dominated solutions
 - **Evolutionary Operations**: Supports mutation (improving one variant) and crossover (combining ideas from two variants)
 - **Automatic Pruning**: Removes dominated variants to manage memory and storage
 - **Lineage Tracking**: Records parent relationships and improvement history
+- **Configurable Coding Agents**: Supports Claude Code, Gemini CLI, and OpenAI Codex
 - **Configurable Parameters**: Extensive configuration options for generations, frontier size, thresholds, etc.
 
 ## Installation
@@ -37,6 +38,7 @@ async def improve_agent():
         model_name="claude-sonnet-4-5",
         max_steps=150,
         max_budget=15.0,
+        coding_agent_type="claude code",
     )
 
     success, report = await improver.improve(
@@ -45,8 +47,8 @@ async def improve_agent():
     )
 
     if success and report:
-        print(f"Improvement completed in {report.improved_time:.2f}s")
-        print(f"Tokens used: {report.improved_tokens}")
+        print(f"Improvement completed in {report.metrics.get('execution_time', 0):.2f}s")
+        print(f"Tokens used: {report.metrics.get('tokens_used', 0)}")
 
 anyio.run(improve_agent)
 ```
@@ -63,13 +65,13 @@ async def evolve_agent():
         max_generations=10,
         max_frontier_size=6,
         mutation_probability=0.8,
+        coding_agent_type="claude code",
     )
 
     best_variant = await evolver.evolve()
 
     print(f"Best agent: {best_variant.folder_path}")
-    print(f"Tokens used: {best_variant.tokens_used}")
-    print(f"Execution time: {best_variant.execution_time:.2f}s")
+    print(f"Metrics: {best_variant.metrics}")
 
 anyio.run(evolve_agent)
 ```
@@ -85,6 +87,7 @@ The `ImproverAgent` optimizes existing agent code by analyzing and improving it 
 - `model_name`: LLM model to use (default: `"claude-sonnet-4-5"`)
 - `max_steps`: Maximum steps for the improvement agent (default: `150`)
 - `max_budget`: Maximum USD budget for improvement (default: `15.0`)
+- `coding_agent_type`: Which coding agent to use: `"claude code"`, `"gemini cli"`, or `"openai codex"`
 
 **Methods:**
 
@@ -98,16 +101,16 @@ The `AgentEvolver` creates and evolves agent populations from a task description
 **Parameters:**
 
 - `task_description`: Description of the task the agent should solve
-- `evaluation_fn`: Optional custom evaluation function `(folder_path) -> (tokens, time)`
 - `model_name`: LLM model for orchestration (default: `"claude-sonnet-4-5"`)
 - `max_generations`: Maximum evolutionary generations (default: `10`)
 - `max_frontier_size`: Maximum Pareto frontier size (default: `6`)
 - `mutation_probability`: Probability of mutation vs crossover (default: `0.8`)
+- `coding_agent_type`: Which coding agent to use: `"claude code"`, `"gemini cli"`, or `"openai codex"`
 
 **Methods:**
 
 - `evolve()`: Run the evolutionary optimization, returns the best variant
-- `get_best_variant()`: Get the current best variant by combined metric
+- `get_best_variant()`: Get the current best variant by combined score
 - `get_pareto_frontier()`: Get all variants in the Pareto frontier
 - `save_state(path)`: Save evolver state to JSON
 
@@ -118,8 +121,7 @@ The `AgentEvolver` creates and evolves agent populations from a task description
 - `implemented_ideas`: List of successful optimizations with idea and source
 - `failed_ideas`: List of failed optimizations with idea and reason
 - `generation`: The generation number of this improvement
-- `improved_tokens`: Tokens used during improvement
-- `improved_time`: Time taken for improvement
+- `metrics`: Dictionary of flexible metrics (e.g., `tokens_used`, `execution_time`)
 - `summary`: Summary of the improvement
 
 **AgentVariant**: Represents an agent variant in the Pareto frontier
@@ -127,11 +129,12 @@ The `AgentEvolver` creates and evolves agent populations from a task description
 - `folder_path`: Path to the variant's source code
 - `report_path`: Path to the variant's improvement report
 - `report`: The ImprovementReport instance
-- `tokens_used`: Measured token usage
-- `execution_time`: Measured execution time
+- `metrics`: Dictionary of flexible metrics (e.g., `success`, `tokens_used`, `execution_time`)
 - `id`: Unique variant identifier
 - `generation`: Generation when created
 - `parent_ids`: List of parent variant IDs
+- `dominates(other, minimize)`: Check if this variant Pareto-dominates another
+- `score(weights)`: Compute combined ranking score (lower is better)
 
 ## Configuration
 
@@ -155,6 +158,7 @@ cfg.evolver.max_frontier_size = 6
 cfg.evolver.mutation_probability = 0.8
 cfg.evolver.initial_agent_max_steps = 50
 cfg.evolver.initial_agent_max_budget = 5.0
+cfg.evolver.coding_agent_type = "claude code"
 ```
 
 ## How It Works
@@ -168,10 +172,20 @@ The module uses **Pareto dominance** to compare solutions. A solution A dominate
 
 The Pareto frontier contains all non-dominated solutions, representing the best trade-offs between objectives.
 
+By default, `tokens_used` and `execution_time` are minimized, while `success` is maximized. The `dominates()` method accepts a `minimize` parameter to customize which metrics to minimize.
+
+### Scoring
+
+Variants are ranked using a combined score (lower is better). Default weights:
+
+- `success`: -1,000,000 (maximize success - most important)
+- `tokens_used`: 1 (minimize token usage)
+- `execution_time`: 1,000 (minimize execution time)
+
 ### Evolutionary Operations
 
 1. **Mutation**: Select one variant from the frontier and apply improvements
-1. **Crossover**: Select two variants, use the better one as the base, and incorporate ideas from the other's improvement report
+1. **Crossover**: Select two variants, use the better one (by score) as the base, and incorporate ideas from the other's improvement report
 
 ### Improvement Process
 
@@ -204,8 +218,10 @@ The `AgentEvolver` creates agents with these patterns:
         {"idea": "Aggressive caching", "reason": "Caused correctness issues"}
     ],
     "generation": 5,
-    "improved_tokens": 8000,
-    "improved_time": 25.0,
+    "metrics": {
+        "tokens_used": 8000,
+        "execution_time": 25.0
+    },
     "summary": "Optimized prompts and added caching for repeated operations"
 }
 ```
@@ -221,8 +237,18 @@ The `AgentEvolver` creates agents with these patterns:
         {
             "folder_path": "/path/to/variant_3",
             "report_path": "/path/to/variant_3/improvement_report.json",
-            "tokens_used": 5000,
-            "execution_time": 12.5,
+            "report": {
+                "implemented_ideas": [...],
+                "failed_ideas": [...],
+                "generation": 4,
+                "metrics": {"tokens_used": 5000, "execution_time": 12.5},
+                "summary": "..."
+            },
+            "metrics": {
+                "success": 1,
+                "tokens_used": 5000,
+                "execution_time": 12.5
+            },
             "id": 3,
             "generation": 4,
             "parent_ids": [1]
@@ -255,6 +281,7 @@ class ImproverAgent:
         model_name: str | None = None,
         max_steps: int | None = None,
         max_budget: float | None = None,
+        coding_agent_type: Literal["claude code", "gemini cli", "openai codex"] | None = None,
     ): ...
 
     async def improve(
@@ -282,17 +309,51 @@ class AgentEvolver:
     def __init__(
         self,
         task_description: str,
-        evaluation_fn: Any = None,
         model_name: str | None = None,
         max_generations: int | None = None,
         max_frontier_size: int | None = None,
         mutation_probability: float | None = None,
+        coding_agent_type: Literal["claude code", "gemini cli", "openai codex"] | None = None,
     ): ...
 
     async def evolve(self) -> AgentVariant: ...
     def get_best_variant(self) -> AgentVariant: ...
     def get_pareto_frontier(self) -> list[AgentVariant]: ...
     def save_state(self, path: str) -> None: ...
+```
+
+### ImprovementReport
+
+```python
+@dataclass
+class ImprovementReport:
+    implemented_ideas: list[dict[str, str]] = field(default_factory=list)
+    failed_ideas: list[dict[str, str]] = field(default_factory=list)
+    generation: int = 0
+    metrics: dict[str, float] = field(default_factory=dict)
+    summary: str = ""
+
+    def save(self, path: str) -> None: ...
+    @classmethod
+    def load(cls, path: str) -> "ImprovementReport": ...
+```
+
+### AgentVariant
+
+```python
+@dataclass
+class AgentVariant:
+    folder_path: str
+    report_path: str
+    report: ImprovementReport
+    metrics: dict[str, float] = field(default_factory=dict)
+    id: int = 0
+    generation: int = 0
+    parent_ids: list[int] = field(default_factory=list)
+
+    def dominates(self, other: "AgentVariant", minimize: set[str] | None = None) -> bool: ...
+    def score(self, weights: dict[str, float] | None = None) -> float: ...
+    def to_dict(self) -> dict[str, Any]: ...
 ```
 
 ## License

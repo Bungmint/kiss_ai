@@ -233,6 +233,7 @@ async def improve_existing_agent():
         model_name="claude-sonnet-4-5",
         max_steps=150,
         max_budget=15.0,
+        coding_agent_type="claude code",
     )
 
     success, report = await improver.improve(
@@ -241,8 +242,8 @@ async def improve_existing_agent():
     )
 
     if success and report:
-        print(f"Improvement completed in {report.improved_time:.2f}s")
-        print(f"Tokens used: {report.improved_tokens}")
+        print(f"Improvement completed in {report.metrics.get('execution_time', 0):.2f}s")
+        print(f"Tokens used: {report.metrics.get('tokens_used', 0)}")
 
 # Option 2: Evolve a new agent from a task description
 async def evolve_new_agent():
@@ -251,22 +252,23 @@ async def evolve_new_agent():
         max_generations=10,
         max_frontier_size=6,
         mutation_probability=0.8,
+        coding_agent_type="claude code",
     )
 
     best_variant = await evolver.evolve()
 
     print(f"Best agent: {best_variant.folder_path}")
-    print(f"Tokens used: {best_variant.tokens_used}")
-    print(f"Execution time: {best_variant.execution_time:.2f}s")
+    print(f"Metrics: {best_variant.metrics}")
 
 anyio.run(improve_existing_agent)
 ```
 
 **Features:**
 
-- **Multi-Objective Optimization**: Optimizes for both token usage and execution time
+- **Multi-Objective Optimization**: Optimizes for flexible metrics (e.g., success, token usage, execution time)
 - **Pareto Frontier Maintenance**: Keeps track of all non-dominated solutions
 - **Evolutionary Operations**: Supports mutation (improving one variant) and crossover (combining ideas from two variants)
+- **Configurable Coding Agents**: Supports Claude Code, Gemini CLI, and OpenAI Codex
 - **Automatic Pruning**: Removes dominated variants to manage memory and storage
 
 For usage examples, API reference, and configuration options, please see the [Agent Creator README](src/kiss/agents/agent_creator/README.md).
