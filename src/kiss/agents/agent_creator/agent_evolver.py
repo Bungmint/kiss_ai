@@ -12,68 +12,82 @@ across generations.
 
 Key features:
 1. Pareto frontier maintenance for multi-objective optimization
-2. Mutation: Sample and improve a single (folder, report) pair
-3. Crossover: Combine ideas from two (folder, report) pairs
+2. Mutation: Sample and improve a single variant
+3. Crossover: Combine ideas from two variants
 4. Configurable mutation vs crossover probability
-5. Comprehensive tracking of lineage and improvements
+5. Tracking of lineage via parent_ids
 
-Pseudo-code for AgentEvolver Algorithm (showing use of parameters):
+Pseudo-code for AgentEvolver Algorithm:
 
 Inputs:
-    - Initial_population_size
-    - Num_generations
-    - mutation_probability (P_mutation)
-    - crossover_probability (P_crossover)
-    - Pareto_objectives: [token efficiency, execution time]
-    - evaluation_metrics
+    - task_description: Description of the task the agent should perform
+    - max_generations: Maximum number of improvement generations
+    - max_frontier_size: Maximum size of the Pareto frontier
+    - mutation_probability: Probability of mutation vs crossover (0.0 to 1.0)
+    - coding_agent_type: Which coding agent to use (claude code, gemini cli, openai codex)
 
-Algorithm:
+Data Structures:
+    AgentVariant:
+        - folder_path: Directory containing agent code
+        - report: ImprovementReport tracking implemented/failed ideas
+        - metrics: {success, tokens_used, execution_time}
+        - id, generation, parent_ids (for lineage tracking)
 
-1. Initialize population with Initial_population_size agent variants
-   For each agent variant:
-       - Randomly initialize or use seed agents
-       - Evaluate metrics (tokens_used, execution_time)
+    dominates(A, B):
+        # A dominates B if A is at least as good in all metrics and strictly better in one
+        # Minimizes: tokens_used, execution_time
+        # Maximizes: success
 
-2. For generation = 1 to Num_generations:
-    a. Maintain Pareto frontier:
-        - For every agent in population:
-            - Update dominates_count and dominated_by_count
-        - Pareto frontier = all agents not dominated by any other
+    score(variant):
+        # Combined ranking score (lower is better)
+        # = success * (-1,000,000) + tokens_used * 1 + execution_time * 1000
 
-    b. For each offspring to create:
-        - With probability P_mutation:
-            - Select one agent from from Pareto frontier
-            - Apply mutation using ImproverAgent
-        - Otherwise:
-            - Select two parents from population (can be weighted by performance)
-            - Apply crossover to produce a child
+Algorithm EVOLVE():
+    1. INITIALIZE
+       - Create temporary work_dir for variants
+       - Set optimal_dir for storing best agent
+       - Initialize empty pareto_frontier
 
-    c. For every new agent variant produced:
-        - Evaluate metrics (tokens_used, execution_time)
-        - Assign id, generation, parent_ids
+    2. CREATE INITIAL AGENT
+       - Use coding agent to generate agent files from task_description
+       - Agent must implement agent_run(task) -> {success, tokens_used, execution_time}
+       - Evaluate initial agent by calling agent_run(task_description)
+       - Add to pareto_frontier
+       - Copy to optimal_dir
 
-    d. Combine new variants with current population
-        - Keep population size constant (optionally use Pareto dominance to select survivors)
-        - Update tracking info (lineage, improvement trajectory)
+    3. FOR generation = 1 TO max_generations:
+       a. SELECT OPERATION
+          IF random() < mutation_probability OR frontier_size < 2:
+              # MUTATION
+              parent = sample_uniform(pareto_frontier)
+              new_variant = ImproverAgent.improve(parent)
+          ELSE:
+              # CROSSOVER
+              v1, v2 = sample_two(pareto_frontier)
+              primary, secondary = order_by_score(v1, v2)  # better score first
+              new_variant = ImproverAgent.crossover_improve(primary, secondary)
 
-    e. (Optional) Log/report Pareto front for analysis
+       b. IF new_variant created successfully:
+          - Evaluate: load agent.py, call agent_run(task_description)
+          - Update pareto_frontier:
+              - Reject if dominated by any existing variant
+              - Remove variants dominated by new_variant
+              - Add new_variant
+              - If frontier > max_size: trim using crowding distance
+          - Copy best variant (min score) to optimal_dir
 
-3. After Num_generations, return the final Pareto frontier and agent histories.
+    4. RETURN best variant from pareto_frontier
 
-Parameters influence:
-    - Initial_population_size: size of population at the start and per generation
-    - Num_generations: total evolutionary cycles to run
-    - P_mutation: probability to choose mutation over crossover
-    - Pareto_objectives: define how dominance is determined and which agents comprise the frontier
-
-
+    5. CLEANUP work_dir
 """
 
+import importlib.util
 import json
+import os
 import random
 import shutil
+import sys
 import tempfile
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -99,35 +113,82 @@ class AgentVariant:
     folder_path: str
     report_path: str
     report: ImprovementReport
-    tokens_used: int = 0
-    execution_time: float = 0.0
+    metrics: dict[str, float] = field(default_factory=dict)  # Flexible metrics dictionary
     id: int = 0
     generation: int = 0
     parent_ids: list[int] = field(default_factory=list)
 
-    def dominates(self, other: "AgentVariant") -> bool:
-        """Check if this variant Pareto-dominates another."""
-        at_least_as_good = (
-            self.tokens_used <= other.tokens_used
-            and self.execution_time <= other.execution_time
-        )
-        strictly_better = (
-            self.tokens_used < other.tokens_used
-            or self.execution_time < other.execution_time
-        )
+    def dominates(self, other: "AgentVariant", minimize: set[str] | None = None) -> bool:
+        """Check if this variant Pareto-dominates another.
+
+        A variant dominates another if it is at least as good in all metrics
+        and strictly better in at least one.
+
+        Args:
+            minimize: Set of metric names to minimize. Metrics not in this set
+                     are maximized. Defaults to {"tokens_used", "execution_time"}.
+        """
+        if minimize is None:
+            minimize = {"tokens_used", "execution_time"}
+
+        all_metrics = set(self.metrics.keys()) | set(other.metrics.keys())
+
+        at_least_as_good = True
+        strictly_better = False
+
+        for metric in all_metrics:
+            self_val = self.metrics.get(metric, 0)
+            other_val = other.metrics.get(metric, 0)
+
+            if metric in minimize:
+                # Lower is better
+                if self_val > other_val:
+                    at_least_as_good = False
+                if self_val < other_val:
+                    strictly_better = True
+            else:
+                # Higher is better
+                if self_val < other_val:
+                    at_least_as_good = False
+                if self_val > other_val:
+                    strictly_better = True
+
         return at_least_as_good and strictly_better
 
-    def score(self) -> float:
-        """Combined score for ranking (lower is better)."""
-        return self.tokens_used + self.execution_time * 1000
+    def score(self, weights: dict[str, float] | None = None) -> float:
+        """Combined score for ranking (lower is better).
+
+        Args:
+            weights: Dict mapping metric names to weights. Positive weights mean
+                    the metric should be minimized, negative weights mean maximized.
+        """
+        if weights is None:
+            # Default weights: prioritize success (maximize), then minimize tokens and time
+            # success is 0 or 1, tokens_used count, execution_time in seconds
+            weights = {
+                "success": -1000000,      # Maximize success (most important)
+                "tokens_used": 1,         # Minimize token usage
+                "execution_time": 1000,   # Minimize execution time
+            }
+
+        score = 0.0
+        for metric, weight in weights.items():
+            score += self.metrics.get(metric, 0) * weight
+        return score
 
     def to_dict(self) -> dict[str, Any]:
         """Convert variant to dictionary."""
         return {
             "folder_path": self.folder_path,
             "report_path": self.report_path,
-            "tokens_used": self.tokens_used,
-            "execution_time": self.execution_time,
+            "report": {
+                "implemented_ideas": self.report.implemented_ideas,
+                "failed_ideas": self.report.failed_ideas,
+                "generation": self.report.generation,
+                "metrics": self.report.metrics,
+                "summary": self.report.summary,
+            },
+            "metrics": self.metrics,
             "id": self.id,
             "generation": self.generation,
             "parent_ids": self.parent_ids,
@@ -138,22 +199,37 @@ class AgentVariant:
 INITIAL_AGENT_PROMPT = """You are an expert at building efficient, long-running AI agents.
 Your task is to create an initial agent implementation based on the following requirements.
 
+# Instructions
+- You are going to run a very long-running task
+- You may need to use the web to search on how to write such agents
+- You may consider orchrestrator agents and sub-agents to solve the task
+
 ## Task Description
 {task_description}
 
 ## Agent Requirements
 
 The agent must be designed for **long-running, complex tasks** using
-the Agent API available at {kiss_folder}/API.md and should implement
-a simple KISSAgent to solve the task.  Create the following files in {target_folder}:
+the Agent API available at {kiss_folder}.  Specifically, you should
+look at API.md and README.md first, and then look at code under the
+src folder as required.  You **MUST not make the agent specific to any
+particular task, but rather make it a general purpose agent that can
+be used for any task**. Create the following files in {target_folder}:
 
-1. `agent.py` - Main agent implementation with:
+1. `agent.py` - Main agent implementation that MUST include an
+   `def agent_run(task: str) -> dict[str, Any]` function.
+   This function is the entry point that will be called to run the agent on a task.
+   It should accept a task description string and return a result.  The result must
+   be a dictionary containing the following keys:
+   - "tokens_used": int - Number of tokens used by the agent
+   - "execution_time": float - Time taken to run the agent on the task in seconds
+   - "success": int - 1 if the agent completed successfully, 0 otherwise
 2. `config.py` - Agent configuration
 3. `__init__.py` - Agent package initialization
 4. `README.md` - Agent documentation
 5. `test_agent.py` - Tests for the agent
 6. `requirements.txt` - Dependencies for the agent
-7. Any other files necessary for the agent to function properly.
+7. Any other files necessary for the agent to function properly
 
 When complete, provide a summary of the agent created and the files that were written.
 """
@@ -170,7 +246,6 @@ class AgentEvolver:
     def __init__(
         self,
         task_description: str,
-        evaluation_fn: Any = None,
         model_name: str | None = None,
         max_generations: int | None = None,
         max_frontier_size: int | None = None,
@@ -181,18 +256,17 @@ class AgentEvolver:
 
         Args:
             task_description: Description of the task the agent should perform.
-            evaluation_fn: Optional function to evaluate agent variants.
             model_name: LLM model to use for agent creation and improvement.
             max_generations: Maximum number of improvement generations.
             max_frontier_size: Maximum size of the Pareto frontier.
             mutation_probability: Probability of mutation vs crossover.
-            coding_agent_type: Which coding agent to use: 'claude', 'gemini', or 'openai_codex'.
+            coding_agent_type: Which coding agent to use: 'claude code',
+                'gemini cli', or 'openai codex'.
         """
         cfg = getattr(DEFAULT_CONFIG, "agent_creator", None)
         evolver_cfg = cfg.evolver if cfg else None
 
         self.task_description = task_description
-        self.evaluation_fn = evaluation_fn
         self.model_name = get_config_value(model_name, evolver_cfg, "model_name")
         self.max_generations = get_config_value(max_generations, evolver_cfg, "max_generations")
         self.max_frontier_size = get_config_value(
@@ -239,7 +313,7 @@ class AgentEvolver:
         Path(target_folder).mkdir(parents=True, exist_ok=True)
 
         agent = create_coding_agent(self.coding_agent_type, "Initial Agent Creator")
-        result = await agent.run(
+        await agent.run(
             model_name=self.model_name,
             prompt_template=INITIAL_AGENT_PROMPT,
             arguments={
@@ -252,10 +326,6 @@ class AgentEvolver:
             base_dir=str(self.work_dir / "creator_workdir"),
             writable_paths=[target_folder],
         )
-
-        if result is None:
-            print("Failed to create initial agent")
-            return None
 
         initial_report = ImprovementReport(
             implemented_ideas=[{"idea": "Initial implementation", "source": "initial"}],
@@ -271,26 +341,55 @@ class AgentEvolver:
             generation=0,
         )
 
-    async def _evaluate_variant(self, variant: AgentVariant) -> None:
-        """Evaluate a variant to measure its metrics."""
-        if self.evaluation_fn is None:
-            # Default evaluation: run the agent and measure
-            print(f"Evaluating variant {variant.id}...")
-            start_time = time.time()
+    def _load_module_from_path(self, module_name: str, file_path: str) -> Any:
+        """Dynamically load a Python module from a file path."""
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        if spec is None or spec.loader is None:
+            return None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+        return module
 
-            # Simple evaluation: just measure time and estimate tokens
-            # In real usage, this would run the agent on test tasks
-            variant.execution_time = time.time() - start_time + random.uniform(1, 10)
-            variant.tokens_used = random.randint(1000, 10000)  # Placeholder
-        else:
-            tokens, exec_time = self.evaluation_fn(variant.folder_path)
-            variant.tokens_used = tokens
-            variant.execution_time = exec_time
+    async def _evaluate_variant(
+        self, variant: AgentVariant,
+    ) -> dict[str, Any]:
+        """Run the agent on the long-running task and collect metrics.
 
-        # Update the report with actual metrics
-        variant.report.improved_tokens = variant.tokens_used
-        variant.report.improved_time = variant.execution_time
-        variant.report.save(variant.report_path)
+        Dynamically imports the agent from folder_path and calls the agent_run(task)
+        function with self.task_description.
+
+        The agent.py is expected to have an `agent_run(task: str)` function that
+        runs the agent on the given task and returns a result.
+
+        Args:
+            variant: The variant to evaluate.
+
+        Returns:
+            Dictionary containing the following keys:
+            - "success": int - 1 if the agent completed successfully, 0 otherwise
+            - "tokens_used": int - Number of tokens used by the agent
+            - "execution_time": float - Time taken to run the agent on the task in seconds
+        """
+        print(f"Evaluating variant {variant.id}...")
+
+        agent_file = Path(variant.folder_path) / "agent.py"
+        module_name = f"agent_variant_{id(self)}_{random.randint(0, 10000)}"
+
+        try:
+            sys.path.insert(0, variant.folder_path)
+            agent_module = self._load_module_from_path(module_name, str(agent_file))
+            if agent_module is None:
+                print(f"Failed to load module from {agent_file}")
+                return {"success": 0, "tokens_used": 0, "execution_time": 0.0}
+            result: dict[str, Any] = agent_module.agent_run(self.task_description)
+            return result
+        except Exception:
+            return {"success": 0, "tokens_used": 0, "execution_time": 0.0}
+        finally:
+            if variant.folder_path in sys.path:
+                sys.path.remove(variant.folder_path)
+            sys.modules.pop(module_name, None)
 
     def _update_pareto_frontier(self, new_variant: AgentVariant) -> bool:
         """Update the Pareto frontier with a new variant.
@@ -322,47 +421,46 @@ class AgentEvolver:
             return
 
         n = len(self.pareto_frontier)
-        tokens = [v.tokens_used for v in self.pareto_frontier]
-        times = [v.execution_time for v in self.pareto_frontier]
 
-        tokens_range = max(tokens) - min(tokens) or 1
-        times_range = max(times) - min(times) or 1
+        # Collect all metric names across all variants
+        all_metrics: set[str] = set()
+        for v in self.pareto_frontier:
+            all_metrics.update(v.metrics.keys())
 
         # Calculate crowding distance
         crowding = [0.0] * n
 
-        # Add crowding for tokens dimension
-        sorted_by_tokens = sorted(range(n), key=lambda i: tokens[i])
-        crowding[sorted_by_tokens[0]] = crowding[sorted_by_tokens[-1]] = float("inf")
-        for i in range(1, n - 1):
-            idx = sorted_by_tokens[i]
-            token_diff = tokens[sorted_by_tokens[i + 1]] - tokens[sorted_by_tokens[i - 1]]
-            crowding[idx] += token_diff / tokens_range
+        for metric in all_metrics:
+            values = [v.metrics.get(metric, 0) for v in self.pareto_frontier]
+            value_range = max(values) - min(values) or 1
 
-        # Add crowding for time dimension
-        sorted_by_time = sorted(range(n), key=lambda i: times[i])
-        crowding[sorted_by_time[0]] = crowding[sorted_by_time[-1]] = float("inf")
-        for i in range(1, n - 1):
-            idx = sorted_by_time[i]
-            time_diff = times[sorted_by_time[i + 1]] - times[sorted_by_time[i - 1]]
-            crowding[idx] += time_diff / times_range
+            sorted_indices = sorted(range(n), key=lambda i: values[i])
+            crowding[sorted_indices[0]] = crowding[sorted_indices[-1]] = float("inf")
+
+            for i in range(1, n - 1):
+                idx = sorted_indices[i]
+                diff = values[sorted_indices[i + 1]] - values[sorted_indices[i - 1]]
+                crowding[idx] += diff / value_range
 
         # Keep most diverse (highest crowding distance)
         sorted_indices = sorted(range(n), key=lambda i: crowding[i], reverse=True)
         kept_indices = sorted_indices[: self.max_frontier_size]
         self.pareto_frontier = [self.pareto_frontier[i] for i in kept_indices]
 
+    def _format_metrics(self, metrics: dict[str, float]) -> str:
+        """Format metrics dictionary for display."""
+        return ", ".join(
+            f"{k}={v:.2f}" if isinstance(v, float) else f"{k}={v}"
+            for k, v in metrics.items()
+        )
+
     def _sample_from_frontier(self) -> AgentVariant:
         """Sample a variant uniformly from the Pareto frontier."""
         return random.choice(self.pareto_frontier)
 
     def _sample_two_from_frontier(self) -> tuple[AgentVariant, AgentVariant]:
-        """Sample two different variants from the Pareto frontier."""
-        if len(self.pareto_frontier) < 2:
-            return self.pareto_frontier[0], self.pareto_frontier[0]
-
+        """Sample two different variants from the Pareto frontier, ordered by score."""
         v1, v2 = random.sample(self.pareto_frontier, 2)
-        # Return (better, worse) based on score
         return (v1, v2) if v1.score() <= v2.score() else (v2, v1)
 
     async def _mutate(self, variant: AgentVariant) -> AgentVariant | None:
@@ -426,8 +524,7 @@ class AgentEvolver:
         """Run the evolutionary optimization."""
         try:
             print(f"Starting AgentEvolver with {self.max_generations} generations")
-            task_preview = self.task_description[:80]
-            print(f"Max frontier size: {self.max_frontier_size}, Task: {task_preview}...")
+            print(f"Max frontier size: {self.max_frontier_size}, Task: {self.task_description}")
 
             # Initialize with first agent
             print("\nInitializing...")
@@ -435,10 +532,9 @@ class AgentEvolver:
             if initial is None:
                 raise RuntimeError("Failed to create initial agent")
 
-            await self._evaluate_variant(initial)
+            initial.metrics = await self._evaluate_variant(initial)
             self._update_pareto_frontier(initial)
-            exec_time = initial.execution_time
-            print(f"Initial agent: tokens={initial.tokens_used}, time={exec_time:.2f}s")
+            print(f"Initial agent: {self._format_metrics(initial.metrics)}")
             self._copy_best_to_optimal(initial)
 
             # Evolution loop
@@ -451,7 +547,7 @@ class AgentEvolver:
                 if random.random() < self.mutation_probability or len(self.pareto_frontier) < 2:
                     print("Operation: Mutation")
                     parent = self._sample_from_frontier()
-                    print(f"  Parent: variant_{parent.id} (tokens={parent.tokens_used})")
+                    print(f"  Parent: variant_{parent.id} ({self._format_metrics(parent.metrics)})")
                     new_variant = await self._mutate(parent)
                 else:
                     print("Operation: Crossover")
@@ -463,23 +559,21 @@ class AgentEvolver:
                     print("  Failed to create new variant")
                     continue
 
-                await self._evaluate_variant(new_variant)
-                print(
-                    f"  New variant_{new_variant.id}: tokens={new_variant.tokens_used}, "
-                    f"time={new_variant.execution_time:.2f}s"
-                )
+                new_variant.metrics = await self._evaluate_variant(new_variant)
+                metrics_str = self._format_metrics(new_variant.metrics)
+                print(f"  New variant_{new_variant.id}: {metrics_str}")
 
                 added = self._update_pareto_frontier(new_variant)
                 print(f"  {'Added to' if added else 'Not added to'} Pareto frontier")
 
                 best = self.get_best_variant()
-                print(f"  Best: variant_{best.id} (tokens={best.tokens_used})")
+                print(f"  Best: variant_{best.id} ({self._format_metrics(best.metrics)})")
                 self._copy_best_to_optimal(best)
 
             print("\n=== Evolution Complete ===")
             print(f"Final Pareto frontier size: {len(self.pareto_frontier)}")
             for v in self.pareto_frontier:
-                print(f"  variant_{v.id}: tokens={v.tokens_used}, time={v.execution_time:.2f}s")
+                print(f"  variant_{v.id}: {self._format_metrics(v.metrics)}")
 
             best = self.get_best_variant()
             return best
@@ -493,24 +587,18 @@ class AgentEvolver:
         Uses a temporary directory and atomic rename to avoid race conditions
         where the optimal_dir might be read while being updated.
         """
-        # Copy to a temporary location first
-        temp_dir = self.optimal_dir.parent / f"{self.optimal_dir.name}_temp"
+        self.optimal_dir.parent.mkdir(parents=True, exist_ok=True)
+
+        # Copy to a temporary location first (same parent ensures same filesystem)
+        temp_dir = self.optimal_dir.parent / f"{self.optimal_dir.name}_{os.getpid()}_temp"
         if temp_dir.exists():
             shutil.rmtree(temp_dir)
         shutil.copytree(best.folder_path, temp_dir)
 
-        # Remove old optimal_dir and rename temp to optimal
-        old_dir = self.optimal_dir.parent / f"{self.optimal_dir.name}_old"
+        # Atomic replace: remove old and rename in one step where possible
         if self.optimal_dir.exists():
-            if old_dir.exists():
-                shutil.rmtree(old_dir)
-            self.optimal_dir.rename(old_dir)
-
+            shutil.rmtree(self.optimal_dir)
         temp_dir.rename(self.optimal_dir)
-
-        # Clean up old directory
-        if old_dir.exists():
-            shutil.rmtree(old_dir)
 
         print(f"  Copied best variant to {self.optimal_dir}")
 
@@ -579,8 +667,7 @@ async def main() -> None:
 
     print("\n=== Final Result ===")
     print(f"Best variant: {best.folder_path}")
-    print(f"Tokens used: {best.tokens_used}")
-    print(f"Execution time: {best.execution_time:.2f}s")
+    print(f"Metrics: {best.metrics}")
     print(f"Generation: {best.generation}")
 
     # Save state to the optimal directory (work_dir is cleaned up after evolve)

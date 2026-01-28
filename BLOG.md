@@ -1,12 +1,10 @@
-
-
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/818u234myu55pxt0wi7j.jpeg)
 
 # When Simplicity Becomes Your Superpower: Meet KISS Agent Framework
 
 *"Everything should be made as simple as possible, but not simpler." — Albert Einstein*
 
----
+______________________________________________________________________
 
 ## 🎯 The Problem with AI Agent Frameworks Today
 
@@ -20,13 +18,13 @@ What if building AI agents could be as straightforward as the name suggests?
 
 Enter **KISS** — the *Keep It Simple, Stupid* Agent Framework.
 
----
+______________________________________________________________________
 
 ## 💡 The Philosophy: Radical Simplicity
 
 KISS isn't just a clever acronym. It's a design philosophy that permeates every line of code in this framework.
 
-Born of the frustration of wrestling with overly complex agent architectures, KISS strips away the unnecessary and focuses on what actually matters: **getting intelligent agents to solve real problems**. The KISS Agent API is simple and straightforward.  It is so simple that a coding agent can write complex AI pipelines, called **agent programs**, from natural language descriptions. You can also optimize an agent program using a KISS evolver.  The result is a self-evolving agent program.
+Born of the frustration of wrestling with overly complex agent architectures, KISS strips away the unnecessary and focuses on what actually matters: **getting intelligent agents to solve real problems**. The KISS Agent API is simple and straightforward. It is so simple that a coding agent can write complex AI pipelines, called **agent programs**, from natural language descriptions. You can also optimize an agent program using a KISS evolver. The result is a self-evolving agent program.
 
 Every KISS agent is a ReAct agent by default:
 
@@ -39,7 +37,7 @@ Every KISS agent is a ReAct agent by default:
 
 No workflow graphs. No state machines. No PhD required.
 
----
+______________________________________________________________________
 
 ## 🚀 Your First Agent in 30 Seconds
 
@@ -143,8 +141,8 @@ for iteration in range(max_iterations):
 **What's happening here?**
 
 1. **Coding Agent** ['get_run_simple_coding_agent'](https://github.com/ksenxx/kiss_ai/blob/main/src/kiss/agents/kiss.py): Generates code and validates it against test cases
-2. **Prompt Refiner Agent** ['refine_prompt_template'](https://github.com/ksenxx/kiss_ai/blob/main/src/kiss/agents/kiss.py): Analyzes failures and evolves the prompt
-3. **Orchestration**: A simple Python loop coordinates the agents
+1. **Prompt Refiner Agent** ['refine_prompt_template'](https://github.com/ksenxx/kiss_ai/blob/main/src/kiss/agents/kiss.py): Analyzes failures and evolves the prompt
+1. **Orchestration**: A simple Python loop coordinates the agents
 
 No special orchestration framework needed. No message buses. No complex state machines. Just Python functions calling Python functions.
 
@@ -173,9 +171,9 @@ final = editor_agent.run(
 
 Each agent can use a different model. Each agent has its own budget. Each agent saves its own trajectory. And you compose them with the most powerful orchestration tool ever invented: **regular Python code**.
 
----
+______________________________________________________________________
 
----
+______________________________________________________________________
 
 ## 🧬 GEPA: Teaching Your Agents to Evolve
 
@@ -215,7 +213,7 @@ best_prompt = gepa.optimize(arguments={"task": "solve problems"})
 
 The research paper backing this? ["GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning"](https://arxiv.org/pdf/2507.19457). Yes, prompt evolution can beat RL. Let that sink in.
 
----
+______________________________________________________________________
 
 ## 🔬 KISSEvolve: When Algorithms Write Themselves
 
@@ -224,6 +222,7 @@ Here's where things get really interesting.
 What if you could start with a bubble sort and end up with quicksort — without writing a single line of sorting code yourself?
 
 **KISSEvolve** is an evolutionary algorithm discovery framework. You provide:
+
 - Starting code (even a naive implementation)
 - A fitness function
 - An LLM to guide mutations
@@ -266,7 +265,7 @@ The framework includes advanced features that would make any evolutionary comput
 
 This isn't theoretical. The included `kissevolve_bubblesort.py` script demonstrates how to find an O(n log n) sorting algorithm.
 
----
+______________________________________________________________________
 
 ## 🏗️ Real-World Ready: SWE-bench Integration
 
@@ -283,15 +282,16 @@ uv run src/kiss/agents/swe_agent_verified/run_swebench.py \
 ```
 
 The agent:
+
 1. Spins up a Docker container with the exact repository state
-2. Reads the issue description
-3. Explores the codebase using bash commands
-4. Generates a patch
-5. Gets evaluated by the official SWE-bench harness
+1. Reads the issue description
+1. Explores the codebase using bash commands
+1. Generates a patch
+1. Gets evaluated by the official SWE-bench harness
 
 All with built-in trajectory saving, budget tracking, and automatic evaluation.
 
----
+______________________________________________________________________
 
 ## 🌐 Model Agnostic: Your LLM, Your Choice
 
@@ -314,7 +314,7 @@ result = agent.run(model_name="gemini-3-pro-preview", ...)
 result = agent.run(model_name="openrouter/x-ai/grok-4", ...)
 ```
 
----
+______________________________________________________________________
 
 ## 🐳 Docker Integration: Safe Sandboxing
 
@@ -334,7 +334,7 @@ with DockerManager("ubuntu:latest") as env:
 
 The agent can execute any bash command, but it's all contained. When the context manager exits, the container is destroyed. Your host system remains pristine.
 
----
+______________________________________________________________________
 
 ## 📊 Trajectory Visualization: See What Your Agents Think
 
@@ -347,6 +347,7 @@ uv run python -m kiss.viz_trajectory.server artifacts
 ```
 
 Open your browser and you get:
+
 - Dark-themed modern UI
 - Markdown rendering with syntax highlighting
 - Complete message history with timestamps
@@ -355,10 +356,9 @@ Open your browser and you get:
 
 It transforms agent debugging from archaeology into insight.
 
-
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/dsvaylst4o0mpmg737kb.png)
 
----
+______________________________________________________________________
 
 ## 🔍 RAG Made Simple
 
@@ -379,7 +379,7 @@ results = rag.query("What is Python?", top_k=2)
 
 In-memory vector store. Cosine or L2 similarity. Filter functions. Collection statistics. Everything you need, nothing you don't.
 
----
+______________________________________________________________________
 
 ## 💰 Built-in Budget Tracking
 
@@ -399,7 +399,7 @@ print(f"Global budget: ${KISSAgent.global_budget_used:.4f}")
 
 Set per-agent limits. Set global limits. Get automatic cost calculation based on actual model pricing. Never get surprised by your API bill again.
 
----
+______________________________________________________________________
 
 ## 🎨 The Architecture
 
@@ -419,7 +419,7 @@ kiss/
 
 The entire core agent implementation is under 500 lines. Not because features are missing, but because every line earns its place.
 
----
+______________________________________________________________________
 
 ## 🛠️ Getting Started
 
@@ -446,13 +446,14 @@ print(agent.run('gpt-4o', 'Say hello!', is_agentic=False))
 "
 ```
 
----
+______________________________________________________________________
 
 ## 🌟 Why KISS?
 
 In a world obsessed with complexity, KISS is a rebellion.
 
 It's for developers who believe that:
+
 - **Simplicity is a feature**, not a limitation
 - **Code should be readable** by humans, not just machines
 - **Agents should be tools**, not black boxes
@@ -460,11 +461,12 @@ It's for developers who believe that:
 
 KISS doesn't try to be everything. It tries to be **exactly what you need** — a clean, powerful foundation for building AI agents that actually work.
 
----
+______________________________________________________________________
 
 ## 🔮 What's Next?
 
 KISS is actively evolving (pun intended). The roadmap includes:
+
 - More benchmark integrations
 - Enhanced multi-agent orchestration
 - Improved evolution strategies
@@ -473,7 +475,7 @@ KISS is actively evolving (pun intended). The roadmap includes:
 
 But the core philosophy will never change: **Keep It Simple, Stupid**.
 
----
+______________________________________________________________________
 
 ## 📚 Resources
 
@@ -481,13 +483,13 @@ But the core philosophy will never change: **Keep It Simple, Stupid**.
 - **GEPA Paper**: [arXiv:2507.19457](https://arxiv.org/pdf/2507.19457)
 - **SWE-bench**: [swebench.com](https://www.swebench.com/)
 
----
+______________________________________________________________________
 
 *Built with ❤️ by Koushik Sen (ksen@berkeley.edu)*
 
 *Because the best code is the code you don't have to write.*
 
----
+______________________________________________________________________
 
 **License**: Apache-2.0
 

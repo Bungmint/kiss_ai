@@ -40,6 +40,8 @@ class ImprovementReport:
     parent_report_path: str = ""
     generation: int = 0
     parent_folders: list[str] = field(default_factory=list)
+    metrics: dict[str, float] = field(default_factory=dict)
+    summary: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """Convert report to dictionary."""
@@ -105,31 +107,74 @@ class AgentVariant:
     folder_path: str
     report_path: str
     report: ImprovementReport
-    tokens_used: int = 0
-    execution_time: float = 0.0
+    metrics: dict[str, float] = field(default_factory=dict)
     id: int = 0
     generation: int = 0
     parent_ids: list[int] = field(default_factory=list)
-    dominates_count: int = 0
-    dominated_by_count: int = 0
 
-    def dominates(self, other: "AgentVariant") -> bool:
-        """Check if this variant Pareto-dominates another."""
-        tokens_better_or_equal = self.tokens_used <= other.tokens_used
-        time_better_or_equal = self.execution_time <= other.execution_time
-        strictly_better = (
-            self.tokens_used < other.tokens_used
-            or self.execution_time < other.execution_time
-        )
-        return tokens_better_or_equal and time_better_or_equal and strictly_better
+    def dominates(self, other: "AgentVariant", minimize: set[str] | None = None) -> bool:
+        """Check if this variant Pareto-dominates another.
+
+        A variant dominates another if it is at least as good in all metrics
+        and strictly better in at least one.
+
+        Args:
+            minimize: Set of metric names to minimize. Metrics not in this set
+                     are maximized. Defaults to {"tokens_used", "execution_time"}.
+        """
+        if minimize is None:
+            minimize = {"tokens_used", "execution_time"}
+
+        all_metrics = set(self.metrics.keys()) | set(other.metrics.keys())
+
+        at_least_as_good = True
+        strictly_better = False
+
+        for metric in all_metrics:
+            self_val = self.metrics.get(metric, 0)
+            other_val = other.metrics.get(metric, 0)
+
+            if metric in minimize:
+                # Lower is better
+                if self_val > other_val:
+                    at_least_as_good = False
+                if self_val < other_val:
+                    strictly_better = True
+            else:
+                # Higher is better
+                if self_val < other_val:
+                    at_least_as_good = False
+                if self_val > other_val:
+                    strictly_better = True
+
+        return at_least_as_good and strictly_better
+
+    def score(self, weights: dict[str, float] | None = None) -> float:
+        """Combined score for ranking (lower is better)."""
+        if weights is None:
+            weights = {
+                "success": -1000000,
+                "tokens_used": 1,
+                "execution_time": 1000,
+            }
+        score = 0.0
+        for metric, weight in weights.items():
+            score += self.metrics.get(metric, 0) * weight
+        return score
 
     def to_dict(self) -> dict[str, Any]:
         """Convert variant to dictionary."""
         return {
             "folder_path": self.folder_path,
             "report_path": self.report_path,
-            "tokens_used": self.tokens_used,
-            "execution_time": self.execution_time,
+            "report": {
+                "implemented_ideas": self.report.implemented_ideas,
+                "failed_ideas": self.report.failed_ideas,
+                "generation": self.report.generation,
+                "metrics": self.report.metrics,
+                "summary": self.report.summary,
+            },
+            "metrics": self.metrics,
             "id": self.id,
             "generation": self.generation,
             "parent_ids": self.parent_ids,
@@ -266,32 +311,28 @@ class TestAgentVariant(unittest.TestCase):
             folder_path="/v1",
             report_path="/v1/report.json",
             report=ImprovementReport(),
-            tokens_used=1000,
-            execution_time=10.0,
+            metrics={"tokens_used": 1000, "execution_time": 10.0},
             id=1,
         )
         v2 = AgentVariant(
             folder_path="/v2",
             report_path="/v2/report.json",
             report=ImprovementReport(),
-            tokens_used=800,
-            execution_time=8.0,
+            metrics={"tokens_used": 800, "execution_time": 8.0},
             id=2,
         )
         v3 = AgentVariant(
             folder_path="/v3",
             report_path="/v3/report.json",
             report=ImprovementReport(),
-            tokens_used=800,
-            execution_time=12.0,
+            metrics={"tokens_used": 800, "execution_time": 12.0},
             id=3,
         )
         v4 = AgentVariant(
             folder_path="/v4",
             report_path="/v4/report.json",
             report=ImprovementReport(),
-            tokens_used=1000,
-            execution_time=10.0,
+            metrics={"tokens_used": 1000, "execution_time": 10.0},
             id=4,
         )
 
@@ -313,8 +354,7 @@ class TestAgentVariant(unittest.TestCase):
             folder_path="/test",
             report_path="/test/report.json",
             report=ImprovementReport(),
-            tokens_used=500,
-            execution_time=5.0,
+            metrics={"tokens_used": 500, "execution_time": 5.0},
             id=42,
             generation=3,
             parent_ids=[1, 2],
@@ -323,8 +363,8 @@ class TestAgentVariant(unittest.TestCase):
         d = v.to_dict()
 
         self.assertEqual(d["folder_path"], "/test")
-        self.assertEqual(d["tokens_used"], 500)
-        self.assertEqual(d["execution_time"], 5.0)
+        self.assertEqual(d["metrics"]["tokens_used"], 500)
+        self.assertEqual(d["metrics"]["execution_time"], 5.0)
         self.assertEqual(d["id"], 42)
         self.assertEqual(d["generation"], 3)
         self.assertEqual(d["parent_ids"], [1, 2])
@@ -535,32 +575,30 @@ class TestParetoFrontier(unittest.TestCase):
             folder_path="/v1",
             report_path="/v1/report.json",
             report=ImprovementReport(),
-            tokens_used=1000,
-            execution_time=10.0,
+            metrics={"tokens_used": 1000, "execution_time": 10.0},
             id=1,
         )
         v2 = AgentVariant(
             folder_path="/v2",
             report_path="/v2/report.json",
             report=ImprovementReport(),
-            tokens_used=800,
-            execution_time=12.0,  # Trade-off: better tokens, worse time
+            # Trade-off: better tokens, worse time
+            metrics={"tokens_used": 800, "execution_time": 12.0},
             id=2,
         )
         v3 = AgentVariant(
             folder_path="/v3",
             report_path="/v3/report.json",
             report=ImprovementReport(),
-            tokens_used=1200,
-            execution_time=8.0,  # Trade-off: worse tokens, better time
+            # Trade-off: worse tokens, better time
+            metrics={"tokens_used": 1200, "execution_time": 8.0},
             id=3,
         )
         v4 = AgentVariant(
             folder_path="/v4",
             report_path="/v4/report.json",
             report=ImprovementReport(),
-            tokens_used=700,
-            execution_time=7.0,  # Dominates all others
+            metrics={"tokens_used": 700, "execution_time": 7.0},  # Dominates all others
             id=4,
         )
 

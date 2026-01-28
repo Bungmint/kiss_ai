@@ -54,23 +54,20 @@ class ImprovementReport:
     implemented_ideas: list[dict[str, str]] = field(default_factory=list)
     failed_ideas: list[dict[str, str]] = field(default_factory=list)
     generation: int = 0
-    improved_tokens: int = 0
-    improved_time: float = 0.0
+    metrics: dict[str, float] = field(default_factory=dict)  # Flexible metrics dictionary
     summary: str = ""
 
     def save(self, path: str) -> None:
         """Save the report to a JSON file."""
-        report_dict = {
-            "implemented_ideas": self.implemented_ideas,
-            "failed_ideas": self.failed_ideas,
-            "generation": self.generation,
-            "improved_tokens": self.improved_tokens,
-            "improved_time": self.improved_time,
-            "summary": self.summary,
-        }
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(report_dict, f, indent=2)
+            json.dump({
+                "implemented_ideas": self.implemented_ideas,
+                "failed_ideas": self.failed_ideas,
+                "generation": self.generation,
+                "metrics": self.metrics,
+                "summary": self.summary,
+            }, f, indent=2)
 
     @classmethod
     def load(cls, path: str) -> "ImprovementReport":
@@ -81,8 +78,7 @@ class ImprovementReport:
             implemented_ideas=data.get("implemented_ideas", []),
             failed_ideas=data.get("failed_ideas", []),
             generation=data.get("generation", 0),
-            improved_tokens=data.get("improved_tokens", 0),
-            improved_time=data.get("improved_time", 0.0),
+            metrics=data.get("metrics", {}),
             summary=data.get("summary", ""),
         )
 
@@ -188,12 +184,12 @@ class ImproverAgent:
 
     def _load_report(self, path: str | None) -> ImprovementReport | None:
         """Load a report from a path, returning None if it fails."""
-        if path and Path(path).exists():
-            try:
-                return ImprovementReport.load(path)
-            except Exception:
-                pass
-        return None
+        if not path or not Path(path).exists():
+            return None
+        try:
+            return ImprovementReport.load(path)
+        except Exception:
+            return None
 
     def _format_report_for_prompt(self, report: ImprovementReport | None) -> str:
         """Format a report for inclusion in a prompt."""
@@ -287,11 +283,13 @@ class ImproverAgent:
                 {"idea": "Code optimization based on analysis", "source": "improver"}
             ],
             summary=result,
-            improved_time=time.time() - start_time,
-            improved_tokens=agent.total_tokens_used,
+            metrics={
+                "tokens_used": agent.total_tokens_used,
+                "execution_time": time.time() - start_time,
+            },
         )
 
-        print(f"Improvement completed in {new_report.improved_time:.2f}s")
+        print(f"Improvement completed in {new_report.metrics['execution_time']:.2f}s")
         print(f"Tokens used: {agent.total_tokens_used}")
 
         return True, new_report
@@ -316,29 +314,28 @@ class ImproverAgent:
         Returns:
             Tuple of (success: bool, report: ImprovementReport | None)
         """
-        primary_report = self._load_report(primary_report_path)
-        secondary_report = self._load_report(secondary_report_path)
+        p_report = self._load_report(primary_report_path)
+        s_report = self._load_report(secondary_report_path)
 
         # Combine ideas from both reports
         merged_report = ImprovementReport(
             generation=max(
-                primary_report.generation if primary_report else 0,
-                secondary_report.generation if secondary_report else 0,
+                p_report.generation if p_report else 0,
+                s_report.generation if s_report else 0,
             ),
             implemented_ideas=(
-                (primary_report.implemented_ideas if primary_report else [])
-                + (secondary_report.implemented_ideas if secondary_report else [])
+                (p_report.implemented_ideas if p_report else [])
+                + (s_report.implemented_ideas if s_report else [])
             ),
             failed_ideas=(
-                (primary_report.failed_ideas if primary_report else [])
-                + (secondary_report.failed_ideas if secondary_report else [])
+                (p_report.failed_ideas if p_report else [])
+                + (s_report.failed_ideas if s_report else [])
             ),
             summary="Crossover of two variants",
         )
 
         # Save merged report temporarily
         temp_report_path = str(Path(target_folder).parent / "temp_crossover_report.json")
-        Path(temp_report_path).parent.mkdir(parents=True, exist_ok=True)
         merged_report.save(temp_report_path)
 
         try:
