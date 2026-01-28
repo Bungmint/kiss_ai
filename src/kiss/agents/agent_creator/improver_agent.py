@@ -179,7 +179,7 @@ class ImproverAgent:
         self.max_steps = get_config_value(max_steps, improver_cfg, "max_steps")
         self.max_budget = get_config_value(max_budget, improver_cfg, "max_budget")
         self.coding_agent_type: Literal["claude code", "gemini cli", "openai codex"] = (
-            coding_agent_type or "claude code"
+            coding_agent_type or DEFAULT_CONFIG.agent_creator.coding_agent_type
         )
 
     def _load_report(self, path: str | None) -> ImprovementReport | None:
