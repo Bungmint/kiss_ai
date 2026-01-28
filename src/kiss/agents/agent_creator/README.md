@@ -91,8 +91,8 @@ The `ImproverAgent` optimizes existing agent code by analyzing and improving it 
 
 **Methods:**
 
-- `improve(source_folder, target_folder, report_path, base_dir)`: Improve an agent's code
-- `crossover_improve(primary_folder, primary_report_path, secondary_report_path, target_folder, base_dir)`: Combine ideas from two agents
+- `improve(source_folder, target_folder, report_path, feedback, base_dir)`: Improve an agent's code
+- `crossover_improve(primary_folder, primary_report_path, secondary_report_path, primary_feedback, secondary_feedback, target_folder, base_dir)`: Combine ideas from two agents
 
 ### AgentEvolver
 
@@ -133,6 +133,7 @@ The `AgentEvolver` creates and evolves agent populations from a task description
 - `id`: Unique variant identifier
 - `generation`: Generation when created
 - `parent_ids`: List of parent variant IDs
+- `feedback`: Feedback from the agent evaluation
 - `dominates(other, minimize)`: Check if this variant Pareto-dominates another
 - `score(weights)`: Compute combined ranking score (lower is better)
 
@@ -251,7 +252,8 @@ The `AgentEvolver` creates agents with these patterns:
             },
             "id": 3,
             "generation": 4,
-            "parent_ids": [1]
+            "parent_ids": [1],
+            "feedback": "Agent completed task successfully with minor issues..."
         }
     ]
 }
@@ -289,6 +291,7 @@ class ImproverAgent:
         source_folder: str,
         target_folder: str,
         report_path: str | None = None,
+        feedback: str = "",
         base_dir: str | None = None,
     ) -> tuple[bool, ImprovementReport | None]: ...
 
@@ -297,6 +300,8 @@ class ImproverAgent:
         primary_folder: str,
         primary_report_path: str,
         secondary_report_path: str,
+        primary_feedback: str,
+        secondary_feedback: str,
         target_folder: str,
         base_dir: str | None = None,
     ) -> tuple[bool, ImprovementReport | None]: ...
@@ -350,6 +355,7 @@ class AgentVariant:
     id: int = 0
     generation: int = 0
     parent_ids: list[int] = field(default_factory=list)
+    feedback: str = ""
 
     def dominates(self, other: "AgentVariant", minimize: set[str] | None = None) -> bool: ...
     def score(self, weights: dict[str, float] | None = None) -> float: ...

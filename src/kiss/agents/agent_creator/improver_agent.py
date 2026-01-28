@@ -44,6 +44,7 @@ def create_coding_agent(
         return GeminiCliAgent(name)
     elif coding_agent_type == "openai codex":
         return OpenAICodexAgent(name)
+    raise ValueError(f"Invalid coding agent type: {coding_agent_type}")
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 
@@ -92,7 +93,7 @@ You have been given an agent's source code in the folder: {source_folder}.
 The agent must be designed for **long-running, complex tasks** using
 the Agent API available at {kiss_folder}.  Specifically, you should
 look at API.md and README.md first, and then look at code under the
-src folder as required.  Try to use claude opus or sonnet 4.5 models 
+src folder as required.  Try to use claude opus or sonnet 4.5 models
 in the agent.  You **MUST not make the agent specific to any
 particular task, but rather make it a general purpose agent that can
 be used for any task**.
@@ -147,6 +148,11 @@ Your goal is to improve this agent to:
 ## Previous Improvement Report
 
 {previous_report}
+
+## Feedback
+
+The agent has been given the following feedback on the task:
+{feedback}
 
 ## Instructions
 
@@ -230,6 +236,7 @@ class ImproverAgent:
         source_folder: str,
         target_folder: str,
         report_path: str | None = None,
+        feedback: str = "",
         base_dir: str | None = None,
     ) -> tuple[bool, ImprovementReport | None]:
         """Improve an agent's code to reduce token usage and execution time.
@@ -269,6 +276,7 @@ class ImproverAgent:
                     "target_folder": target_folder,
                     "previous_report": self._format_report_for_prompt(previous_report),
                     "kiss_folder": str(PROJECT_ROOT),
+                    "feedback": feedback,
                 },
                 max_steps=self.max_steps,
                 max_budget=self.max_budget,
@@ -307,6 +315,8 @@ class ImproverAgent:
         primary_folder: str,
         primary_report_path: str,
         secondary_report_path: str,
+        primary_feedback: str,
+        secondary_feedback: str,
         target_folder: str,
         base_dir: str | None = None,
     ) -> tuple[bool, ImprovementReport | None]:
@@ -351,6 +361,7 @@ class ImproverAgent:
                 source_folder=primary_folder,
                 target_folder=target_folder,
                 report_path=temp_report_path,
+                feedback=f"{primary_feedback}\n{secondary_feedback}",
                 base_dir=base_dir,
             )
         finally:

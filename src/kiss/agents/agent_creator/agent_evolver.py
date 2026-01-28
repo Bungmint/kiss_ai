@@ -117,6 +117,7 @@ class AgentVariant:
     id: int = 0
     generation: int = 0
     parent_ids: list[int] = field(default_factory=list)
+    feedback: str = ""
 
     def dominates(self, other: "AgentVariant", minimize: set[str] | None = None) -> bool:
         """Check if this variant Pareto-dominates another.
@@ -192,6 +193,7 @@ class AgentVariant:
             "id": self.id,
             "generation": self.generation,
             "parent_ids": self.parent_ids,
+            "feedback": self.feedback,
         }
 
 
@@ -202,7 +204,7 @@ Your task is to create an initial agent implementation based on the following re
 # Instructions
 - You are going to run a very long-running task
 - You may need to use the web to search on how to write such agents
-- You may consider orchrestrator agents and sub-agents to solve the task
+- You may consider orchestrator agents and sub-agents to solve the task
 
 ## Task Description
 {task_description}
@@ -214,7 +216,7 @@ the Agent API available at {kiss_folder}.  Specifically, you should
 look at API.md and README.md first, and then look at code under the
 src folder as required.  You **MUST not make the agent specific to any
 particular task, but rather make it a general purpose agent that can
-be used for any task**. Try to use claude opus or sonnet 4.5 models 
+be used for any task**. Try to use claude opus or sonnet 4.5 models
 in the agent. Create the following files in {target_folder}:
 
 1. `agent.py` - Main agent implementation that MUST include an
@@ -222,9 +224,11 @@ in the agent. Create the following files in {target_folder}:
    This function is the entry point that will be called to run the agent on a task.
    It should accept a task description string and return a result.  The result must
    be a dictionary containing the following keys:
-   - "tokens_used": int - Number of tokens used by the agent
-   - "execution_time": float - Time taken to run the agent on the task in seconds
-   - "success": int - 1 if the agent completed successfully, 0 otherwise
+   - "feedback": str - Feedback from the agent on the task
+   - "metrics": dict[str, Any] - Metrics from the agent on the task
+     - "tokens_used": int - Number of tokens used by the agent
+     - "execution_time": float - Time taken to run the agent on the task in seconds
+     - "success": int - 1 if the agent completed successfully, 0 otherwise
 2. `config.py` - Agent configuration
 3. `__init__.py` - Agent package initialization
 4. `README.md` - Agent documentation
@@ -232,6 +236,7 @@ in the agent. Create the following files in {target_folder}:
 6. `requirements.txt` - Dependencies for the agent
 7. Any other files necessary for the agent to function properly
 
+The agent should collect fine-grained feedback on the task as it is executing.
 When complete, provide a summary of the agent created and the files that were written.
 """
 
@@ -377,6 +382,7 @@ class AgentEvolver:
 
         # Create a temporary directory and copy the variant's code into it
         temp_dir = Path(tempfile.mkdtemp(prefix=f"eval_variant_{variant.id}_"))
+        old_cwd = os.getcwd()
         try:
             shutil.copytree(variant.folder_path, temp_dir / "agent_code", dirs_exist_ok=True)
             agent_dir = str(temp_dir / "agent_code")
@@ -385,15 +391,23 @@ class AgentEvolver:
 
             try:
                 sys.path.insert(0, agent_dir)
+                os.chdir(temp_dir)
                 agent_module = self._load_module_from_path(module_name, str(agent_file))
                 if agent_module is None:
                     print(f"Failed to load module from {agent_file}")
-                    return {"success": 0, "tokens_used": 0, "execution_time": 0.0}
+                    return {
+                        "feedback": "Failed to load module from agent.py",
+                        "metrics": {"success": 0, "tokens_used": 0, "execution_time": 0.0},
+                    }
                 result: dict[str, Any] = agent_module.agent_run(self.task_description)
                 return result
             except Exception:
-                return {"success": 0, "tokens_used": 0, "execution_time": 0.0}
+                return {
+                    "feedback": "Failed to run agent.py",
+                    "metrics": {"success": 0, "tokens_used": 0, "execution_time": 0.0},
+                }
             finally:
+                os.chdir(old_cwd)
                 if agent_dir in sys.path:
                     sys.path.remove(agent_dir)
                 sys.modules.pop(module_name, None)
@@ -481,6 +495,7 @@ class AgentEvolver:
             source_folder=variant.folder_path,
             target_folder=target_folder,
             report_path=variant.report_path,
+            feedback=variant.feedback,
             base_dir=str(self.work_dir / "improver_workdir"),
         )
 
@@ -510,6 +525,8 @@ class AgentEvolver:
             primary_folder=primary.folder_path,
             primary_report_path=primary.report_path,
             secondary_report_path=secondary.report_path,
+            primary_feedback=primary.feedback,
+            secondary_feedback=secondary.feedback,
             target_folder=target_folder,
             base_dir=str(self.work_dir / "improver_workdir"),
         )
@@ -541,7 +558,8 @@ class AgentEvolver:
             if initial is None:
                 raise RuntimeError("Failed to create initial agent")
 
-            initial.metrics = await self._evaluate_variant(initial)
+            eval_result = await self._evaluate_variant(initial)
+            initial.metrics = eval_result["metrics"]
             self._update_pareto_frontier(initial)
             print(f"Initial agent: {self._format_metrics(initial.metrics)}")
             self._copy_best_to_optimal(initial)
@@ -568,7 +586,9 @@ class AgentEvolver:
                     print("  Failed to create new variant")
                     continue
 
-                new_variant.metrics = await self._evaluate_variant(new_variant)
+                eval_result = await self._evaluate_variant(new_variant)
+                new_variant.metrics = eval_result["metrics"]
+                new_variant.feedback = eval_result["feedback"]
                 metrics_str = self._format_metrics(new_variant.metrics)
                 print(f"  New variant_{new_variant.id}: {metrics_str}")
 

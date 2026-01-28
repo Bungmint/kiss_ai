@@ -176,6 +176,14 @@ class GeminiCliAgent(Base):
         for event in events:
             self.step_count += 1
 
+            # Extract token usage from event if available
+            if hasattr(event, "usage_metadata") and event.usage_metadata:
+                usage = event.usage_metadata
+                if hasattr(usage, "prompt_token_count"):
+                    self.total_tokens_used += getattr(usage, "prompt_token_count", 0)
+                if hasattr(usage, "candidates_token_count"):
+                    self.total_tokens_used += getattr(usage, "candidates_token_count", 0)
+
             # Check if it's the final response
             if hasattr(event, "is_final_response") and event.is_final_response():
                 if event.content and event.content.parts:

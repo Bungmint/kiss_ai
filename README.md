@@ -220,8 +220,10 @@ The Agent Creator module provides tools to automatically evolve and optimize AI 
 
 **Key Components:**
 
-- **ImproverAgent**: Optimizes existing agent code through iterative improvement
+- **ImproverAgent**: Takes existing agent source code and creates optimized versions through iterative improvement
 - **AgentEvolver**: Maintains a population of agent variants and evolves them using mutation and crossover operations
+
+Both components use a **Pareto frontier** approach to track non-dominated solutions, optimizing for multiple objectives simultaneously without requiring a single combined metric.
 
 ```python
 import anyio
@@ -263,13 +265,36 @@ async def evolve_new_agent():
 anyio.run(improve_existing_agent)
 ```
 
-**Features:**
+**Key Features:**
 
 - **Multi-Objective Optimization**: Optimizes for flexible metrics (e.g., success, token usage, execution time)
 - **Pareto Frontier Maintenance**: Keeps track of all non-dominated solutions
 - **Evolutionary Operations**: Supports mutation (improving one variant) and crossover (combining ideas from two variants)
 - **Configurable Coding Agents**: Supports Claude Code, Gemini CLI, and OpenAI Codex
 - **Automatic Pruning**: Removes dominated variants to manage memory and storage
+- **Lineage Tracking**: Records parent relationships and improvement history
+- **Configurable Parameters**: Extensive configuration options for generations, frontier size, thresholds, etc.
+
+**Configuration:**
+
+```python
+from kiss.core.config import DEFAULT_CONFIG
+
+# Access agent_creator config
+cfg = DEFAULT_CONFIG.agent_creator
+
+# Improver settings
+cfg.improver.model_name = "claude-sonnet-4-5"
+cfg.improver.max_steps = 150
+cfg.improver.max_budget = 15.0
+
+# Evolver settings
+cfg.evolver.model_name = "claude-sonnet-4-5"
+cfg.evolver.max_generations = 10
+cfg.evolver.max_frontier_size = 6
+cfg.evolver.mutation_probability = 0.8
+cfg.evolver.coding_agent_type = "claude code"
+```
 
 For usage examples, API reference, and configuration options, please see the [Agent Creator README](src/kiss/agents/agent_creator/README.md).
 
