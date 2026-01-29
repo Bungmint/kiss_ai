@@ -9,7 +9,6 @@ These tests verify the OpenAI Codex Agent functionality using real API calls.
 NO MOCKS are used - all tests exercise actual behavior.
 """
 
-import asyncio
 import shutil
 import tempfile
 import unittest
@@ -125,13 +124,13 @@ class TestOpenAICodexAgentRun(unittest.TestCase):
 
         task = """Write a simple Python function that adds two numbers."""
 
-        result = asyncio.run(agent.run(
+        result = agent.run(
             model_name="gpt-5.2-codex",
             prompt_template=task,
             readable_paths=[str(self.project_root / "src")],
             writable_paths=[str(self.output_dir)],
             base_dir=str(self.temp_dir)
-        ))
+        )
 
         # Result should be a string summary
         self.assertIsNotNone(result)
@@ -145,13 +144,13 @@ class TestOpenAICodexAgentRun(unittest.TestCase):
 
         task = "Write a simple factorial function, test it, and make it efficient."
 
-        result = asyncio.run(agent.run(
+        result = agent.run(
             model_name="gpt-5.2-codex",
             prompt_template=task,
             readable_paths=[str(self.project_root / "src")],
             writable_paths=[str(self.output_dir)],
             base_dir=str(self.temp_dir)
-        ))
+        )
 
         self.assertIsNotNone(result)
         if result:

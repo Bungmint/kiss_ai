@@ -17,8 +17,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-import anyio
-
 import kiss.agents.agent_creator.config  # noqa: F401
 from kiss.core.claude_coding_agent import ClaudeCodingAgent
 from kiss.core.config import DEFAULT_CONFIG
@@ -88,15 +86,20 @@ IMPROVE_AGENT_PROMPT = """You are an expert at optimizing AI agent code for effi
 
 ## Your Task
 
-
-You have been given an agent's source code in the folder: {source_folder}.
-The agent must be designed for **long-running, complex tasks** using
-the Agent API available at {kiss_folder}.  Specifically, you should
-look at API.md and README.md first, and then look at code under the
-src folder as required.  Try to use claude opus or sonnet 4.5 models
-in the agent.  You **MUST not make the agent specific to any
-particular task, but rather make it a general purpose agent that can
-be used for any task**.
+  - The agent must be designed for **long-running, complex tasks** using
+    the Agent API available at {kiss_folder}.  Specifically, you should
+    look at API.md and README.md first, and then look at code under the
+    src folder as required. {kiss_folder}/src/kiss/core/models/model_info.py
+    contains information about different LLM models and their context lengths.
+  - The agent.py when executed as a file, **MUST** run the given task.
+  - The agent **MUST** be tested for success on the given task description.
+    **YOU MUST ABSOLUTELY WAIT FOR THE TEST TO FINISH.**
+  - You **MUST not make the agent specific to any particular task, but
+    rather make it a general purpose agent that can be used for any task**.
+  - You MUST use KISSAgent, or ClaudeCodingAgent, or GeminiCliAgent, or
+    OpenAICodexAgent or a mixture of them to implement the agent.
+  - You MUST not use multithreading or multiprocessing or docker manager
+    or 'anyio' or 'async' or 'await' in the agent implementation.
 
 ## Goals
 
@@ -193,7 +196,7 @@ class ImproverAgent:
         self.max_steps = get_config_value(max_steps, improver_cfg, "max_steps")
         self.max_budget = get_config_value(max_budget, improver_cfg, "max_budget")
         self.coding_agent_type: Literal["claude code", "gemini cli", "openai codex"] = (
-            coding_agent_type or DEFAULT_CONFIG.agent_creator.coding_agent_type
+            coding_agent_type or DEFAULT_CONFIG.agent_creator.evolver.coding_agent_type
         )
 
     def _load_report(self, path: str | None) -> ImprovementReport | None:
@@ -231,7 +234,7 @@ class ImproverAgent:
 
         return "\n".join(sections)
 
-    async def improve(
+    def improve(
         self,
         source_folder: str,
         target_folder: str,
@@ -268,7 +271,7 @@ class ImproverAgent:
         start_time = time.time()
 
         try:
-            result = await agent.run(
+            result = agent.run(
                 model_name=self.model_name,
                 prompt_template=IMPROVE_AGENT_PROMPT,
                 arguments={
@@ -310,7 +313,7 @@ class ImproverAgent:
 
         return True, new_report
 
-    async def crossover_improve(
+    def crossover_improve(
         self,
         primary_folder: str,
         primary_report_path: str,
@@ -357,7 +360,7 @@ class ImproverAgent:
         merged_report.save(temp_report_path)
 
         try:
-            return await self.improve(
+            return self.improve(
                 source_folder=primary_folder,
                 target_folder=target_folder,
                 report_path=temp_report_path,
@@ -369,7 +372,7 @@ class ImproverAgent:
                 Path(temp_report_path).unlink()
 
 
-async def main() -> None:
+def main() -> None:
     """Example usage of ImproverAgent."""
     improver = ImproverAgent()
     print(
@@ -379,4 +382,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    anyio.run(main)
+    main()

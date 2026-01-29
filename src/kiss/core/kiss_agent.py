@@ -211,7 +211,8 @@ class KISSAgent(Base):
             result_raw = self._tool_map[function_name](**function_args)
             function_response = str(result_raw)
         except Exception as e:
-            call_repr = f"```python\n{function_name}({function_args})\n```"
+            args_str = ", ".join(f"{k}={v!r}" for k, v in function_args.items())
+            call_repr = f"```python\n{function_name}({args_str})\n```"
             tool_call_timestamp = int(time.time())
             function_response = f"Failed to call {function_name} with {function_args}: {e}\n"
 

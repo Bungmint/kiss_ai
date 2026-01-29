@@ -680,11 +680,7 @@ if __name__ == "__main__":
         if not os.environ.get("KISS_RUN_INTEGRATION_TESTS"):
             self.skipTest("Integration tests disabled")
 
-        import anyio
 
-        from kiss.agents.agent_creator.improver_agent import (
-            ImprovementReport as RealReport,
-        )
         from kiss.agents.agent_creator.improver_agent import (
             ImproverAgent,
         )
@@ -692,13 +688,10 @@ if __name__ == "__main__":
         improver = ImproverAgent()
         target_dir = os.path.join(self.test_dir, "improved")
 
-        async def run_test() -> tuple[bool, RealReport | None]:
-            return await improver.improve(
-                source_folder=self.source_dir,
-                target_folder=target_dir,
-            )
-
-        success, report = anyio.run(run_test)
+        success, report = improver.improve(
+            source_folder=self.source_dir,
+            target_folder=target_dir,
+        )
 
         self.assertTrue(success)
         self.assertIsNotNone(report)
@@ -718,13 +711,9 @@ if __name__ == "__main__":
         if not os.environ.get("KISS_RUN_INTEGRATION_TESTS"):
             self.skipTest("Integration tests disabled")
 
-        import anyio
 
         from kiss.agents.agent_creator.agent_evolver import (
             AgentEvolver as RealEvolver,
-        )
-        from kiss.agents.agent_creator.agent_evolver import (
-            AgentVariant as RealVariant,
         )
 
         task = """
@@ -742,10 +731,7 @@ if __name__ == "__main__":
             max_frontier_size=2,
         )
 
-        async def run_test() -> RealVariant:
-            return await evolver.evolve()
-
-        best = anyio.run(run_test)
+        best = evolver.evolve()
 
         self.assertIsNotNone(best)
         self.assertTrue(Path(best.folder_path).exists())

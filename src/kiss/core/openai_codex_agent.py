@@ -145,7 +145,7 @@ class OpenAICodexAgent(Base):
 
         self._update_token_usage(result)
 
-    async def run(
+    def run(
         self,
         model_name: str = DEFAULT_CODEX_MODEL,
         prompt_template: str = "",
@@ -179,47 +179,50 @@ class OpenAICodexAgent(Base):
         self.prompt_template = prompt_template
         self.arguments = arguments or {}
 
-        task = self.prompt_template.format(**self.arguments)
-        timestamp = int(time.time())
-        self._add_message("user", task, timestamp)
-
-        agent = Agent(
-            name=self.name,
-            instructions=DEFAULT_SYSTEM_PROMPT,
-            model=model_name,
-            tools=self._create_tools(),
-        )
-
-        self._formatter.print_label_and_value("CODEX AGENT", f"Starting in {self.base_dir}")
-        self._formatter.print_label_and_value(
-            "CODEX AGENT", f"Model: {model_name}, Max turns: {max_steps}"
-        )
-
-        try:
-            result = await Runner.run(agent, input=task, max_turns=max_steps)
+        async def _run_async() -> str | None:
+            task = prompt_template.format(**(arguments or {}))
             timestamp = int(time.time())
-            self._process_run_result(result, timestamp)
+            self._add_message("user", task, timestamp)
 
-            final_result = str(result.final_output) if result.final_output else None
-            self._formatter.print_label_and_value(
-                "CODEX AGENT", f"Output: {str(result.final_output)[:500]}..."
+            agent = Agent(
+                name=self.name,
+                instructions=DEFAULT_SYSTEM_PROMPT,
+                model=model_name,
+                tools=self._create_tools(),
             )
 
-        except Exception as e:
-            self._formatter.print_label_and_value("CODEX ERROR", str(e))
-            final_result = f"Error: {e}"
-            self._add_message("model", f"Error: {e}", timestamp)
+            self._formatter.print_label_and_value("CODEX AGENT", f"Starting in {self.base_dir}")
+            self._formatter.print_label_and_value(
+                "CODEX AGENT", f"Model: {model_name}, Max turns: {max_steps}"
+            )
 
-        self._save()
-        return final_result
+            try:
+                result = await Runner.run(agent, input=task, max_turns=max_steps)
+                timestamp = int(time.time())
+                self._process_run_result(result, timestamp)
+
+                final_result = str(result.final_output) if result.final_output else None
+                self._formatter.print_label_and_value(
+                    "CODEX AGENT", f"Output: {str(result.final_output)[:500]}..."
+                )
+
+            except Exception as e:
+                self._formatter.print_label_and_value("CODEX ERROR", str(e))
+                final_result = f"Error: {e}"
+                self._add_message("model", f"Error: {e}", timestamp)
+
+            self._save()
+            return final_result
+
+        return anyio.run(_run_async)
 
 
-async def main() -> None:
+def main() -> None:
     agent = OpenAICodexAgent("Example agent")
     task_description = """
     can you write, test, and optimize a fibonacci function in Python that is efficient and correct?
     """
-    result = await agent.run(model_name="gpt-5.2-codex", prompt_template=task_description)
+    result = agent.run(model_name="gpt-5.2-codex", prompt_template=task_description)
 
     if result:
         print("\n--- FINAL AGENT REPORT ---")
@@ -227,4 +230,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    anyio.run(main)
+    main()

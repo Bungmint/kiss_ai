@@ -34,10 +34,9 @@ Heading.__rich_console__ = _left_aligned_heading  # type: ignore[method-assign]
 
 class SimpleFormatter(Formatter):
     def __init__(self) -> None:
-        if DEFAULT_CONFIG.agent.verbose:
-            self.color = sys.stdout.isatty()
-            self._console = Console() if self.color else None
-            self._stderr_console = Console(stderr=True) if self.color else None
+        self.color = sys.stdout.isatty()
+        self._console = Console() if self.color else None
+        self._stderr_console = Console(stderr=True) if self.color else None
 
     def format_message(self, message: dict[str, Any]) -> str:
         if DEFAULT_CONFIG.agent.verbose:

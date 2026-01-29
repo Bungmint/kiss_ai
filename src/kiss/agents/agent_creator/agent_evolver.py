@@ -92,8 +92,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-import anyio
-
 import kiss.agents.agent_creator.config  # noqa: F401
 from kiss.agents.agent_creator.improver_agent import (
     ImprovementReport,
@@ -211,13 +209,22 @@ Your task is to create an initial agent implementation based on the following re
 
 ## Agent Requirements
 
-The agent must be designed for **long-running, complex tasks** using
-the Agent API available at {kiss_folder}.  Specifically, you should
-look at API.md and README.md first, and then look at code under the
-src folder as required.  You **MUST not make the agent specific to any
-particular task, but rather make it a general purpose agent that can
-be used for any task**. Try to use claude opus or sonnet 4.5 models
-in the agent. Create the following files in {target_folder}:
+  - The agent must be designed for **long-running, complex tasks** using
+    the Agent API available at {kiss_folder}.  Specifically, you should
+    look at API.md and README.md first, and then look at code under the
+    src folder as required. {kiss_folder}/src/kiss/core/models/model_info.py
+    contains information about different LLM models and their context lengths.
+  - The agent.py when executed as a file, **MUST** run the given task.
+  - The agent **MUST** be tested for success on the given task description.
+    **YOU MUST ABSOLUTELY WAIT FOR THE TEST TO FINISH.**
+  - You **MUST not make the agent specific to any particular task, but
+    rather make it a general purpose agent that can be used for any task**.
+  - You MUST use KISSAgent, or ClaudeCodingAgent, or GeminiCliAgent, or
+    OpenAICodexAgent or a mixture of them to implement the agent.
+  - You MUST not use multithreading or multiprocessing or docker manager
+    or 'anyio' or 'async' or 'await' in the agent implementation.
+
+Create the following files in {target_folder}:
 
 1. `agent.py` - Main agent implementation that MUST include an
    `def agent_run(task: str) -> dict[str, Any]` function.
@@ -312,14 +319,14 @@ class AgentEvolver:
         report = str(self.work_dir / f"variant_{variant_id}" / "improvement_report.json")
         return folder, report
 
-    async def _create_initial_agent(self) -> AgentVariant | None:
+    def _create_initial_agent(self) -> AgentVariant | None:
         """Create the initial agent from scratch."""
         variant_id = self._next_variant_id()
         target_folder, report_path = self._get_variant_paths(variant_id)
         Path(target_folder).mkdir(parents=True, exist_ok=True)
 
         agent = create_coding_agent(self.coding_agent_type, "Initial Agent Creator")
-        await agent.run(
+        agent.run(
             model_name=self.model_name,
             prompt_template=INITIAL_AGENT_PROMPT,
             arguments={
@@ -357,7 +364,7 @@ class AgentEvolver:
         spec.loader.exec_module(module)
         return module
 
-    async def _evaluate_variant(
+    def _evaluate_variant(
         self, variant: AgentVariant,
     ) -> dict[str, Any]:
         """Run the agent on the long-running task and collect metrics.
@@ -486,12 +493,12 @@ class AgentEvolver:
         v1, v2 = random.sample(self.pareto_frontier, 2)
         return (v1, v2) if v1.score() <= v2.score() else (v2, v1)
 
-    async def _mutate(self, variant: AgentVariant) -> AgentVariant | None:
+    def _mutate(self, variant: AgentVariant) -> AgentVariant | None:
         """Create a new variant by mutating an existing one."""
         new_id = self._next_variant_id()
         target_folder, report_path = self._get_variant_paths(new_id)
 
-        success, new_report = await self.improver.improve(
+        success, new_report = self.improver.improve(
             source_folder=variant.folder_path,
             target_folder=target_folder,
             report_path=variant.report_path,
@@ -514,14 +521,14 @@ class AgentEvolver:
             parent_ids=[variant.id],
         )
 
-    async def _crossover(
+    def _crossover(
         self, primary: AgentVariant, secondary: AgentVariant
     ) -> AgentVariant | None:
         """Create a new variant by crossing over two variants."""
         new_id = self._next_variant_id()
         target_folder, report_path = self._get_variant_paths(new_id)
 
-        success, new_report = await self.improver.crossover_improve(
+        success, new_report = self.improver.crossover_improve(
             primary_folder=primary.folder_path,
             primary_report_path=primary.report_path,
             secondary_report_path=secondary.report_path,
@@ -546,7 +553,7 @@ class AgentEvolver:
             parent_ids=[primary.id, secondary.id],
         )
 
-    async def evolve(self) -> AgentVariant:
+    def evolve(self) -> AgentVariant:
         """Run the evolutionary optimization."""
         try:
             print(f"Starting AgentEvolver with {self.max_generations} generations")
@@ -554,11 +561,11 @@ class AgentEvolver:
 
             # Initialize with first agent
             print("\nInitializing...")
-            initial = await self._create_initial_agent()
+            initial = self._create_initial_agent()
             if initial is None:
                 raise RuntimeError("Failed to create initial agent")
 
-            eval_result = await self._evaluate_variant(initial)
+            eval_result = self._evaluate_variant(initial)
             initial.metrics = eval_result["metrics"]
             self._update_pareto_frontier(initial)
             print(f"Initial agent: {self._format_metrics(initial.metrics)}")
@@ -575,18 +582,18 @@ class AgentEvolver:
                     print("Operation: Mutation")
                     parent = self._sample_from_frontier()
                     print(f"  Parent: variant_{parent.id} ({self._format_metrics(parent.metrics)})")
-                    new_variant = await self._mutate(parent)
+                    new_variant = self._mutate(parent)
                 else:
                     print("Operation: Crossover")
                     primary, secondary = self._sample_two_from_frontier()
                     print(f"  Primary: variant_{primary.id}, Secondary: variant_{secondary.id}")
-                    new_variant = await self._crossover(primary, secondary)
+                    new_variant = self._crossover(primary, secondary)
 
                 if new_variant is None:
                     print("  Failed to create new variant")
                     continue
 
-                eval_result = await self._evaluate_variant(new_variant)
+                eval_result = self._evaluate_variant(new_variant)
                 new_variant.metrics = eval_result["metrics"]
                 new_variant.feedback = eval_result["feedback"]
                 metrics_str = self._format_metrics(new_variant.metrics)
@@ -683,7 +690,7 @@ LONG_RUNNING_TASK = """
 > *   Safe: Operate entirely within a `./my_db` directory.
 """
 
-async def main() -> None:
+def main() -> None:
     """Run the AgentEvolver on a long-running task."""
     evolver = AgentEvolver(
         task_description=LONG_RUNNING_TASK,
@@ -692,7 +699,7 @@ async def main() -> None:
         mutation_probability=0.8,
     )
 
-    best = await evolver.evolve()
+    best = evolver.evolve()
 
     print("\n=== Final Result ===")
     print(f"Best variant: {best.folder_path}")
@@ -705,4 +712,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    anyio.run(main)
+    main()

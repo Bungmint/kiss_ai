@@ -174,7 +174,8 @@ def read_project_file(file_path_relative_to_project_root: str) -> str:
     )
     abs_path = os.path.join(project_root, file_path_relative_to_project_root)
     if os.path.isfile(abs_path):
-        return open(abs_path, encoding="utf-8").read()
+        with open(abs_path, encoding="utf-8") as f:
+            return f.read()
 
     rel_parts = file_path_relative_to_project_root.strip("/").split("/")
     if len(rel_parts) > 1:

@@ -218,7 +218,7 @@ class GeminiCliAgent(Base):
 
         return final_text
 
-    async def run(
+    def run(
         self,
         model_name: str = DEFAULT_GEMINI_MODEL,
         prompt_template: str = "",
@@ -252,73 +252,76 @@ class GeminiCliAgent(Base):
         self.prompt_template = prompt_template
         self.arguments = arguments or {}
 
-        task = self.prompt_template.format(**self.arguments)
-        timestamp = int(time.time())
-        self._add_message("user", task, timestamp)
+        async def _run_async() -> str | None:
+            task = prompt_template.format(**(arguments or {}))
+            timestamp = int(time.time())
+            self._add_message("user", task, timestamp)
 
-        # Create the ADK agent with tools
-        tools = self._create_tools()
-        agent = Agent(
-            model=model_name,
-            name=self.name,
-            instruction=DEFAULT_SYSTEM_PROMPT,
-            description="An expert Python programmer that writes clean, simple, robust code.",
-            tools=tools,
-        )
-
-        self._formatter.print_label_and_value("GEMINI AGENT", f"Starting in {self.base_dir}")
-        self._formatter.print_label_and_value(
-            "GEMINI AGENT", f"Model: {model_name}, Max turns: {max_steps}"
-        )
-
-        try:
-            # Set up session service and runner
-            session_service = InMemorySessionService()
-            app_name = f"kiss_gemini_agent_{self.id}"
-            user_id = "kiss_user"
-            session_id = f"session_{self.run_start_timestamp}"
-
-            session = await session_service.create_session(
-                app_name=app_name, user_id=user_id, session_id=session_id
+            # Create the ADK agent with tools
+            tools = self._create_tools()
+            agent = Agent(
+                model=model_name,
+                name=self.name,
+                instruction=DEFAULT_SYSTEM_PROMPT,
+                description="An expert Python programmer that writes clean, simple, robust code.",
+                tools=tools,
             )
 
-            runner = Runner(agent=agent, app_name=app_name, session_service=session_service)
-
-            # Create user message content
-            content = types.Content(role="user", parts=[types.Part(text=task)])
-
-            # Run the agent and collect events
-            final_result: str | None = None
-            events_list = []
-
-            async for event in runner.run_async(
-                user_id=user_id, session_id=session.id, new_message=content
-            ):
-                events_list.append(event)
-                timestamp = int(time.time())
-
-            # Process all collected events
-            final_result = self._process_events(events_list, timestamp)
-
+            self._formatter.print_label_and_value("GEMINI AGENT", f"Starting in {self.base_dir}")
             self._formatter.print_label_and_value(
-                "GEMINI AGENT", f"Completed with {self.step_count} steps"
+                "GEMINI AGENT", f"Model: {model_name}, Max turns: {max_steps}"
             )
 
-        except Exception as e:
-            self._formatter.print_label_and_value("GEMINI ERROR", str(e))
-            final_result = f"Error: {e}"
-            self._add_message("model", f"Error: {e}", timestamp)
+            try:
+                # Set up session service and runner
+                session_service = InMemorySessionService()
+                app_name = f"kiss_gemini_agent_{self.id}"
+                user_id = "kiss_user"
+                session_id = f"session_{self.run_start_timestamp}"
 
-        self._save()
-        return final_result
+                session = await session_service.create_session(
+                    app_name=app_name, user_id=user_id, session_id=session_id
+                )
+
+                runner = Runner(agent=agent, app_name=app_name, session_service=session_service)
+
+                # Create user message content
+                content = types.Content(role="user", parts=[types.Part(text=task)])
+
+                # Run the agent and collect events
+                final_result: str | None = None
+                events_list = []
+
+                async for event in runner.run_async(
+                    user_id=user_id, session_id=session.id, new_message=content
+                ):
+                    events_list.append(event)
+                    timestamp = int(time.time())
+
+                # Process all collected events
+                final_result = self._process_events(events_list, timestamp)
+
+                self._formatter.print_label_and_value(
+                    "GEMINI AGENT", f"Completed with {self.step_count} steps"
+                )
+
+            except Exception as e:
+                self._formatter.print_label_and_value("GEMINI ERROR", str(e))
+                final_result = f"Error: {e}"
+                self._add_message("model", f"Error: {e}", timestamp)
+
+            self._save()
+            return final_result
+
+        return anyio.run(_run_async)
 
 
-async def main() -> None:
+def main() -> None:
     agent = GeminiCliAgent("example_gemini_agent")
     task_description = """
     can you write, test, and optimize a fibonacci function in Python that is efficient and correct?
     """
-    result = await agent.run(model_name=DEFAULT_GEMINI_MODEL, prompt_template=task_description)
+    result = agent.run(model_name=DEFAULT_GEMINI_MODEL, prompt_template=task_description)
 
     if result:
         print("\n--- FINAL AGENT REPORT ---")
@@ -326,4 +329,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    anyio.run(main)
+    main()

@@ -236,13 +236,13 @@ class TestClaudeCodingAgentRun(unittest.TestCase):
 
         task = """Write a simple Python function that adds two numbers."""
 
-        result = asyncio.run(agent.run(
+        result = agent.run(
             model_name="claude-sonnet-4-5",
             prompt_template=task,
             readable_paths=[str(self.project_root / "src")],
             writable_paths=[str(self.output_dir)],
             base_dir=str(self.temp_dir)
-        ))
+        )
 
         # Result should be a string summary
         self.assertIsNotNone(result)
@@ -256,13 +256,13 @@ class TestClaudeCodingAgentRun(unittest.TestCase):
 
         task = "Write a simple factorial function, test it, and mke it efficient."
 
-        result = asyncio.run(agent.run(
+        result = agent.run(
             model_name="claude-sonnet-4-5",
             prompt_template=task,
             readable_paths=[str(self.project_root / "src")],
             writable_paths=[str(self.output_dir)],
             base_dir=str(self.temp_dir)
-        ))
+        )
 
         self.assertIsNotNone(result)
         if result:

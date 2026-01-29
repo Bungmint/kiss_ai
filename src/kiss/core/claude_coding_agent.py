@@ -6,6 +6,7 @@
 """Claude Coding Agent using the Claude Agent SDK."""
 
 import time
+from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
 
@@ -52,8 +53,7 @@ class ClaudeCodingAgent(Base):
     ) -> None:
         self._init_run_state(model_name, BUILTIN_TOOLS)
         Path(base_dir).mkdir(parents=True, exist_ok=True)
-        self.base_dir = base_dir
-
+        self.base_dir = Path(base_dir).resolve()
         self.readable_paths = [self._resolve_path(p) for p in readable_paths or []]
         self.writable_paths = [self._resolve_path(p) for p in writable_paths or []]
         self.max_tokens = get_max_context_length(model_name)
@@ -65,7 +65,7 @@ class ClaudeCodingAgent(Base):
         self, path_str: str, allowed_paths: list[Path]
     ) -> PermissionResultAllow | PermissionResultDeny:
         """Check if path is allowed, return appropriate permission result."""
-        if not allowed_paths or self._is_subpath(Path(path_str).resolve(), allowed_paths):
+        if self._is_subpath(Path(path_str).resolve(), allowed_paths):
             return PermissionResultAllow(behavior="allow")
         return PermissionResultDeny(
             behavior="deny", message=f"Access Denied: {path_str} is not in whitelist."
@@ -136,7 +136,7 @@ class ClaudeCodingAgent(Base):
         self._add_message("model", final_result, timestamp)
         return final_result
 
-    async def run(
+    def run(
         self,
         model_name: str,
         prompt_template: str,
@@ -169,41 +169,44 @@ class ClaudeCodingAgent(Base):
         self.prompt_template = prompt_template
         self.arguments = arguments or {}
 
-        options = ClaudeAgentOptions(
-            model=model_name,
-            system_prompt=DEFAULT_SYSTEM_PROMPT,
-            can_use_tool=self.permission_handler,
-            permission_mode="default",
-            allowed_tools=BUILTIN_TOOLS,
-            cwd=str(self.base_dir),
-        )
+        async def _run_async() -> str | None:
+            options = ClaudeAgentOptions(
+                model=model_name,
+                system_prompt=DEFAULT_SYSTEM_PROMPT,
+                can_use_tool=self.permission_handler,
+                permission_mode="default",
+                allowed_tools=BUILTIN_TOOLS,
+                cwd=str(self.base_dir),
+            )
 
-        async def prompt_stream() -> Any:
-            task = self.prompt_template.format(**self.arguments)
-            yield {"type": "user", "message": {"role": "user", "content": task}}
+            async def prompt_stream() -> AsyncGenerator[dict[str, Any]]:
+                task = prompt_template.format(**(arguments or {}))
+                yield {"type": "user", "message": {"role": "user", "content": task}}
 
-        timestamp = int(time.time())
-        final_result: str | None = None
-
-        async for message in query(prompt=prompt_stream(), options=options):
-            if isinstance(message, AssistantMessage):
-                self._process_assistant_message(message, timestamp)
-            elif isinstance(message, UserMessage):
-                self._process_user_message(message, timestamp)
-            elif isinstance(message, ResultMessage):
-                final_result = self._process_result_message(message, timestamp)
             timestamp = int(time.time())
+            final_result: str | None = None
 
-        self._save()
-        return final_result
+            async for message in query(prompt=prompt_stream(), options=options):
+                if isinstance(message, AssistantMessage):
+                    self._process_assistant_message(message, timestamp)
+                elif isinstance(message, UserMessage):
+                    self._process_user_message(message, timestamp)
+                elif isinstance(message, ResultMessage):
+                    final_result = self._process_result_message(message, timestamp)
+                timestamp = int(time.time())
+
+            self._save()
+            return final_result
+
+        return anyio.run(_run_async)
 
 
-async def main() -> None:
+def main() -> None:
     agent = ClaudeCodingAgent("Example agent")
     task_description = """
     can you write, test, and optimize a fibonacci function in Python that is efficient and correct?
     """
-    result = await agent.run(model_name="claude-sonnet-4-5", prompt_template=task_description)
+    result = agent.run(model_name="claude-sonnet-4-5", prompt_template=task_description)
 
     if result:
         print("\n--- FINAL AGENT REPORT ---")
@@ -211,4 +214,4 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    anyio.run(main)
+    main()
