@@ -26,13 +26,15 @@ from kiss.core.kiss_agent import KISSAgent
 from kiss.core.kiss_error import KISSError
 from kiss.core.models.model_info import get_max_context_length
 
-PLANNING_PROMPT = """Break down this task into sub-tasks:
+PLANNING_PROMPT = """
+
+## Task
 
 {task_description}
 
-Call add_task() now to add the first sub-task. You can only call ONE function at a time.
-After each task is added, continue adding the next one.
-When all tasks are added, call finish() with a summary.
+Call do_sub_task() to perform a sub-task.
+do_sub_task() will return a yaml encoded dictionary containing the keys
+'success' (boolean) and 'summary' (string).
 """
 
 TASKING_PROMPT = """
@@ -41,12 +43,16 @@ TASKING_PROMPT = """
 You are a software engineer who is expert with
 bash commands and coding.
 
-# Sub-task: {subtask}
+# Sub-task
+
+{subtask}
 
 {description}
 
 # Context
-This is part of a larger task: {task_description}
+This is part of a larger task:
+
+{task_description}
 
 This is the relevant context for this sub-task:
 {context}
@@ -343,7 +349,10 @@ class KISSCodingAgent(Base):
 
     def _reset(
         self,
-        model_name: str,
+        orchestrator_model_name: str,
+        subtasker_model_name: str,
+        refiner_model_name: str,
+        trials: int,
         max_steps: int,
         max_budget: float,
         base_dir: str,
@@ -354,10 +363,20 @@ class KISSCodingAgent(Base):
         self.base_dir = str(Path(base_dir).resolve())
         self.readable_paths = [self._resolve_path(p) for p in readable_paths or []]
         self.writable_paths = [self._resolve_path(p) for p in writable_paths or []]
-        self.max_tokens = get_max_context_length(model_name)
         self.is_agentic = True
+
+        self.trials = trials
         self.max_steps = max_steps
         self.max_budget = max_budget
+        self.orchestrator_model_name = orchestrator_model_name
+        self.subtasker_model_name = subtasker_model_name
+        self.refiner_model_name = refiner_model_name
+        self.max_tokens = max(
+            get_max_context_length(orchestrator_model_name),
+            get_max_context_length(subtasker_model_name),
+            get_max_context_length(refiner_model_name),
+        )
+
         self.budget_used: float = 0.0
         self.total_tokens_used: int = 0
 
@@ -390,18 +409,77 @@ class KISSCodingAgent(Base):
         except subprocess.CalledProcessError as e:
             return f"Error: {e.stderr}"
 
-    def plan_tasks(
+    def perform_sub_task(
+        self,
+        subtask_name: str,
+        context: str,
+        description: str,
+    ) -> str:
+        """Perform a sub-task
+
+        Args:
+            subtask_name: Name of the sub-task
+            context: Context for the sub-task
+            description: Description of the sub-task
+
+        Returns:
+            An yaml encoded dictionary containing the keys
+            'success' (boolean) and 'summary' (string).
+        """
+        subtask = SubTask(subtask_name, context, description)
+        print(f"Executing subtask: {subtask.name}")
+        executor = KISSAgent(f"{self.name} Executor {subtask.name}")
+        task_prompt_template = TASKING_PROMPT
+        for _ in range(self.trials):
+            result = executor.run(
+                model_name=self.orchestrator_model_name,
+                prompt_template=task_prompt_template,
+                arguments={
+                    "subtask": subtask.name,
+                    "description": subtask.description,
+                    "context": subtask.context,
+                    "task_description": self.task_description,
+                    "max_steps": str(self.max_steps),
+                    "coding_instructions": DEFAULT_SYSTEM_PROMPT,
+                },
+                tools=[finish, self.run_bash_command],
+                max_steps=self.max_steps,
+                max_budget=self.max_budget,
+            )
+            self.budget_used += executor.budget_used # type: ignore
+            self.total_tokens_used += executor.total_tokens_used  # type: ignore
+
+            ret = yaml.safe_load(result)
+            success = ret.get("success", False)
+            if not success:
+                print(f"Subtask {subtask.name} failed, refining prompt and retrying...")
+                refiner = KISSAgent(f"{self.name} Prompt Refiner")
+                task_prompt_template = refiner.run(
+                    model_name=self.refiner_model_name,
+                    prompt_template=PROMPT_TEMPLATE_REFINER,
+                    arguments={
+                        "original_prompt_template": TASKING_PROMPT,
+                        "previous_prompt_template": task_prompt_template,
+                        "agent_trajectory_summary": result,
+                    },
+                    is_agentic=False,
+                )
+                self.budget_used += refiner.budget_used  # type: ignore
+                self.total_tokens_used += refiner.total_tokens_used  # type: ignore
+                continue
+            return result
+        raise KISSError(f"Subtask {subtask.name} failed after {self.trials} trials")
+
+    def orchestrate(
         self,
         task_description: str,
-        model_name: str,
-    ) -> list[SubTask]:
-        """Use planner agent to create an execution plan."""
+    ) -> str:
+        """Orchestrate the multi-agent coding system."""
 
         planner = KISSAgent(f"{self.name} Planner")
 
-        sub_tasks: list[SubTask] = []
-        def add_task(sub_task_name: str, context: str, description: str) -> str:
-            """Add a sub-task to the plan.
+        def do_sub_task(sub_task_name: str, context: str, description: str) -> str:
+            """Perform a sub-task
 
             Args:
                 sub_task_name: Name of the sub-task
@@ -409,45 +487,38 @@ class KISSCodingAgent(Base):
                 description: Description of the sub-task
 
             Returns:
-                Confirmation message
+                A yaml encoded dictionary containing the keys
+                'success' (boolean) and 'summary' (string).
             """
-            sub_task = SubTask(sub_task_name, context, description)
-            sub_tasks.append(sub_task)
-            return (
-                f"Added sub-task: {sub_task_name}. "
-                "Continue adding more tasks or call finish when done."
+            subtask = SubTask(sub_task_name, context, description)
+            return self.perform_sub_task(
+                subtask_name=subtask.name,
+                context=subtask.context,
+                description=subtask.description,
             )
-
-        def finish(summary: str) -> str:
-            """Finish planning and return the list of sub-tasks.
-
-            Args:
-                summary: A brief summary of the plan
-
-            Returns:
-                Summary of the planning
-            """
-            return f"Planning complete. {len(sub_tasks)} sub-tasks created. {summary}"
-
         try:
-            planner.run(
-                model_name=model_name,
+            result = planner.run(
+                model_name=self.orchestrator_model_name,
                 prompt_template=PLANNING_PROMPT,
                 arguments={"task_description": task_description},
-                tools=[add_task, finish]
+                tools=[do_sub_task, finish]
             )
             self.budget_used = planner.budget_used # type: ignore
             self.total_tokens_used = planner.total_tokens_used  # type: ignore
-            return sub_tasks
         except Exception as e:
             raise KISSError(f"Planning failed: {e}")
-        return sub_tasks
+        return result
 
     def run(
         self,
-        model_name: str,
         prompt_template: str,
         arguments: dict[str, str] | None = None,
+        orchestrator_model_name: str = (
+            DEFAULT_CONFIG.agent.kiss_coding_agent.orchestrator_model_name
+        ),
+        subtasker_model_name: str = DEFAULT_CONFIG.agent.kiss_coding_agent.subtasker_model_name,
+        refiner_model_name: str = DEFAULT_CONFIG.agent.kiss_coding_agent.refiner_model_name,
+        trials: int = DEFAULT_CONFIG.agent.kiss_coding_agent.trials,
         max_steps: int = DEFAULT_CONFIG.agent.max_steps,
         max_budget: float = DEFAULT_CONFIG.agent.max_agent_budget,
         base_dir: str = str(
@@ -455,12 +526,14 @@ class KISSCodingAgent(Base):
         ),
         readable_paths: list[str] | None = None,
         writable_paths: list[str] | None = None,
-        trials: int = 3,
     ) -> str:
         """Run the multi-agent coding system.
 
         Args:
-            model_name: The name of the model to use.
+            orchestrator_model_name: The name of the orchestrator model to use.
+            subtasker_model_name: The name of the subtasker model to use.
+            refiner_model_name: The name of the refiner model to use.
+            trials: The number of trials to attempt for each subtask.
             prompt_template: The prompt template for the task.
             arguments: The arguments for the task.
             tools: Optional tools to provide to executor agents.
@@ -474,68 +547,25 @@ class KISSCodingAgent(Base):
         Returns:
             The result of the task.
         """
-        self._reset(model_name, max_steps, max_budget, base_dir, readable_paths, writable_paths)
+        self._reset(
+            orchestrator_model_name,
+            subtasker_model_name,
+            refiner_model_name,
+            trials,
+            max_steps,
+            max_budget,
+            base_dir,
+            readable_paths,
+            writable_paths,
+        )
         self.prompt_template = prompt_template
         self.arguments = arguments or {}
 
-        summaries: list[str] = []
-        try:
-            task_description = prompt_template.format(**self.arguments)
-            subtasks = self.plan_tasks(
-                task_description=task_description,
-                model_name=model_name,
-            )
-            for subtask in subtasks:
-                print(f"Executing subtask: {subtask.name}")
-                executor = KISSAgent(f"{self.name} Executor {subtask.name}")
-                task_prompt_template = TASKING_PROMPT
-                for _ in range(trials):
-                    result = executor.run(
-                        model_name=model_name,
-                        prompt_template=task_prompt_template,
-                        arguments={
-                            "subtask": subtask.name,
-                            "description": subtask.description,
-                            "context": subtask.context,
-                            "task_description": task_description,
-                            "max_steps": str(max_steps),
-                            "coding_instructions": DEFAULT_SYSTEM_PROMPT,
-                        },
-                        tools=[finish, self.run_bash_command],
-                        max_steps=max_steps,
-                        max_budget=max_budget,
-                    )
-                    self.budget_used += executor.budget_used # type: ignore
-                    self.total_tokens_used += executor.total_tokens_used  # type: ignore
-
-                    ret = yaml.safe_load(result)
-                    success = ret.get("success", False)
-                    if not success:
-                        print(f"Subtask {subtask.name} failed, refining prompt and retrying...")
-                        refiner = KISSAgent(f"{self.name} Prompt Refiner")
-                        task_prompt_template = refiner.run(
-                            model_name=model_name,
-                            prompt_template=PROMPT_TEMPLATE_REFINER,
-                            arguments={
-                                "original_prompt_template": TASKING_PROMPT,
-                                "previous_prompt_template": task_prompt_template,
-                                "agent_trajectory_summary": result,
-                            },
-                            is_agentic=False,
-                        )
-                        self.budget_used += refiner.budget_used  # type: ignore
-                        self.total_tokens_used += refiner.total_tokens_used  # type: ignore
-                        continue
-                    summaries.append(ret.get("summary", ""))
-            summarizer = KISSAgent(f"{self.name} Summarizer")
-            summarizer_result = summarizer.run(
-                model_name=model_name,
-                prompt_template="Summarize the following:\n\n{results}",
-                arguments={"results": "\n\n".join(summaries)},
-            )
-            return summarizer_result
-        except Exception as e:
-            return f"Error during execution: {e}"
+        self.task_description = prompt_template.format(**self.arguments)
+        result = self.orchestrate(
+            task_description=self.task_description,
+        )
+        return result
 
 def main() -> None:
     """Example usage of the KISSCodingAgent."""
@@ -551,10 +581,7 @@ def main() -> None:
     """
 
     result = agent.run(
-        model_name="claude-sonnet-4-5",
         prompt_template=task_description,
-        max_steps=25,
-        max_budget=1.0,
     )
 
     print("\n" + "="*80)

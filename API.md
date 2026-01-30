@@ -1,5 +1,13 @@
 # KISS Framework API Reference
 
+**Keep It Simple, Stupid** - Comprehensive API documentation for the KISS AI agent framework.
+
+## Introduction
+
+The KISS framework provides a clean, simple API for building AI agents with native function calling, multi-agent orchestration, and evolutionary optimization. This document covers all public classes, methods, and utilities available in the framework.
+
+For a high-level overview and quick start guide, see [README.md](README.md).
+
 ## Table of Contents
 
 - [KISSAgent](#kissagent) - Core agent class with function calling
@@ -157,6 +165,22 @@ KISSCodingAgent(name: str)
 
 - `name` (str): Name of the agent. Used for identification and artifact naming.
 
+### SubTask Class
+
+```python
+class SubTask:
+    def __init__(self, name: str, context: str, description: str) -> None
+```
+
+Represents a sub-task in the multi-agent coding system.
+
+**Attributes:**
+
+- `id` (int): Unique identifier for this sub-task (auto-incremented)
+- `name` (str): Name of the sub-task
+- `context` (str): Relevant context information for this sub-task
+- `description` (str): Detailed description of what needs to be done
+
 ### Methods
 
 #### `run()`
@@ -266,9 +290,10 @@ Run a bash command with automatic path permission checks. Parses the command to 
 - **Multi-Agent Architecture**: Uses a planner agent to break down tasks into sub-tasks, and executor KISSAgents to handle each sub-task
 - **Token Optimization**: Uses smaller models for simple tasks to minimize costs
 - **Efficient Orchestration**: Keeps total steps below configured maximum through smart task management
-- **Bash Command Parsing**: Automatically extracts readable/writable directories from bash commands using `parse_bash_command_paths()`
+- **Bash Command Parsing**: Automatically extracts readable/writable directories from bash commands
 - **Path Access Control**: Enforces read/write permissions on file system paths
 - **Retry Logic**: Supports multiple retry attempts for each subtask to improve reliability
+- **Prompt Refinement**: Automatically refines prompts when subtasks fail to improve success rate
 
 ### Example
 
@@ -1564,6 +1589,26 @@ Perform a web search and return the top search results with page contents.
 
 - `str`: A string containing titles, links, and page contents of the top search results.
 
+### `parse_bash_command_paths()`
+
+```python
+def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]
+```
+
+Parse a bash command to extract readable and writable file paths.
+
+**Parameters:**
+
+- `command` (str): The bash command to parse.
+
+**Returns:**
+
+- `tuple[list[str], list[str]]`: A tuple of (readable_paths, writable_paths).
+
+**Note:**
+
+This function is used internally by KISSCodingAgent to automatically determine which paths need read/write permissions before executing bash commands.
+
 ______________________________________________________________________
 
 ## SimpleFormatter
@@ -1685,9 +1730,56 @@ Print a label and value pair with distinct colors. No output if verbose mode is 
 
 ______________________________________________________________________
 
+______________________________________________________________________
+
+## Configuration System
+
+The KISS framework uses a Pydantic-based configuration system accessible through `DEFAULT_CONFIG`.
+
+### Config Structure
+
+```python
+from kiss.core.config import DEFAULT_CONFIG
+
+# Access configuration
+DEFAULT_CONFIG.api_keys.openai_api_key = "your-key"
+DEFAULT_CONFIG.agent.max_steps = 100
+DEFAULT_CONFIG.agent.max_agent_budget = 10.0
+DEFAULT_CONFIG.agent.global_budget = 200.0
+DEFAULT_CONFIG.agent.verbose = True
+DEFAULT_CONFIG.agent.use_web_search = True
+```
+
+### Configuration Sections
+
+#### `api_keys`
+- `openai_api_key` (str): OpenAI API key
+- `anthropic_api_key` (str): Anthropic API key
+- `google_api_key` (str): Google API key
+- `together_api_key` (str): Together AI API key
+- `openrouter_api_key` (str): OpenRouter API key
+- `serper_api_key` (str): Serper API key for web search
+
+#### `agent`
+- `max_steps` (int): Maximum steps per agent run (default: 100)
+- `max_agent_budget` (float): Maximum budget per agent in USD (default: 10.0)
+- `global_budget` (float): Global budget limit in USD (default: 200.0)
+- `verbose` (bool): Enable verbose output (default: True)
+- `use_web_search` (bool): Enable web search tool (default: False)
+- `model_name` (str): Default model name (default: "gpt-4o")
+
+#### `docker`
+- `default_image` (str): Default Docker image (default: "ubuntu:latest")
+- `default_workdir` (str): Default working directory in container (default: "/workspace")
+
+#### `gepa`, `kiss_evolve`, `agent_creator`
+Configuration sections for evolutionary optimization systems. See respective classes for details.
+
+______________________________________________________________________
+
 ## Pre-built Agents
 
-Ready-to-use agents from `kiss.agents.kiss`.
+Ready-to-use agent functions from `kiss.agents.kiss`.
 
 ### `refine_prompt_template()`
 

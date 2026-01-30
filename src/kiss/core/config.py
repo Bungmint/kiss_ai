@@ -59,13 +59,41 @@ class AgentConfig(BaseModel):
         default=200.0, description="Maximum budget for the global agent"
     )
     use_web_search: bool = Field(default=True, description="Use web search")
+    kiss_coding_agent: "KISSCodingAgentConfig" = Field(
+        default_factory=lambda: KISSCodingAgentConfig(),
+        description="Configuration for KISS Coding Agent",
+    )
 
+class KISSCodingAgentConfig(BaseModel):
+    orchestrator_model_name: str = Field(
+        default="claude-sonnet-4-5",
+        description="LLM model to use for KISS Coding Agent",
+    )
+    subtasker_model_name: str = Field(
+        default="claude-opus-4-5",
+        description="LLM model to use for subtask generation and execution",
+    )
+    refiner_model_name: str = Field(
+        default="claude-sonnet-4-5",
+        description="LLM model to use for prompt refinement of failed tasks",
+    )
+    max_steps: int = Field(
+        default=50,
+        description="Maximum steps for the KISS Coding Agent",
+    )
+    max_budget: float = Field(
+        default=100.0,
+        description="Maximum budget in USD for the KISS Coding Agent",
+    )
+    trials: int = Field(
+        default=3,
+        description="Number of trials for failed subtasks",
+    )
 
 class DockerConfig(BaseModel):
     client_shared_path: str = Field(
         default="/testbed", description="Path inside Docker container for shared volume"
     )
-
 
 class Config(BaseModel):
     agent: AgentConfig = Field(default_factory=AgentConfig, description="Agent configuration")

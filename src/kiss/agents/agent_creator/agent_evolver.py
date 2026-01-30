@@ -92,13 +92,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-import kiss.agents.agent_creator.config  # noqa: F401
+import kiss.agents.agent_creator.config  # type: ignore # noqa: F401
 from kiss.agents.agent_creator.improver_agent import (
     ImprovementReport,
     ImproverAgent,
     create_coding_agent,
 )
 from kiss.core.config import DEFAULT_CONFIG
+from kiss.core.kiss_coding_agent import KISSCodingAgent
 from kiss.core.utils import get_config_value
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
@@ -308,19 +309,35 @@ class AgentEvolver:
         Path(target_folder).mkdir(parents=True, exist_ok=True)
 
         agent = create_coding_agent(self.coding_agent_type, "Initial Agent Creator")
-        agent.run(
-            model_name=self.model_name,
-            prompt_template=INITIAL_AGENT_PROMPT,
-            arguments={
-                "task_description": self.task_description,
-                "target_folder": target_folder,
-                "kiss_folder": str(PROJECT_ROOT),
-            },
-            max_steps=self.initial_agent_max_steps,
-            max_budget=self.initial_agent_max_budget,
-            base_dir=str(self.work_dir / "creator_workdir"),
-            writable_paths=[target_folder],
-        )
+        # Handle different agent types with different parameter names
+        if isinstance(agent, KISSCodingAgent):
+            agent.run(
+                orchestrator_model_name=self.model_name,
+                prompt_template=INITIAL_AGENT_PROMPT,
+                arguments={
+                    "task_description": self.task_description,
+                    "target_folder": target_folder,
+                    "kiss_folder": str(PROJECT_ROOT),
+                },
+                max_steps=self.initial_agent_max_steps,
+                max_budget=self.initial_agent_max_budget,
+                base_dir=str(self.work_dir / "creator_workdir"),
+                writable_paths=[target_folder],
+            )
+        else:
+            agent.run(
+                model_name=self.model_name,
+                prompt_template=INITIAL_AGENT_PROMPT,
+                arguments={
+                    "task_description": self.task_description,
+                    "target_folder": target_folder,
+                    "kiss_folder": str(PROJECT_ROOT),
+                },
+                max_steps=self.initial_agent_max_steps,
+                max_budget=self.initial_agent_max_budget,
+                base_dir=str(self.work_dir / "creator_workdir"),
+                writable_paths=[target_folder],
+            )
 
         initial_report = ImprovementReport(
             metrics={},

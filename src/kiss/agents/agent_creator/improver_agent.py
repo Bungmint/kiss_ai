@@ -287,22 +287,42 @@ class ImproverAgent:
         start_time = time.time()
 
         try:
-            result = agent.run(
-                model_name=self.model_name,
-                prompt_template=IMPROVE_AGENT_PROMPT,
-                arguments={
-                    "source_folder": source_folder,
-                    "target_folder": target_folder,
-                    "previous_report": self._format_report_for_prompt(previous_report),
-                    "kiss_folder": str(PROJECT_ROOT),
-                    "feedback": feedback,
-                },
-                max_steps=self.max_steps,
-                max_budget=self.max_budget,
-                base_dir=base_dir,
-                readable_paths=[target_folder, str(PROJECT_ROOT)],
-                writable_paths=[target_folder],
-            )
+            # Handle different agent types with different parameter names
+            result: str | None
+            if isinstance(agent, KISSCodingAgent):
+                result = agent.run(
+                    orchestrator_model_name=self.model_name,
+                    prompt_template=IMPROVE_AGENT_PROMPT,
+                    arguments={
+                        "source_folder": source_folder,
+                        "target_folder": target_folder,
+                        "previous_report": self._format_report_for_prompt(previous_report),
+                        "kiss_folder": str(PROJECT_ROOT),
+                        "feedback": feedback,
+                    },
+                    max_steps=self.max_steps,
+                    max_budget=self.max_budget,
+                    base_dir=base_dir,
+                    readable_paths=[target_folder, str(PROJECT_ROOT)],
+                    writable_paths=[target_folder],
+                )
+            else:
+                result = agent.run(
+                    model_name=self.model_name,
+                    prompt_template=IMPROVE_AGENT_PROMPT,
+                    arguments={
+                        "source_folder": source_folder,
+                        "target_folder": target_folder,
+                        "previous_report": self._format_report_for_prompt(previous_report),
+                        "kiss_folder": str(PROJECT_ROOT),
+                        "feedback": feedback,
+                    },
+                    max_steps=self.max_steps,
+                    max_budget=self.max_budget,
+                    base_dir=base_dir,
+                    readable_paths=[target_folder, str(PROJECT_ROOT)],
+                    writable_paths=[target_folder],
+                )
         except Exception as e:
             print(f"Error during improvement: {e}")
             # Clean up partially copied target folder
