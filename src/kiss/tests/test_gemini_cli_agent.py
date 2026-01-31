@@ -14,7 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from kiss.agents.gemini_cli_agent import DEFAULT_GEMINI_MODEL, GeminiCliAgent
+from kiss.agents.coding_agents.gemini_cli_agent import DEFAULT_GEMINI_MODEL, GeminiCliAgent
 from kiss.core import DEFAULT_CONFIG
 
 

@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from typing import Literal
 
-from kiss.agents.kiss_coding_agent import KISSCodingAgent
+from kiss.agents.coding_agents.kiss_coding_agent import KISSCodingAgent
 from kiss.core.config import DEFAULT_CONFIG
 from kiss.core.utils import get_config_value
 

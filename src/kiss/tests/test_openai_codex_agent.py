@@ -14,7 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from kiss.agents.openai_codex_agent import OpenAICodexAgent
+from kiss.agents.coding_agents.openai_codex_agent import OpenAICodexAgent
 from kiss.core import DEFAULT_CONFIG
 
 
