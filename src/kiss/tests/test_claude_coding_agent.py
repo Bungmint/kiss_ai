@@ -15,10 +15,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from kiss.agents.claude_coding_agent import ClaudeCodingAgent
 from kiss.core import DEFAULT_CONFIG
-from kiss.core.claude_coding_agent import (
-    ClaudeCodingAgent,
-)
 
 
 class TestClaudeCodingAgentPermissions(unittest.TestCase):

@@ -354,7 +354,7 @@ For usage examples, API reference, and configuration options, please see the [Se
 The KISS Coding Agent is a multi-agent system with orchestration and sub-agents using KISSAgent. It efficiently breaks down complex coding tasks into manageable sub-tasks:
 
 ```python
-from kiss.core.kiss_coding_agent import KISSCodingAgent
+from kiss.agents.kiss_coding_agent import KISSCodingAgent
 
 # Create agent with a name
 agent = KISSCodingAgent(name="My Coding Agent")
@@ -390,7 +390,7 @@ print(f"Result: {result}")
 The Claude Coding Agent uses the Claude Agent SDK to generate tested Python programs with file system access controls:
 
 ```python
-from kiss.core.claude_coding_agent import ClaudeCodingAgent
+from kiss.agents.claude_coding_agent import ClaudeCodingAgent
 import anyio
 
 # Create agent with a name
@@ -426,7 +426,7 @@ anyio.run(main)
 The Gemini CLI Agent uses the Google ADK (Agent Development Kit) to generate tested Python programs:
 
 ```python
-from kiss.core.gemini_cli_agent import GeminiCliAgent
+from kiss.agents.gemini_cli_agent import GeminiCliAgent
 import anyio
 
 # Create agent with a name (must be a valid identifier - use underscores, not hyphens)
@@ -451,7 +451,7 @@ anyio.run(main)
 The OpenAI Codex Agent uses the OpenAI Agents SDK to generate tested Python programs:
 
 ```python
-from kiss.core.openai_codex_agent import OpenAICodexAgent
+from kiss.agents.openai_codex_agent import OpenAICodexAgent
 import anyio
 
 agent = OpenAICodexAgent(name="My Coding Agent")

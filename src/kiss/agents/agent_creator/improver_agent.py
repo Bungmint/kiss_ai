@@ -16,39 +16,118 @@ import time
 from pathlib import Path
 from typing import Literal
 
-from kiss.core.claude_coding_agent import ClaudeCodingAgent
+from kiss.agents.kiss_coding_agent import KISSCodingAgent
 from kiss.core.config import DEFAULT_CONFIG
-from kiss.core.gemini_cli_agent import GeminiCliAgent
-from kiss.core.kiss_coding_agent import KISSCodingAgent
-from kiss.core.openai_codex_agent import OpenAICodexAgent
 from kiss.core.utils import get_config_value
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 
+AGENT_EVOLVER_PROMPT = """
+You have to optimize an AI agent for long-running complex tasks.
 
-def create_coding_agent(
-    agent_type: Literal["kiss code", "claude code", "gemini cli", "openai codex"],
-    name: str,
-) -> KISSCodingAgent | ClaudeCodingAgent | GeminiCliAgent | OpenAICodexAgent:
-    """Create a coding agent based on the specified type.
+## Agent Requirements
 
-    Args:
-        agent_type: Type of coding agent to create
-        name: Name for the agent
+  - The agent must be designed for **long-running, complex tasks** using
+    the Agent API available at {kiss_folder}.  Specifically, you should
+    look at {kiss_folder}/API.md and {kiss_folder}/README.md first, and 
+    then look at code under the src folder as required. 
+    {kiss_folder}/src/kiss/core/models/model_info.py contains information 
+    about different LLM models and their context lengths, costs, etc.
+  - The agent **MUST** be tested for success on the given task description.
+  - You **MUST not make the agent specific to any particular task, but
+    rather make it a general purpose agent that can be used for any task**.
+  - You MUST use KISSAgent, or KissCodingAgent, or ClaudeCodingAgent, or
+    GeminiCliAgent, or OpenAICodexAgent or a mixture of them to implement
+    the agent.
+  - You MUST not use multithreading or multiprocessing or docker manager
+    or 'anyio' or 'async' or 'await' in the agent implementation.
+  - You may need to use the web to search on how to write such agents
+  - Do NOT create multiple variants or use evolutionary algorithms
+  - Do NOT use KISSEvolver, GEPA, mutation, or crossover techniques
+  - Make direct, targeted improvements to the existing code
+  - Preserve the agent's core functionality - it must still work correctly
+  - Do NOT use caching mechanisms that avoid re-computation
+  - You MUST run the following task to evaluate the agent.
 
-    Returns:
-        An instance of the specified coding agent type
-    """
-    if agent_type == "kiss code":
-        return KISSCodingAgent(name)
-    elif agent_type == "claude code":
-        return ClaudeCodingAgent(name)
-    elif agent_type == "gemini cli":
-        return GeminiCliAgent(name)
-    elif agent_type == "openai codex":
-        return OpenAICodexAgent(name)
-    else:
-        raise ValueError(f"Unknown coding agent type: {agent_type}")
+## Task Description
+
+{task_description}
+
+## Agent Implementation Files
+
+Create or modify the following files in {target_folder}:
+
+1. `agent.py` - Main agent implementation that MUST include an
+   `def agent_run(task: str) -> dict[str, Any]` function.
+   This function is the entry point that will be called to run the agent on a task.
+   It should accept a task description string and return a result.  The result must
+   be a dictionary containing the following keys:
+   - "feedback": str - Feedback from the agent on the task
+   - "metrics": dict[str, Any] - Metrics from the agent on the task
+     - "cost": float - Cost incurred by the agent
+     - "tokens_used": int - Number of tokens used by the agent
+     - "execution_time": float - Time taken to run the agent on the task in seconds
+     - "success": int - 0 if the agent completed successfully, 1 otherwise
+2. `config.py` - Agent configuration
+3. `__init__.py` - Agent package initialization
+4. `test_agent.py` - Tests for the agent
+5. `requirements.txt` - Dependencies for the agent
+
+The agent should collect fine-grained feedback on the task as it is executing.
+When complete, provide a summary of the agent it created and evolved, and the 
+files that were written.
+
+## Goals
+
+Your goal is to improve this agent to:
+1. **Reduce token usage** - Minimize tokens in prompts and responses
+2. **Reduce execution time** - Make the agent run faster
+3. **Maintain correctness** - Ensure the agent still completes the task correctly
+4. **Reduce costs** - Lower overall cost of running the agent
+
+## Optimization Strategies to Consider
+
+### Token Reduction
+- Shorten prompts while preserving meaning
+- Remove redundant instructions
+- Remove unnecessary examples from prompts
+- Use structured output formats that require fewer tokens
+- Search the web for token reduction techniques
+
+### Time Reduction
+- Run short-running commands in bash
+- Batch operations where possible
+- Use early termination when goals are achieved
+- Reduce the number of LLM calls
+- Optimize loops and data structures
+- Search the web for time reduction techniques
+
+### Agentic Patterns
+- search the web for information about various agentic patterns
+- patterns that solve long-horizon tasks scalably, efficiently and accurately
+- patterns that makes Python code faster
+- patterns that make bash commands faster
+- try some of these patterns in the agent's source code based on your needs
+
+## Previous Improvement Report (blank if none provided)
+
+{previous_report}
+
+## Feedback. (blank if none provided)
+
+The agent has been given the following feedback on the task:
+{feedback}
+
+## Output Summary
+
+When complete, provide a summary of:
+- What specific changes you made
+- Expected token savings
+- Expected time savings
+- Any trade-offs or risks of the changes
+
+"""
+
 
 class ImprovementReport:
     """Report documenting improvements made to an agent."""
@@ -92,106 +171,11 @@ class ImprovementReport:
             summary=data.get("summary", ""),
         )
 
-
-IMPROVE_AGENT_PROMPT = """You are an expert at optimizing AI agent code for efficiency.
-
-## Your Task
-  - You are required to create a long running AI agent.
-  - The agent must be designed for **long-running, complex tasks** using
-    the Agent API available at {kiss_folder}.  Specifically, you should
-    look at API.md and README.md first, and then look at code under the
-    src folder as required. {kiss_folder}/src/kiss/core/models/model_info.py
-    contains information about different LLM models and their context lengths.
-    {kiss_folder}/src/kiss/core/kiss_coding_agent.py is an example agent.
-  - The agent.py when executed as a file, **MUST** run the given task.
-  - The agent **MUST** be tested for success on the given task description.
-    **YOU MUST ABSOLUTELY WAIT FOR THE TEST TO FINISH.**
-  - You **MUST not make the agent specific to any particular task, but
-    rather make it a general purpose agent that can be used for any task**.
-  - You MUST use KISSAgent, or KISSCodingAgent, or ClaudeCodingAgent, or
-    OpenAICodexAgent or a mixture of them to implement
-    the agent.
-  - You MUST not use multithreading or multiprocessing or docker manager
-    or 'asyncio', or 'anyio' or 'async' or 'await' in the agent
-    implementation.
-
-## Goals
-
-Your goal is to improve this agent to:
-1. **Reduce token usage** - Minimize tokens in prompts and responses
-2. **Reduce execution time** - Make the agent run faster
-
-## Important Constraints
-
-- Do NOT create multiple variants or use evolutionary algorithms
-- Do NOT use KISSEvolver, GEPA, mutation, or crossover techniques
-- Make direct, targeted improvements to the existing code
-- Preserve the agent's core functionality - it must still work correctly
-
-## Optimization Strategies to Consider
-
-### Token Reduction
-- Shorten system prompts while preserving meaning
-- Remove redundant instructions
-- Use more concise variable names in prompts
-- Consolidate repeated text
-- Remove unnecessary examples from prompts
-- Use structured output formats that require fewer tokens
-- Search the web for token reduction techniques
-
-### Time Reduction
-- Add caching for repeated computations
-- Run short-running commands in bash
-- Batch operations where possible
-- Use early termination when goals are achieved
-- Reduce the number of LLM calls
-- Optimize loops and data structures
-- Search the web for time reduction techniques
-
-### Code Quality
-- Remove dead code
-- Simplify complex logic
-- Consolidate duplicate functions
-- Use more efficient algorithms
-
-### Agentic Patterns
-- search the web for information about various agentic patterns
-- consider using planning and sub-agents
-- patterns that solve long-horizon tasks scalably, efficiently and accurately
-- patterns that makes Python code faster
-- patterns that make bash commands faster
-- try some of these patterns in the agent's source code based on your needs
-
-## Previous Improvement Report
-
-{previous_report}
-
-## Feedback
-
-The agent has been given the following feedback on the task:
-{feedback}
-
-## Instructions
-
-1. First, read and analyze all files in {target_folder}
-2. Identify specific opportunities for token and time reduction
-3. Make the improvements by editing the files in {target_folder}
-4. Document what you changed and why
-
-When complete, provide a summary of:
-- What specific changes you made
-- Expected token savings
-- Expected time savings
-- Any trade-offs or risks of the changes
-"""
-
-
 class ImproverAgent:
     """Agent that improves existing agent code using a configurable coding agent."""
 
     def __init__(
         self,
-        model_name: str | None = None,
         max_steps: int | None = None,
         max_budget: float | None = None,
         coding_agent_type: Literal[
@@ -208,13 +192,8 @@ class ImproverAgent:
         """
         cfg = getattr(DEFAULT_CONFIG, "agent_creator", None)
         improver_cfg = cfg.improver if cfg else None
-
-        self.model_name = get_config_value(model_name, improver_cfg, "model_name")
         self.max_steps = get_config_value(max_steps, improver_cfg, "max_steps")
         self.max_budget = get_config_value(max_budget, improver_cfg, "max_budget")
-        self.coding_agent_type: Literal[
-            "kiss code", "claude code", "gemini cli", "openai codex"
-        ] = coding_agent_type or DEFAULT_CONFIG.agent_creator.evolver.coding_agent_type
 
     def _load_report(self, path: str | None) -> ImprovementReport | None:
         """Load a report from a path, returning None if it fails."""
@@ -251,21 +230,50 @@ class ImproverAgent:
 
         return "\n".join(sections)
 
+    def create_initial(
+        self,
+        task_description: str,
+        target_folder: str,
+        feedback: str = "",
+    ) -> tuple[bool, ImprovementReport | None]:
+        """Create an initial agent from scratch.
+
+        Args:
+            task_description: Description of the task the agent should perform
+            target_folder: Path where the new agent will be written
+            feedback: Optional feedback to guide the initial creation
+
+        Returns:
+            Tuple of (success: bool, report: ImprovementReport | None)
+        """
+        Path(target_folder).mkdir(parents=True, exist_ok=True)
+
+        previous_report_text = "No previous report - initial implementation"
+
+        return self._run_improvement(
+            task_description=task_description,
+            target_folder=target_folder,
+            previous_report_text=previous_report_text,
+            feedback=feedback,
+            generation=0,
+        )
+
     def improve(
         self,
         source_folder: str,
         target_folder: str,
+        task_description: str,
         report_path: str | None = None,
         feedback: str = "",
-        base_dir: str | None = None,
     ) -> tuple[bool, ImprovementReport | None]:
         """Improve an agent's code to reduce token usage and execution time.
 
         Args:
             source_folder: Path to the folder containing the agent's source code
             target_folder: Path where the improved agent will be written
+            task_description: Description of the task the agent should perform
             report_path: Optional path to a previous improvement report
-            base_dir: Working directory for the Claude agent
+            feedback: Optional feedback to guide the improvement
 
         Returns:
             Tuple of (success: bool, report: ImprovementReport | None)
@@ -278,79 +286,83 @@ class ImproverAgent:
         shutil.copytree(source_folder, target_folder)
 
         previous_report = self._load_report(report_path)
+        previous_report_text = self._format_report_for_prompt(previous_report)
+        generation = (previous_report.generation + 1) if previous_report else 1
 
-        if base_dir is None:
-            base_dir = str(Path(DEFAULT_CONFIG.agent.artifact_dir) / "improver_workdir")
+        return self._run_improvement(
+            task_description=task_description,
+            target_folder=target_folder,
+            previous_report_text=previous_report_text,
+            feedback=feedback,
+            generation=generation,
+        )
 
-        agent = create_coding_agent(self.coding_agent_type, "ImproverAgent")
+    def _run_improvement(
+        self,
+        task_description: str,
+        target_folder: str,
+        previous_report_text: str,
+        feedback: str,
+        generation: int,
+    ) -> tuple[bool, ImprovementReport | None]:
+        """Internal method to run the improvement process.
+
+        Args:
+            task_description: Description of the task the agent should perform
+            target_folder: Path where the agent will be written
+            previous_report_text: Formatted previous report text
+            feedback: Feedback to guide the improvement
+            generation: Generation number for the report
+
+        Returns:
+            Tuple of (success: bool, report: ImprovementReport | None)
+        """
+
+        agent = KISSCodingAgent("Agent Improver")
 
         print(f"Running improvement on {target_folder}")
         start_time = time.time()
 
         try:
-            # Handle different agent types with different parameter names
-            result: str | None
-            if isinstance(agent, KISSCodingAgent):
-                result = agent.run(
-                    orchestrator_model_name=self.model_name,
-                    prompt_template=IMPROVE_AGENT_PROMPT,
-                    arguments={
-                        "source_folder": source_folder,
-                        "target_folder": target_folder,
-                        "previous_report": self._format_report_for_prompt(previous_report),
-                        "kiss_folder": str(PROJECT_ROOT),
-                        "feedback": feedback,
-                    },
-                    max_steps=self.max_steps,
-                    max_budget=self.max_budget,
-                    base_dir=base_dir,
-                    readable_paths=[target_folder, str(PROJECT_ROOT)],
-                    writable_paths=[target_folder],
-                )
-            else:
-                result = agent.run(
-                    model_name=self.model_name,
-                    prompt_template=IMPROVE_AGENT_PROMPT,
-                    arguments={
-                        "source_folder": source_folder,
-                        "target_folder": target_folder,
-                        "previous_report": self._format_report_for_prompt(previous_report),
-                        "kiss_folder": str(PROJECT_ROOT),
-                        "feedback": feedback,
-                    },
-                    max_steps=self.max_steps,
-                    max_budget=self.max_budget,
-                    base_dir=base_dir,
-                    readable_paths=[target_folder, str(PROJECT_ROOT)],
-                    writable_paths=[target_folder],
-                )
+            result = agent.run(
+                prompt_template=AGENT_EVOLVER_PROMPT,
+                arguments={
+                    "task_description": task_description,
+                    "target_folder": target_folder,
+                    "previous_report": previous_report_text,
+                    "kiss_folder": str(PROJECT_ROOT),
+                    "feedback": feedback,
+                },
+                max_steps=self.max_steps,
+                max_budget=self.max_budget,
+                readable_paths=[target_folder, str(PROJECT_ROOT)],
+                writable_paths=[target_folder],
+            )
         except Exception as e:
             print(f"Error during improvement: {e}")
-            # Clean up partially copied target folder
+            # Clean up partially failed target folder
             if Path(target_folder).exists():
                 shutil.rmtree(target_folder)
-            return False, None
-
-        if result is None:
-            print("Improvement failed - no result from agent")
             return False, None
 
         # Create improvement report
         new_report = ImprovementReport(
             metrics={
                 "tokens_used": agent.total_tokens_used,
+                "cost": agent.budget_used,
                 "execution_time": time.time() - start_time,
             },
             implemented_ideas=[
                 {"idea": "Code optimization based on analysis", "source": "improver"}
             ],
             failed_ideas=[],
-            generation=(previous_report.generation + 1) if previous_report else 1,
+            generation=generation,
             summary=result,
         )
 
         print(f"Improvement completed in {new_report.metrics['execution_time']:.2f}s")
         print(f"Tokens used: {agent.total_tokens_used}")
+        print(f"Cost: ${agent.budget_used}")
 
         return True, new_report
 
@@ -362,7 +374,7 @@ class ImproverAgent:
         primary_feedback: str,
         secondary_feedback: str,
         target_folder: str,
-        base_dir: str | None = None,
+        task_description: str,
     ) -> tuple[bool, ImprovementReport | None]:
         """Improve an agent by combining ideas from two variants.
 
@@ -370,8 +382,10 @@ class ImproverAgent:
             primary_folder: Path to the primary variant's source code
             primary_report_path: Path to the primary variant's improvement report
             secondary_report_path: Path to the secondary variant's improvement report
+            primary_feedback: Feedback from the primary variant
+            secondary_feedback: Feedback from the secondary variant
             target_folder: Path where the improved agent will be written
-            base_dir: Working directory for the Claude agent
+            task_description: Description of the task the agent should perform
 
         Returns:
             Tuple of (success: bool, report: ImprovementReport | None)
@@ -405,9 +419,9 @@ class ImproverAgent:
             return self.improve(
                 source_folder=primary_folder,
                 target_folder=target_folder,
+                task_description=task_description,
                 report_path=temp_report_path,
                 feedback=f"{primary_feedback}\n{secondary_feedback}",
-                base_dir=base_dir,
             )
         finally:
             if Path(temp_report_path).exists():
@@ -418,7 +432,6 @@ def main() -> None:
     """Example usage of ImproverAgent."""
     improver = ImproverAgent()
     print(
-        f"ImproverAgent: model={improver.model_name}, "
         f"max_steps={improver.max_steps}, max_budget=${improver.max_budget}"
     )
 

@@ -336,7 +336,7 @@ Run a bash command with automatic path permission checks. Uses `parse_bash_comma
 ### Example
 
 ```python
-from kiss.core.kiss_coding_agent import KISSCodingAgent
+from kiss.agents.kiss_coding_agent import KISSCodingAgent
 
 agent = KISSCodingAgent("My Coding Agent")
 
@@ -460,7 +460,7 @@ The agent has access to these built-in tools from Claude Agent SDK:
 
 ```python
 import anyio
-from kiss.core.claude_coding_agent import ClaudeCodingAgent
+from kiss.agents.claude_coding_agent import ClaudeCodingAgent
 
 async def main():
     agent = ClaudeCodingAgent("My Agent")
@@ -570,7 +570,7 @@ The agent has access to these built-in tools:
 
 ```python
 import anyio
-from kiss.core.gemini_cli_agent import GeminiCliAgent
+from kiss.agents.gemini_cli_agent import GeminiCliAgent
 
 async def main():
     agent = GeminiCliAgent("my_agent")
@@ -680,7 +680,7 @@ The agent has access to these built-in tools:
 
 ```python
 import anyio
-from kiss.core.openai_codex_agent import OpenAICodexAgent
+from kiss.agents.openai_codex_agent import OpenAICodexAgent
 
 async def main():
     agent = OpenAICodexAgent("My Agent")
@@ -1611,9 +1611,9 @@ A utility function from `kiss.core.utils` that can be used as a finish tool for 
 def finish(success: bool, summary: str) -> str
 ```
 
-Used by KISSCodingAgent and its sub-agents to complete task execution. This is defined in `kiss.core.kiss_coding_agent` and has a different signature than the utility version.
+Used by KISSCodingAgent and its sub-agents to complete task execution. This is defined in `kiss.agents.kiss_coding_agent` and has a different signature than the utility version.
 
-**Location:** `kiss.core.kiss_coding_agent`
+**Location:** `kiss.agents.kiss_coding_agent`
 
 **Parameters:**
 
@@ -1684,7 +1684,7 @@ This function analyzes bash commands to intelligently determine which directorie
 **Example:**
 
 ```python
-from kiss.core.kiss_coding_agent import parse_bash_command_paths
+from kiss.agents.kiss_coding_agent import parse_bash_command_paths
 
 # Reading and writing
 readable, writable = parse_bash_command_paths("cat input.txt > output.txt")
@@ -1701,7 +1701,7 @@ readable, writable = parse_bash_command_paths("cp -r src/ dest/")
 
 **Note:**
 
-This function is defined in `kiss.core.kiss_coding_agent` and is used internally by KISSCodingAgent.run_bash_command() to automatically determine which paths need read/write permissions before executing bash commands.
+This function is defined in `kiss.agents.kiss_coding_agent` and is used internally by KISSCodingAgent.run_bash_command() to automatically determine which paths need read/write permissions before executing bash commands.
 
 ______________________________________________________________________
 

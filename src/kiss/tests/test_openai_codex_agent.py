@@ -14,10 +14,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from kiss.agents.openai_codex_agent import OpenAICodexAgent
 from kiss.core import DEFAULT_CONFIG
-from kiss.core.openai_codex_agent import (
-    OpenAICodexAgent,
-)
 
 
 class TestOpenAICodexAgentPermissions(unittest.TestCase):

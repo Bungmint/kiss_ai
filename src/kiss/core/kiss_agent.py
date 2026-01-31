@@ -10,7 +10,7 @@ import traceback
 from collections.abc import Callable
 from typing import Any
 
-from kiss.core.base import Base
+from kiss.agents.base import Base
 from kiss.core.config import DEFAULT_CONFIG
 from kiss.core.formatter import Formatter
 from kiss.core.kiss_error import KISSError

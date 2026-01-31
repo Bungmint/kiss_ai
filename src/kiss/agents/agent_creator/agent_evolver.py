@@ -22,25 +22,28 @@ Pseudo-code for AgentEvolver Algorithm:
 Inputs:
     - task_description: Description of the task the agent should perform
     - max_generations: Maximum number of improvement generations
+    - initial_frontier_size: Number of initial agents to create
     - max_frontier_size: Maximum size of the Pareto frontier
     - mutation_probability: Probability of mutation vs crossover (0.0 to 1.0)
-    - coding_agent_type: Which coding agent to use (claude code, gemini cli, openai codex)
 
 Data Structures:
     AgentVariant:
         - folder_path: Directory containing agent code
+        - report_path: Path to improvement report JSON file
         - report: ImprovementReport tracking implemented/failed ideas
-        - metrics: {success, tokens_used, execution_time}
+        - metrics: {success, tokens_used, execution_time, ...}
         - id, generation, parent_ids (for lineage tracking)
+        - feedback: Feedback from evaluation
 
     dominates(A, B):
         # A dominates B if A is at least as good in all metrics and strictly better in one
-        # Minimizes: tokens_used, execution_time
-        # Maximizes: success
+        # ALL metrics are minimized (lower is better)
+        # Note: success is 0 for success, 1 for failure (so we minimize it)
 
-    score(variant):
+    score(variant, weights=None):
         # Combined ranking score (lower is better)
-        # = success * (-1,000,000) + tokens_used * 1 + execution_time * 1000
+        # Default weights: success * 1,000,000 + tokens_used * 1 + execution_time * 1000
+        # (success=0 is best, success=1 is worst, so this prioritizes successful agents)
 
 Algorithm EVOLVE():
     1. INITIALIZE
@@ -48,12 +51,13 @@ Algorithm EVOLVE():
        - Set optimal_dir for storing best agent
        - Initialize empty pareto_frontier
 
-    2. CREATE INITIAL AGENT
-       - Use coding agent to generate agent files from task_description
-       - Agent must implement agent_run(task) -> {success, tokens_used, execution_time}
-       - Evaluate initial agent by calling agent_run(task_description)
-       - Add to pareto_frontier
-       - Copy to optimal_dir
+    2. CREATE INITIAL AGENTS
+       - WHILE len(pareto_frontier) < initial_frontier_size:
+           - Use coding agent to generate agent files from task_description
+           - Agent must implement agent_run(task) -> {metrics: {...}, feedback: "..."}
+           - Evaluate agent by calling agent_run(task_description)
+           - Update pareto_frontier (may reject if dominated)
+           - Copy current best variant (min score) to optimal_dir
 
     3. FOR generation = 1 TO max_generations:
        a. SELECT OPERATION
@@ -68,7 +72,8 @@ Algorithm EVOLVE():
               new_variant = ImproverAgent.crossover_improve(primary, secondary)
 
        b. IF new_variant created successfully:
-          - Evaluate: load agent.py, call agent_run(task_description)
+          - Evaluate: load agent.py from isolated temp dir, call agent_run(task_description)
+          - Store feedback from evaluation result
           - Update pareto_frontier:
               - Reject if dominated by any existing variant
               - Remove variants dominated by new_variant
@@ -76,7 +81,7 @@ Algorithm EVOLVE():
               - If frontier > max_size: trim using crowding distance
           - Copy best variant (min score) to optimal_dir
 
-    4. RETURN best variant from pareto_frontier
+    4. RETURN best variant from pareto_frontier (min score)
 
     5. CLEANUP work_dir
 """
@@ -90,16 +95,14 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import kiss.agents.agent_creator.config  # type: ignore # noqa: F401
 from kiss.agents.agent_creator.improver_agent import (
     ImprovementReport,
     ImproverAgent,
-    create_coding_agent,
 )
 from kiss.core.config import DEFAULT_CONFIG
-from kiss.core.kiss_coding_agent import KISSCodingAgent
 from kiss.core.utils import get_config_value
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
@@ -174,58 +177,6 @@ class AgentVariant:
             "feedback": self.feedback,
         }
 
-
-# Prompt for initial agent creation
-INITIAL_AGENT_PROMPT = """
-## Task Description
-{task_description}
-
-## Agent Requirements
-
-  - The agent must be designed for **long-running, complex tasks** using
-    the Agent API available at {kiss_folder}.  Specifically, you should
-    look at API.md and README.md first, and then look at code under the
-    src folder as required. {kiss_folder}/src/kiss/core/models/model_info.py
-    contains information about different LLM models and their context lengths.
-  - The agent.py when executed as a file, **MUST** run the given task.
-  - The agent **MUST** be tested for success on the given task description.
-    **YOU MUST ABSOLUTELY WAIT FOR THE TEST TO FINISH.**
-  - You **MUST not make the agent specific to any particular task, but
-    rather make it a general purpose agent that can be used for any task**.
-  - You MUST use KISSAgent, or KissCodingAgent, or ClaudeCodingAgent, or
-    GeminiCliAgent, or OpenAICodexAgent or a mixture of them to implement
-    the agent.
-  - You MUST not use multithreading or multiprocessing or docker manager
-    or 'anyio' or 'async' or 'await' in the agent implementation.
-
-Create the following files in {target_folder}:
-
-1. `agent.py` - Main agent implementation that MUST include an
-   `def agent_run(task: str) -> dict[str, Any]` function.
-   This function is the entry point that will be called to run the agent on a task.
-   It should accept a task description string and return a result.  The result must
-   be a dictionary containing the following keys:
-   - "feedback": str - Feedback from the agent on the task
-   - "metrics": dict[str, Any] - Metrics from the agent on the task
-     - "tokens_used": int - Number of tokens used by the agent
-     - "execution_time": float - Time taken to run the agent on the task in seconds
-     - "success": int - 0 if the agent completed successfully, 1 otherwise
-2. `config.py` - Agent configuration
-3. `__init__.py` - Agent package initialization
-4. `README.md` - Agent documentation
-5. `test_agent.py` - Tests for the agent
-6. `requirements.txt` - Dependencies for the agent
-7. Any other files necessary for the agent to function properly
-
-The agent should collect fine-grained feedback on the task as it is executing.
-When complete, provide a summary of the agent created and the files that were written.
-
-# Instructions
-- You may need to use the web to search on how to write such agents
-- You may consider orchestrator agents and sub-agents to solve the task
-"""
-
-
 class AgentEvolver:
     """Evolves AI agents using Pareto frontier optimization.
 
@@ -237,14 +188,10 @@ class AgentEvolver:
     def __init__(
         self,
         task_description: str,
-        model_name: str | None = None,
         max_generations: int | None = None,
         initial_frontier_size: int | None = None,
         max_frontier_size: int | None = None,
         mutation_probability: float | None = None,
-        coding_agent_type: (
-            Literal["kiss code", "claude code", "gemini cli", "openai codex"] | None
-        ) = None,
     ):
         """Initialize the AgentEvolver.
 
@@ -254,14 +201,11 @@ class AgentEvolver:
             max_generations: Maximum number of improvement generations.
             max_frontier_size: Maximum size of the Pareto frontier.
             mutation_probability: Probability of mutation vs crossover.
-            coding_agent_type: Which coding agent to use: 'claude code',
-                'gemini cli', or 'openai codex'.
         """
         cfg = getattr(DEFAULT_CONFIG, "agent_creator", None)
         evolver_cfg = cfg.evolver if cfg else None
 
         self.task_description = task_description
-        self.model_name = get_config_value(model_name, evolver_cfg, "model_name")
         self.max_generations = get_config_value(max_generations, evolver_cfg, "max_generations")
         self.initial_frontier_size = get_config_value(
             initial_frontier_size, evolver_cfg, "initial_frontier_size"
@@ -272,15 +216,6 @@ class AgentEvolver:
         self.mutation_probability = get_config_value(
             mutation_probability, evolver_cfg, "mutation_probability"
         )
-        self.initial_agent_max_steps: int = get_config_value(
-            None, evolver_cfg, "initial_agent_max_steps"
-        )
-        self.initial_agent_max_budget: float = get_config_value(
-            None, evolver_cfg, "initial_agent_max_budget"
-        )
-        self.coding_agent_type: Literal[
-            "kiss code", "claude code", "gemini cli", "openai codex"
-        ] = get_config_value(coding_agent_type, evolver_cfg, "coding_agent_type")
 
         self.work_dir = Path(tempfile.mkdtemp())
         self.optimal_dir = Path(DEFAULT_CONFIG.agent.artifact_dir) / "optimal_agent"
@@ -288,9 +223,7 @@ class AgentEvolver:
         self.pareto_frontier: list[AgentVariant] = []
         self._variant_counter = 0
         self._generation = 0
-        self.improver = ImproverAgent(
-            model_name=self.model_name, coding_agent_type=self.coding_agent_type
-        )
+        self.improver = ImproverAgent()
 
     def _next_variant_id(self) -> int:
         """Get the next unique variant ID."""
@@ -306,45 +239,23 @@ class AgentEvolver:
     def _create_initial_agent(self, variant_id: int) -> AgentVariant:
         """Create the initial agent from scratch."""
         target_folder, report_path = self._get_variant_paths(variant_id)
-        Path(target_folder).mkdir(parents=True, exist_ok=True)
 
-        agent = create_coding_agent(self.coding_agent_type, "Initial Agent Creator")
-        # Handle different agent types with different parameter names
-        if isinstance(agent, KISSCodingAgent):
-            agent.run(
-                orchestrator_model_name=self.model_name,
-                prompt_template=INITIAL_AGENT_PROMPT,
-                arguments={
-                    "task_description": self.task_description,
-                    "target_folder": target_folder,
-                    "kiss_folder": str(PROJECT_ROOT),
-                },
-                max_steps=self.initial_agent_max_steps,
-                max_budget=self.initial_agent_max_budget,
-                base_dir=str(self.work_dir / "creator_workdir"),
-                writable_paths=[target_folder],
-            )
-        else:
-            agent.run(
-                model_name=self.model_name,
-                prompt_template=INITIAL_AGENT_PROMPT,
-                arguments={
-                    "task_description": self.task_description,
-                    "target_folder": target_folder,
-                    "kiss_folder": str(PROJECT_ROOT),
-                },
-                max_steps=self.initial_agent_max_steps,
-                max_budget=self.initial_agent_max_budget,
-                base_dir=str(self.work_dir / "creator_workdir"),
-                writable_paths=[target_folder],
-            )
-
-        initial_report = ImprovementReport(
-            metrics={},
-            implemented_ideas=[{"idea": "Initial implementation", "source": "initial"}],
-            failed_ideas=[],
-            generation=0,
+        # Create initial agent using ImproverAgent
+        success, initial_report = self.improver.create_initial(
+            task_description=self.task_description,
+            target_folder=target_folder,
+            feedback="",
         )
+
+        if not success or initial_report is None:
+            # Create a default report if creation failed
+            initial_report = ImprovementReport(
+                metrics={},
+                implemented_ideas=[{"idea": "Initial implementation", "source": "initial"}],
+                failed_ideas=[],
+                generation=0,
+            )
+
         initial_report.save(report_path)
 
         return AgentVariant(
@@ -487,9 +398,9 @@ class AgentEvolver:
         success, new_report = self.improver.improve(
             source_folder=variant.folder_path,
             target_folder=target_folder,
+            task_description=self.task_description,
             report_path=variant.report_path,
             feedback=variant.feedback,
-            base_dir=str(self.work_dir / "improver_workdir"),
         )
 
         if not success or new_report is None:
@@ -522,7 +433,7 @@ class AgentEvolver:
             primary_feedback=primary.feedback,
             secondary_feedback=secondary.feedback,
             target_folder=target_folder,
-            base_dir=str(self.work_dir / "improver_workdir"),
+            task_description=self.task_description,
         )
 
         if not success or new_report is None:
@@ -645,7 +556,7 @@ class AgentEvolver:
                   work_dir is cleaned up after evolve() completes.
         """
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        state = {
+        state: dict[str, Any] = {
             "task_description": self.task_description,
             "generation": self._generation,
             "variant_counter": self._variant_counter,

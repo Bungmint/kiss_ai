@@ -25,8 +25,8 @@ from claude_agent_sdk import (
     query,
 )
 
+from kiss.agents.base import DEFAULT_SYSTEM_PROMPT, Base
 from kiss.core import DEFAULT_CONFIG
-from kiss.core.base import DEFAULT_SYSTEM_PROMPT, Base
 from kiss.core.models.model_info import get_max_context_length
 
 BUILTIN_TOOLS = [
