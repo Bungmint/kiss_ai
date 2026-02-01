@@ -192,11 +192,27 @@ class KISSAgent(Base):
             self._add_message_with_formatter(
                 "model", response_text + "\n" + usage_info, start_timestamp
             )
-            self._add_message_with_formatter(
-                "user",
-                f"**Your response MUST have exactly one function call. "
-                f"Your response has {len(function_calls)} function calls.**",
-            )
+            # For Anthropic models, we must provide tool_result blocks for any tool_use blocks
+            # in the assistant's response, even when rejecting multiple tool calls
+            if function_calls:
+                error_msg = (
+                    f"**Your response MUST have exactly one function call. "
+                    f"Your response has {len(function_calls)} function calls.**"
+                )
+                # Add tool_result for each tool_use to satisfy Anthropic API requirements
+                # Include the tool_use_id to ensure correct matching
+                function_results = [
+                    (fc["name"], {"result": error_msg, "tool_use_id": fc.get("id")})
+                    for fc in function_calls
+                ]
+                self.model.add_function_results_to_conversation_and_return(function_results)
+                self._add_message_with_formatter("user", error_msg)
+            else:
+                self._add_message_with_formatter(
+                    "user",
+                    "**Your response MUST have exactly one function call. "
+                    "Your response has 0 function calls.**",
+                )
             return None
 
         return self._execute_tool(function_calls[0], response_text, usage_info, start_timestamp)

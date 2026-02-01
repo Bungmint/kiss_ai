@@ -17,7 +17,7 @@ from kiss.core.kiss_agent import KISSAgent
 from kiss.docker.docker_manager import DockerManager
 
 ####################################################################################
-# Prompt Template Refiner Agent
+# Dynamic GEPA Agent
 ####################################################################################
 
 prompt_template_refiner = """
@@ -68,7 +68,7 @@ def dynamic_gepa_agent(
     agent_trajectory_summary: str,
     model_name: str,
 ) -> str:
-    """Dynamic GEPA: Refines the prompt template based on the agent's trajectory 
+    """Dynamic GEPA: Refines the prompt template based on the agent's trajectory
     summary.
 
     Args:

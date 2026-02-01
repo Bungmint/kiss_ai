@@ -33,6 +33,8 @@ You have to optimize an AI agent for long-running complex tasks.
     then look at code under the src folder as required.
     {kiss_folder}/src/kiss/core/models/model_info.py contains information
     about different LLM models and their context lengths, costs, etc.
+    {kiss_folder}/src/kiss/agents/coding_agents/kiss_coding_agent.py has
+    an example long-running complex task agent.
   - The agent **MUST** be tested for success on the given task description.
   - You **MUST not make the agent specific to any particular task, but
     rather make it a general purpose agent that can be used for any task**.
