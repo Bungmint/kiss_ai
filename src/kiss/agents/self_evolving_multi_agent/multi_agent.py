@@ -3,7 +3,32 @@
 # Koushik Sen (ksen@berkeley.edu)
 # add your name here
 
-"""Advanced Coding Agent with planning, error recovery, and dynamic tool creation."""
+"""Advanced Coding Agent with planning, error recovery, and dynamic tool creation.
+
+PSEUDOCODE:
+===========
+
+run(task):
+    Initialize Docker container
+    Run orchestrator agent with task
+
+Orchestrator Agent:
+    Given: task, todo_list, completed_tasks, last_error
+    Tools: plan_task, execute_todo, complete_todo, run_bash, 
+           read_file, write_file, create_tool, finish
+    
+    Loop until finish() called or budget exhausted:
+        LLM decides next action based on current state
+        - Simple work: use run_bash/write_file directly
+        - Complex work: plan_task() to create todos, then execute_todo() to delegate
+
+execute_todo(todo_id):
+    Spawn sub-agent to handle single todo
+    Sub-agent has limited tools: run_bash, read_file, write_file
+    On success: mark todo completed
+    On failure: retry up to max_retries, then mark failed
+
+"""
 
 from __future__ import annotations
 
