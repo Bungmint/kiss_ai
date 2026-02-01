@@ -42,6 +42,7 @@ class TestDockerManager(unittest.TestCase):
 
         with DockerManager("ubuntu:latest") as env:
             # Write a file on the host shared path
+            assert env.host_shared_path is not None
             host_file_path = os.path.join(env.host_shared_path, "testfile.txt")
             test_content = "Data written from host for Docker shared path test."
             with open(host_file_path, "w", encoding="utf-8") as f:

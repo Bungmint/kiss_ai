@@ -141,6 +141,7 @@ def main() -> int:
         (["uv", "build"], "Build package"),
         (["uv", "run", "ruff", "check", "src/"], "Lint code (ruff)"),
         (["uv", "run", "mypy", "src/"], "Type check (mypy)"),
+        (["uv", "run", "pyright", "src/"], "Type check (pyright)"),
     ]
 
     # Add markdown lint check if there are markdown files

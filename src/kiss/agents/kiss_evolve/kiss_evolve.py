@@ -434,6 +434,7 @@ combine the best aspects of two code variants to create an improved version.
         )
 
         # Try generating novel code up to max_rejection_attempts times
+        result = variant.code  # Default to original code
         for attempt in range(self.max_rejection_attempts):
             result = self.code_agent_wrapper(
                 model_name=model_name,
@@ -480,6 +481,7 @@ combine the best aspects of two code variants to create an improved version.
         )
 
         # Try generating novel code up to max_rejection_attempts times
+        result = variant1.code  # Default to first parent's code
         for attempt in range(self.max_rejection_attempts):
             result = self.code_agent_wrapper(
                 model_name=model_name,

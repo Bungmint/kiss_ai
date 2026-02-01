@@ -159,6 +159,7 @@ By default, `tokens_used` and `execution_time` are minimized.
 ### Scoring
 
 Variants are ranked using a combined score (lower is better). The score is calculated as:
+
 - `tokens_used` + (`execution_time` * 1000)
 
 This gives higher weight to execution time improvements.

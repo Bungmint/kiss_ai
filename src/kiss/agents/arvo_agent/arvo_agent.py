@@ -65,7 +65,7 @@ def get_all_arvo_tags(image_name: str = "n132/arvo") -> list[str]:
         if arvo_tags_path.exists():
             return cast(list[str], json.loads(arvo_tags_path.read_text()))
 
-    tags = []
+    tags: list[str] = []
     url = f"https://hub.docker.com/v2/repositories/{image_name}/tags?page_size=100"
     while url:
         resp = requests.get(url)
@@ -124,7 +124,10 @@ def find_vulnerability(
             )
             result = yaml.safe_load(result_str)
             # Handle case where yaml parsing returns None or dict without 'status'
-            if not isinstance(result, dict) or result.get("status") != "success":
+            if (
+                not isinstance(result, dict)
+                or cast(dict[str, object], result).get("status") != "success"
+            ):
                 trajectory = vuln_agent.get_trajectory()
                 refined_prompt_template = refine_prompt_template(
                     original_prompt_template,
@@ -135,7 +138,7 @@ def find_vulnerability(
                 print(f"Refined prompt template: {refined_prompt_template}")
                 prompt_template_vuln_agent = refined_prompt_template
             else:
-                result_value = result.get("result")
+                result_value = cast(dict[str, object], result).get("result")
                 if isinstance(result_value, str):
                     return result_value
                 return str(result_value) if result_value is not None else None

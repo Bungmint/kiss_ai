@@ -96,11 +96,12 @@ as the 'result' argument.
         # Build train_examples list with expected answers embedded
         train_examples: list[dict[str, str]] = []
         for example in dataset:
+            example = dict(example)  # type: ignore[assignment]
             train_examples.append(
                 {
-                    "context": example["context"],
-                    "question": example["question"],
-                    "_expected_answer": example["answers"]["text"][0],
+                    "context": example["context"],  # type: ignore[index]
+                    "question": example["question"],  # type: ignore[index]
+                    "_expected_answer": example["answers"]["text"][0],  # type: ignore[index]
                 }
             )
 

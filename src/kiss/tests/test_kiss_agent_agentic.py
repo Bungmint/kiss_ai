@@ -44,11 +44,11 @@ def always_fails() -> str:
 class TestKISSAgentBasic(unittest.TestCase):
     """Basic KISSAgent tests."""
 
+    agent: KISSAgent
+
     def setUp(self):
         self.agent = KISSAgent("Basic Test Agent")
 
-    def tearDown(self):
-        self.agent = None
 
     def test_agentic_simple_task(self):
         """Test agentic mode with a simple calculation task."""
@@ -122,11 +122,11 @@ class TestKISSAgentBasic(unittest.TestCase):
 class TestKISSAgentMultipleTools(unittest.TestCase):
     """Tests for agents with multiple tools."""
 
+    agent: KISSAgent
+
     def setUp(self):
         self.agent = KISSAgent("Multi-Tool Test Agent")
 
-    def tearDown(self):
-        self.agent = None
 
     def test_multiple_tools_available(self):
         """Test agent can choose between multiple tools."""
@@ -148,11 +148,11 @@ class TestKISSAgentMultipleTools(unittest.TestCase):
 class TestKISSAgentErrorHandling(unittest.TestCase):
     """Tests for error handling scenarios."""
 
+    agent: KISSAgent
+
     def setUp(self):
         self.agent = KISSAgent("Error Test Agent")
 
-    def tearDown(self):
-        self.agent = None
 
     def test_tool_execution_error_recovery(self):
         """Test that agent can recover from tool execution errors."""
@@ -186,11 +186,11 @@ class TestKISSAgentErrorHandling(unittest.TestCase):
 class TestKISSAgentBudgetAndSteps(unittest.TestCase):
     """Tests for budget and step limit functionality."""
 
+    agent: KISSAgent
+
     def setUp(self):
         self.agent = KISSAgent("Budget Test Agent")
 
-    def tearDown(self):
-        self.agent = None
 
     def test_max_steps_respected(self):
         """Test that agent completes within max_steps and tracks budget."""
@@ -239,11 +239,11 @@ class TestKISSAgentBudgetAndSteps(unittest.TestCase):
 class TestKISSAgentFinishTool(unittest.TestCase):
     """Tests for the built-in finish tool."""
 
+    agent: KISSAgent
+
     def setUp(self):
         self.agent = KISSAgent("Finish Tool Test Agent")
 
-    def tearDown(self):
-        self.agent = None
 
     def test_finish_tool_auto_added(self):
         """Test that finish tool is automatically added when not provided."""
@@ -283,11 +283,11 @@ class TestKISSAgentFinishTool(unittest.TestCase):
 class TestKISSAgentMultipleRuns(unittest.TestCase):
     """Tests for running the same agent multiple times."""
 
+    agent: KISSAgent
+
     def setUp(self):
         self.agent = KISSAgent("Multiple Runs Test Agent")
 
-    def tearDown(self):
-        self.agent = None
 
     def test_trajectory_resets_between_runs(self):
         """Test that trajectory is reset between runs."""
@@ -317,11 +317,11 @@ class TestKISSAgentMultipleRuns(unittest.TestCase):
 class TestKISSAgentToolVariants(unittest.TestCase):
     """Tests for tools with various parameter and return types."""
 
+    agent: KISSAgent
+
     def setUp(self):
         self.agent = KISSAgent("Tool Variants Test Agent")
 
-    def tearDown(self):
-        self.agent = None
 
     def test_tool_with_optional_param(self):
         """Test tool with optional parameter."""
@@ -419,11 +419,11 @@ class TestKISSAgentToolVariants(unittest.TestCase):
 class TestKISSAgentPromptFormats(unittest.TestCase):
     """Tests for various prompt template formats."""
 
+    agent: KISSAgent
+
     def setUp(self):
         self.agent = KISSAgent("Prompt Format Test Agent")
 
-    def tearDown(self):
-        self.agent = None
 
     def test_multiline_prompt_template(self):
         """Test multiline prompt template."""
@@ -464,11 +464,11 @@ Only return the number.""",
 class TestKISSAgentVerboseMode(unittest.TestCase):
     """Tests for verbose mode."""
 
+    agent: KISSAgent
+
     def setUp(self):
         self.agent = KISSAgent("Verbose Test Agent")
 
-    def tearDown(self):
-        self.agent = None
 
     def test_verbose_mode_toggle(self):
         """Test that verbose mode can be toggled without errors."""

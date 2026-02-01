@@ -72,7 +72,7 @@ class DockerManager:
         self.formatter.print_status(f"Pulling Docker image: {full_image_name}")
         try:
             self.client.images.get(full_image_name)
-        except docker.errors.ImageNotFound:
+        except docker.errors.ImageNotFound:  # type: ignore[attr-defined]
             self.client.images.pull(image, tag=tag)
         # Create and start a container
         self.formatter.print_status(f"Creating and starting container from {full_image_name}")
@@ -89,6 +89,7 @@ class DockerManager:
         if self.ports:
             container_kwargs["ports"] = {f"{cp}/tcp": hp for cp, hp in self.ports.items()}
         self.container = self.client.containers.run(full_image_name, **container_kwargs)
+        assert self.container is not None
         container_id = self.container.id[:12] if self.container.id else "unknown"
         self.formatter.print_status(f"Container {container_id} is now running")
 

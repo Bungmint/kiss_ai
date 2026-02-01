@@ -442,6 +442,8 @@ def run_algotune(
         evolved_time = best.metrics.get("total_time_seconds", initial_time)
     else:
         evolved_time = initial_time
+    # Ensure evolved_time is a float for calculations
+    evolved_time = float(evolved_time or initial_time)
     speedup = initial_time / evolved_time if evolved_time > 0 else 1.0
 
     print("\n" + "=" * 80)

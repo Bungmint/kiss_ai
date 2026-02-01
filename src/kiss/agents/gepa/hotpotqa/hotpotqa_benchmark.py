@@ -195,19 +195,20 @@ class HotPotQABenchmark:
         )
 
         for item in dataset:
+            item = dict(item)  # type: ignore[assignment]
             example = HotPotQAExample(
-                id=item["id"],
-                question=item["question"],
-                answer=item["answer"],
-                question_type=item["type"],
-                level=item["level"],
+                id=item["id"],  # type: ignore[index]
+                question=item["question"],  # type: ignore[index]
+                answer=item["answer"],  # type: ignore[index]
+                question_type=item["type"],  # type: ignore[index]
+                level=item["level"],  # type: ignore[index]
                 supporting_facts={
-                    "title": item["supporting_facts"]["title"],
-                    "sent_id": item["supporting_facts"]["sent_id"],
+                    "title": item["supporting_facts"]["title"],  # type: ignore[index]
+                    "sent_id": item["supporting_facts"]["sent_id"],  # type: ignore[index]
                 },
                 context={
-                    "title": item["context"]["title"],
-                    "sentences": item["context"]["sentences"],
+                    "title": item["context"]["title"],  # type: ignore[index]
+                    "sentences": item["context"]["sentences"],  # type: ignore[index]
                 },
             )
             self.examples.append(example)

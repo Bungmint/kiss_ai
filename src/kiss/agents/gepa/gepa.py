@@ -37,7 +37,6 @@ class PromptCandidate:
     """Represents a prompt candidate with its performance metrics."""
 
     prompt_template: str
-    id: int = 0
     dev_scores: dict[str, float] = field(default_factory=dict)
     val_scores: dict[str, float] = field(default_factory=dict)
     per_item_val_scores: list[dict[str, float]] = field(default_factory=list)
@@ -46,6 +45,7 @@ class PromptCandidate:
     evaluated_val_ids: set[int] = field(default_factory=set)
     # Parent IDs for merge tracking and structural merge
     parents: list[int] = field(default_factory=list)
+    id: int = 0
 
 
 class GEPA:
@@ -62,7 +62,7 @@ class GEPA:
 
     def __init__(
         self,
-        agent_wrapper: Callable[[str, dict[str, str]], tuple[str, list]],
+        agent_wrapper: Callable[[str, dict[str, str]], tuple[str, list[dict]]],
         initial_prompt_template: str,
         evaluation_fn: Callable[[str], dict[str, float]] | None = None,
         max_generations: int | None = None,
