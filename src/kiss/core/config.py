@@ -16,12 +16,15 @@ from pydantic import BaseModel, Field
 def _generate_artifact_dir() -> str:
     """Generate a unique artifact subdirectory name based on timestamp and random number."""
     from pathlib import Path
+
     artifact_subdir_name = f"{time.strftime('job_%Y_%m_%d_%H_%M_%S')}_{random.randint(0, 1000000)}"
     artifact_path = Path("artifacts").resolve() / artifact_subdir_name
     artifact_path.mkdir(parents=True, exist_ok=True)
     return str(artifact_path)
 
+
 artifact_dir = _generate_artifact_dir()
+
 
 class APIKeysConfig(BaseModel):
     GEMINI_API_KEY: str = Field(
@@ -64,6 +67,7 @@ class AgentConfig(BaseModel):
         description="Configuration for KISS Coding Agent",
     )
 
+
 class KISSCodingAgentConfig(BaseModel):
     orchestrator_model_name: str = Field(
         default="claude-sonnet-4-5",
@@ -90,10 +94,12 @@ class KISSCodingAgentConfig(BaseModel):
         description="Number of trials for failed subtasks",
     )
 
+
 class DockerConfig(BaseModel):
     client_shared_path: str = Field(
         default="/testbed", description="Path inside Docker container for shared volume"
     )
+
 
 class Config(BaseModel):
     agent: AgentConfig = Field(default_factory=AgentConfig, description="Agent configuration")

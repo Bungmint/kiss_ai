@@ -145,9 +145,7 @@ def main() -> int:
 
     # Add markdown lint check if there are markdown files
     if md_files:
-        checks.append(
-            (["uv", "run", "mdformat", "--check", *md_files], "Lint markdown (mdformat)")
-        )
+        checks.append((["uv", "run", "mdformat", "--check", *md_files], "Lint markdown (mdformat)"))
 
     print("\n🔍 Running all code quality checks...\n")
 

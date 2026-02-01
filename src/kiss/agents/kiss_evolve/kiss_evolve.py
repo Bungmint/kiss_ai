@@ -97,7 +97,6 @@ class KISSEvolve:
         # 4. Return best CodeVariant (highest .fitness) found upon completion.
     """
 
-
     def __init__(
         self,
         code_agent_wrapper: Callable[..., str],

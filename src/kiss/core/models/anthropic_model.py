@@ -186,4 +186,3 @@ class AnthropicModel(Model):
 
     def get_embedding(self, text: str, embedding_model: str | None = None) -> list[float]:
         raise KISSError("Anthropic does not provide an embeddings API.")
-

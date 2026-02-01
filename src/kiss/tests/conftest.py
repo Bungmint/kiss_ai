@@ -19,6 +19,7 @@ def pytest_addoption(parser):
         help=f"Model name to test (default: {DEFAULT_MODEL})",
     )
 
+
 # Ignore gepa and openevolve test files
 collect_ignore = [
     "test_openevolve.py",

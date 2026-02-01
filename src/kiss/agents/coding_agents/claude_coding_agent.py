@@ -25,12 +25,21 @@ from claude_agent_sdk import (
     query,
 )
 
-from kiss.core.base import DEFAULT_SYSTEM_PROMPT, Base
 from kiss.core import DEFAULT_CONFIG
+from kiss.core.base import DEFAULT_SYSTEM_PROMPT, Base
 from kiss.core.models.model_info import get_max_context_length
+from kiss.core.utils import is_subpath, resolve_path
 
 BUILTIN_TOOLS = [
-    "Read", "Write", "Edit", "MultiEdit", "Glob", "Grep", "Bash", "WebSearch", "WebFetch"
+    "Read",
+    "Write",
+    "Edit",
+    "MultiEdit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "WebSearch",
+    "WebFetch",
 ]
 
 READ_TOOLS = {"Read", "Grep", "Glob"}
@@ -38,7 +47,6 @@ WRITE_TOOLS = {"Write", "Edit", "MultiEdit"}
 
 
 class ClaudeCodingAgent(Base):
-
     def __init__(self, name: str) -> None:
         super().__init__(name)
 
@@ -54,8 +62,8 @@ class ClaudeCodingAgent(Base):
         self._init_run_state(model_name, BUILTIN_TOOLS)
         Path(base_dir).mkdir(parents=True, exist_ok=True)
         self.base_dir = str(Path(base_dir).resolve())
-        self.readable_paths = [self._resolve_path(p) for p in readable_paths or []]
-        self.writable_paths = [self._resolve_path(p) for p in writable_paths or []]
+        self.readable_paths = [resolve_path(p, base_dir) for p in readable_paths or []]
+        self.writable_paths = [resolve_path(p, base_dir) for p in writable_paths or []]
         self.max_tokens = get_max_context_length(model_name)
         self.is_agentic = True
         self.max_steps = max_steps
@@ -67,7 +75,7 @@ class ClaudeCodingAgent(Base):
         self, path_str: str, allowed_paths: list[Path]
     ) -> PermissionResultAllow | PermissionResultDeny:
         """Check if path is allowed, return appropriate permission result."""
-        if self._is_subpath(Path(path_str).resolve(), allowed_paths):
+        if is_subpath(Path(path_str).resolve(), allowed_paths):
             return PermissionResultAllow(behavior="allow")
         return PermissionResultDeny(
             behavior="deny", message=f"Access Denied: {path_str} is not in whitelist."
@@ -125,9 +133,7 @@ class ClaudeCodingAgent(Base):
 
         self._add_message("user", result, timestamp)
 
-    def _process_result_message(
-        self, message: ResultMessage, timestamp: int
-    ) -> str | None:
+    def _process_result_message(self, message: ResultMessage, timestamp: int) -> str | None:
         """Process final result message and return the result."""
         self._update_token_usage(message)
         if hasattr(message, "cost") and message.total_cost_usd:
@@ -146,9 +152,7 @@ class ClaudeCodingAgent(Base):
         arguments: dict[str, str] | None = None,
         max_steps: int = DEFAULT_CONFIG.agent.max_steps,
         max_budget: float = DEFAULT_CONFIG.agent.max_agent_budget,
-        base_dir: str = str(
-            Path(DEFAULT_CONFIG.agent.artifact_dir).resolve() / "claude_workdir"
-        ),
+        base_dir: str = str(Path(DEFAULT_CONFIG.agent.artifact_dir).resolve() / "claude_workdir"),
         readable_paths: list[str] | None = None,
         writable_paths: list[str] | None = None,
     ) -> str | None:

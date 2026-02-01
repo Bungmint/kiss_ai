@@ -16,6 +16,7 @@ from pathlib import Path
 
 from kiss.agents.coding_agents.openai_codex_agent import OpenAICodexAgent
 from kiss.core import DEFAULT_CONFIG
+from kiss.core.utils import is_subpath, resolve_path
 
 
 class TestOpenAICodexAgentPermissions(unittest.TestCase):
@@ -45,33 +46,33 @@ class TestOpenAICodexAgentPermissions(unittest.TestCase):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_is_subpath_for_exact_match(self):
-        """Test _is_subpath returns True for exact path match."""
+        """Test is_subpath returns True for exact path match."""
         target = Path(self.readable_dir).resolve()
-        whitelist = {Path(self.readable_dir).resolve()}
-        self.assertTrue(self.agent._is_subpath(target, whitelist))
+        whitelist = [Path(self.readable_dir).resolve()]
+        self.assertTrue(is_subpath(target, whitelist))
 
     def test_is_subpath_for_child_path(self):
-        """Test _is_subpath returns True for child paths."""
+        """Test is_subpath returns True for child paths."""
         child_path = Path(self.readable_dir, "subdir", "file.txt").resolve()
-        whitelist = {Path(self.readable_dir).resolve()}
-        self.assertTrue(self.agent._is_subpath(child_path, whitelist))
+        whitelist = [Path(self.readable_dir).resolve()]
+        self.assertTrue(is_subpath(child_path, whitelist))
 
     def test_is_subpath_for_unrelated_path(self):
-        """Test _is_subpath returns False for unrelated paths."""
+        """Test is_subpath returns False for unrelated paths."""
         unrelated = Path("/tmp/unrelated/path").resolve()
-        whitelist = {Path(self.readable_dir).resolve()}
-        self.assertFalse(self.agent._is_subpath(unrelated, whitelist))
+        whitelist = [Path(self.readable_dir).resolve()]
+        self.assertFalse(is_subpath(unrelated, whitelist))
 
     def test_resolve_path_relative(self):
-        """Test _resolve_path handles relative paths."""
-        resolved = self.agent._resolve_path("test.txt")
+        """Test resolve_path handles relative paths."""
+        resolved = resolve_path("test.txt", str(self.temp_dir))
         expected = (Path(self.temp_dir) / "test.txt").resolve()
         self.assertEqual(resolved, expected)
 
     def test_resolve_path_absolute(self):
-        """Test _resolve_path handles absolute paths."""
+        """Test resolve_path handles absolute paths."""
         abs_path = "/tmp/absolute.txt"
-        resolved = self.agent._resolve_path(abs_path)
+        resolved = resolve_path(abs_path, str(self.temp_dir))
         self.assertEqual(resolved, Path(abs_path).resolve())
 
     def test_tools_are_created(self):
@@ -127,7 +128,7 @@ class TestOpenAICodexAgentRun(unittest.TestCase):
             prompt_template=task,
             readable_paths=[str(self.project_root / "src")],
             writable_paths=[str(self.output_dir)],
-            base_dir=str(self.temp_dir)
+            base_dir=str(self.temp_dir),
         )
 
         # Result should be a string summary
@@ -147,13 +148,14 @@ class TestOpenAICodexAgentRun(unittest.TestCase):
             prompt_template=task,
             readable_paths=[str(self.project_root / "src")],
             writable_paths=[str(self.output_dir)],
-            base_dir=str(self.temp_dir)
+            base_dir=str(self.temp_dir),
         )
 
         self.assertIsNotNone(result)
         if result:
             print(result)
             self.assertIsInstance(result, str)
+
 
 if __name__ == "__main__":
     unittest.main()

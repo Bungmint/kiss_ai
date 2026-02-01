@@ -670,6 +670,11 @@ kiss/
 │   │   │   └── algotune/           # AlgoTune benchmark integration
 │   │   │       ├── run_algotune.py # AlgoTune task evolution
 │   │   │       └── config.py       # AlgoTune configuration
+│   │   ├── coding_agents/          # Coding agents for software development tasks
+│   │   │   ├── kiss_coding_agent.py   # Multi-agent coding system with orchestration
+│   │   │   ├── claude_coding_agent.py # Claude Coding Agent using Claude Agent SDK
+│   │   │   ├── gemini_cli_agent.py    # Gemini CLI Agent using Google ADK
+│   │   │   └── openai_codex_agent.py  # OpenAI Codex Agent using OpenAI Agents SDK
 │   │   ├── kiss.py                 # Utility agents (prompt refiner, bash agent)
 │   │   ├── swe_agent_verified/     # SWE-bench Verified benchmark integration
 │   │   │   ├── run_swebench.py     # Main runner with CLI support
@@ -685,16 +690,13 @@ kiss/
 │   ├── core/            # Core framework components
 │   │   ├── base.py            # Base class with common functionality for all KISS agents
 │   │   ├── kiss_agent.py      # KISS agent with native function calling
-│   │   ├── kiss_coding_agent.py   # Multi-agent coding system with planning and orchestration
-│   │   ├── claude_coding_agent.py # Claude Coding Agent using Claude Agent SDK
-│   │   ├── gemini_cli_agent.py    # Gemini CLI Agent using Google ADK
-│   │   ├── openai_codex_agent.py  # OpenAI Codex Agent using OpenAI Agents SDK
 │   │   ├── formatter.py       # Output formatting base class
 │   │   ├── simple_formatter.py # Rich-formatted output
 │   │   ├── config.py          # Configuration
 │   │   ├── config_builder.py  # Dynamic config builder with CLI support
 │   │   ├── kiss_error.py      # Custom error class
-│   │   ├── utils.py           # Utility functions
+│   │   ├── utils.py           # Utility functions (finish, search_web, resolve_path, is_subpath, etc.)
+│   │   ├── useful_tools.py    # UsefulTools class with path-restricted bash execution
 │   │   └── models/            # Model implementations
 │   │       ├── model.py           # Model interface
 │   │       ├── gemini_model.py    # Gemini model implementation

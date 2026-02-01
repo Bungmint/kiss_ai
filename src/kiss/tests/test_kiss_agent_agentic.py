@@ -449,8 +449,7 @@ Only return the number.""",
         result = self.agent.run(
             model_name=TEST_MODEL,
             prompt_template=(
-                "Say 'hello' and finish. "
-                "You MUST make exactly one tool call in your response."
+                "Say 'hello' and finish. You MUST make exactly one tool call in your response."
             ),
             arguments={},
             tools=[],
@@ -460,6 +459,7 @@ Only return the number.""",
         self.assertIn("hello", result.lower())
         # Trajectory length varies based on LLM behavior
         self.assertGreater(len(json.loads(self.agent.get_trajectory())), 2)
+
 
 class TestKISSAgentVerboseMode(unittest.TestCase):
     """Tests for verbose mode."""

@@ -59,6 +59,7 @@ class EvolverConfig(BaseModel):
         description="Maximum budget in USD for creating the initial agent",
     )
 
+
 class AgentCreatorConfig(BaseModel):
     """Combined configuration for agent creation and evolution."""
 

@@ -10,6 +10,7 @@ For a high-level overview and quick start guide, see [README.md](README.md).
 
 ## Table of Contents
 
+- [Project Structure](#project-structure) - File organization and module layout
 - [KISSAgent](#kissagent) - Core agent class with function calling
 - [KISSCodingAgent](#kisscodingagent) - Multi-agent coding system with planning and orchestration
 - [ClaudeCodingAgent](#claudecodingagent) - Claude Agent SDK-based coding agent
@@ -25,6 +26,198 @@ For a high-level overview and quick start guide, see [README.md](README.md).
 - [Utility Functions](#utility-functions) - Helper functions
 - [SimpleFormatter](#simpleformatter) - Terminal output formatting
 - [Pre-built Agents](#pre-built-agents) - Ready-to-use agents
+- [Configuration System](#configuration-system) - Config management
+- [Constants](#constants) - Framework constants
+
+______________________________________________________________________
+
+## Project Structure
+
+The KISS framework is organized into the following modules and directories:
+
+### Core Modules
+
+#### `src/kiss/core/`
+
+Core framework functionality and base classes.
+
+- **`kiss_agent.py`** - Core `KISSAgent` class implementing ReAct agent with function calling
+- **`base.py`** - Base class for all agents, `DEFAULT_SYSTEM_PROMPT` constant
+- **`config.py`** - Pydantic-based configuration system (`DEFAULT_CONFIG`)
+- **`config_builder.py`** - Configuration builder utilities
+- **`utils.py`** - Utility functions (`finish()`, `search_web()`, `resolve_path()`, `is_subpath()`, etc.)
+- **`useful_tools.py`** - `UsefulTools` class with path-restricted bash command execution, `parse_bash_command_paths()`, security validation
+- **`formatter.py`** - Base `Formatter` abstract class
+- **`simple_formatter.py`** - Terminal output formatter using Rich
+- **`kiss_error.py`** - Custom exception classes
+
+#### `src/kiss/core/models/`
+
+LLM model implementations and utilities.
+
+- **`model.py`** - Abstract base `Model` class
+- **`model_info.py`** - Model metadata, context lengths, pricing (`get_max_context_length()`, etc.)
+- **`openai_compatible_model.py`** - OpenAI-compatible API model implementation
+- **`anthropic_model.py`** - Anthropic Claude model implementation
+- **`gemini_model.py`** - Google Gemini model implementation
+
+### Agent Modules
+
+#### `src/kiss/agents/`
+
+Pre-built agents and agent utilities.
+
+- **`kiss.py`** - Pre-built agent functions (`refine_prompt_template()`, `run_bash_task_in_sandboxed_ubuntu_latest()`, `get_run_simple_coding_agent()`)
+
+#### `src/kiss/agents/coding_agents/`
+
+Specialized coding agents using different SDKs.
+
+- **`kiss_coding_agent.py`** - `KISSCodingAgent` multi-agent coding system with orchestration
+- **`claude_coding_agent.py`** - `ClaudeCodingAgent` using Claude Agent SDK
+- **`gemini_cli_agent.py`** - `GeminiCliAgent` using Google ADK
+- **`openai_codex_agent.py`** - `OpenAICodexAgent` using OpenAI Agents SDK
+
+#### `src/kiss/agents/agent_creator/`
+
+Agent creation and evolutionary optimization.
+
+- **`agent_evolver.py`** - `AgentEvolver` class for Pareto-frontier agent evolution
+- **`improver_agent.py`** - `ImproverAgent` class for optimizing agent code
+- **`config.py`** - Configuration for agent creator
+
+#### `src/kiss/agents/gepa/`
+
+GEPA (Genetic-Pareto) prompt optimization system.
+
+- **`gepa.py`** - `GEPA` class implementing reflective prompt evolution
+- **`config.py`** - GEPA configuration settings
+- **`hotpotqa/`** - HotpotQA benchmark implementation
+
+#### `src/kiss/agents/kiss_evolve/`
+
+Evolutionary algorithm discovery using LLMs.
+
+- **`kiss_evolve.py`** - `KISSEvolve` class for code evolution
+- **`novelty_prompts.py`** - Prompts for novelty-based evolution
+- **`config.py`** - KISSEvolve configuration
+- **`algotune/`** - Algorithm tuning utilities
+
+#### `src/kiss/agents/self_evolving_multi_agent/`
+
+Self-evolving multi-agent system (experimental).
+
+- **`multi_agent.py`** - Multi-agent coordination
+- **`agent_evolver.py`** - Self-evolution logic
+- **`config.py`** - Multi-agent configuration
+
+#### `src/kiss/agents/swe_agent_verified/`
+
+SWE-bench verified agent implementation.
+
+- **`run_swebench.py`** - SWE-bench evaluation runner
+- **`config.py`** - SWE-bench configuration
+
+#### `src/kiss/agents/arvo_agent/`
+
+ARVO agent implementation (experimental).
+
+- **`arvo_agent.py`** - ARVO agent class
+
+### Infrastructure Modules
+
+#### `src/kiss/docker/`
+
+Docker container management.
+
+- **`docker_manager.py`** - `DockerManager` class for container lifecycle management
+
+#### `src/kiss/multiprocessing/`
+
+Parallel execution utilities.
+
+- **`multiprocess.py`** - `run_functions_in_parallel()`, `run_functions_in_parallel_with_kwargs()`, `get_available_cores()`
+
+#### `src/kiss/rag/`
+
+Retrieval-Augmented Generation (RAG) system.
+
+- **`simple_rag.py`** - `SimpleRAG` class with in-memory vector store
+
+### Utility Modules
+
+#### `src/kiss/scripts/`
+
+Command-line scripts and utilities.
+
+- **`check.py`** - Code quality check script (linting, type checking, testing)
+- **`kissevolve_bubblesort.py`** - Example KISSEvolve script for bubble sort evolution
+
+#### `src/kiss/viz_trajectory/`
+
+Trajectory visualization tools.
+
+- **`server.py`** - Visualization server for agent trajectories
+
+### Test Suite
+
+#### `src/kiss/tests/`
+
+Comprehensive test suite for all components.
+
+- **`test_kiss_agent_agentic.py`** - Tests for KISSAgent in agentic mode
+- **`test_kiss_agent_non_agentic.py`** - Tests for KISSAgent in non-agentic mode
+- **`test_claude_coding_agent.py`** - Tests for ClaudeCodingAgent
+- **`test_gemini_cli_agent.py`** - Tests for GeminiCliAgent
+- **`test_openai_codex_agent.py`** - Tests for OpenAICodexAgent
+- **`test_docker_manager.py`** - Tests for DockerManager
+- **`test_multiprocess.py`** - Tests for multiprocessing utilities
+- **`test_agent_creator.py`** - Tests for AgentEvolver and ImproverAgent
+- **`test_gepa_*.py`** - Tests for GEPA system
+- **`test_kissevolve_bubblesort.py`** - Tests for KISSEvolve
+- **`test_a_model.py`** - Tests for Model implementations
+- **`test_models_quick.py`** - Quick model tests
+- **`test_model_config.py`** - Configuration tests
+- **`test_search_web.py`** - Web search tests
+- **`test_internal.py`** - Internal utility tests
+- **`run_all_models_test.py`** - Comprehensive model testing
+- **`conftest.py`** - Pytest configuration and fixtures
+
+### Package Files
+
+- **`src/kiss/__init__.py`** - Main package initialization, exports core classes
+- **`src/kiss/_version.py`** - Version information
+
+### Import Paths
+
+```python
+# Core agent
+from kiss import KISSAgent
+
+# Coding agents
+from kiss.agents.coding_agents import KISSCodingAgent, ClaudeCodingAgent, GeminiCliAgent, OpenAICodexAgent
+
+# Agent creation
+from kiss.agents.agent_creator import AgentEvolver, ImproverAgent
+
+# Optimization
+from kiss.agents.gepa import GEPA
+from kiss.agents.kiss_evolve import KISSEvolve
+
+# Infrastructure
+from kiss.docker import DockerManager
+from kiss.multiprocessing import run_functions_in_parallel
+from kiss.rag import SimpleRAG
+
+# Configuration
+from kiss.core import DEFAULT_CONFIG
+from kiss.core.base import DEFAULT_SYSTEM_PROMPT
+
+# Utilities
+from kiss.core.utils import finish, search_web, resolve_path, is_subpath
+from kiss.core.useful_tools import UsefulTools, parse_bash_command_paths
+from kiss.core.simple_formatter import SimpleFormatter
+```
 
 ______________________________________________________________________
 
@@ -155,6 +348,7 @@ ______________________________________________________________________
 ## KISSCodingAgent
 
 A multi-agent coding system with orchestration and sub-agents using KISSAgent. It efficiently breaks down complex coding tasks into manageable sub-tasks through a multi-agent architecture with:
+
 - **Orchestrator Agent**: Manages overall task execution and delegates to sub-tasks
 - **Executor Agents**: Handle specific sub-tasks independently
 - **Dynamic GEPA**: Automatically refines prompts on failures using trajectory analysis for improved retry attempts
@@ -1490,6 +1684,74 @@ class CodeVariant:
 
 ______________________________________________________________________
 
+## UsefulTools
+
+A class that provides bash command execution with path-based access control and security checks.
+
+### Constructor
+
+```python
+UsefulTools(
+    base_dir: str,
+    readable_paths: list[str] | None = None,
+    writable_paths: list[str] | None = None,
+)
+```
+
+**Parameters:**
+
+- `base_dir` (str): The base directory for operations (created if it doesn't exist).
+- `readable_paths` (list[str] | None): List of paths the tools can read from. Default is None (no restrictions).
+- `writable_paths` (list[str] | None): List of paths the tools can write to. Default is None (no restrictions).
+
+### Methods
+
+#### `run_bash_command()`
+
+```python
+def run_bash_command(self, command: str, description: str) -> str
+```
+
+Execute a bash command with automatic path permission checks and security validation.
+
+**Parameters:**
+
+- `command` (str): The bash command to execute.
+- `description` (str): A brief description of what the command does.
+
+**Returns:**
+
+- `str`: The command output (stdout), or an error message if permission denied, security violation, or execution failed.
+
+**Security Features:**
+
+- Detects dangerous patterns (command substitution, variable manipulation, etc.)
+- Automatically parses commands to detect file operations
+- Enforces readable_paths and writable_paths restrictions
+- 30-second timeout for command execution
+- Returns descriptive error messages for violations
+
+**Example:**
+
+```python
+from kiss.core.useful_tools import UsefulTools
+
+tools = UsefulTools(
+    base_dir="/workdir",
+    readable_paths=["/workdir/src"],
+    writable_paths=["/workdir/output"],
+)
+
+# This will work
+output = tools.run_bash_command("cat src/file.txt > output/result.txt", "Copy file")
+
+# This will be denied
+output = tools.run_bash_command("cat /etc/passwd", "Read system file")
+# Returns: "Error: Access denied for reading /etc/passwd"
+```
+
+______________________________________________________________________
+
 ## Utility Functions
 
 Helper functions from `kiss.core.utils`.
@@ -1579,6 +1841,69 @@ Reads a file and returns the content.
 
 - `str`: The content of the file.
 
+### `resolve_path()`
+
+```python
+def resolve_path(p: str, base_dir: str) -> Path
+```
+
+Resolve a path relative to base_dir if not absolute.
+
+**Parameters:**
+
+- `p` (str): The path to resolve.
+- `base_dir` (str): The base directory to resolve relative paths against.
+
+**Returns:**
+
+- `Path`: The resolved absolute path.
+
+**Example:**
+
+```python
+from kiss.core.utils import resolve_path
+
+# Relative path
+path = resolve_path("output/file.txt", "/workdir")
+# Returns: Path("/workdir/output/file.txt")
+
+# Absolute path (returned as-is)
+path = resolve_path("/tmp/file.txt", "/workdir")
+# Returns: Path("/tmp/file.txt")
+```
+
+### `is_subpath()`
+
+```python
+def is_subpath(target: Path, whitelist: list[Path]) -> bool
+```
+
+Check if target has any prefix in whitelist.
+
+**Parameters:**
+
+- `target` (Path): The target path to check.
+- `whitelist` (list[Path]): List of paths to check against.
+
+**Returns:**
+
+- `bool`: True if target is a subpath of any path in whitelist, False otherwise.
+
+**Example:**
+
+```python
+from pathlib import Path
+from kiss.core.utils import is_subpath
+
+target = Path("/workdir/output/file.txt")
+whitelist = [Path("/workdir/output"), Path("/workdir/tmp")]
+
+if is_subpath(target, whitelist):
+    print("Access allowed")
+else:
+    print("Access denied")
+```
+
 ### `finish()` (for KISSAgent in utils.py)
 
 ```python
@@ -1666,6 +1991,7 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]
 Parse a bash command to extract readable and writable directory paths.
 
 This function analyzes bash commands to intelligently determine which directories are being read from and which are being written to. It handles:
+
 - Common read commands: cat, grep, find, ls, python, gcc, rsync, etc.
 - Common write commands: touch, mkdir, rm, mv, cp, rsync, etc.
 - Output redirection: >, >>, &>, 2>, etc.
@@ -1684,7 +2010,7 @@ This function analyzes bash commands to intelligently determine which directorie
 **Example:**
 
 ```python
-from kiss.agents.kiss_coding_agent import parse_bash_command_paths
+from kiss.core.useful_tools import parse_bash_command_paths
 
 # Reading and writing
 readable, writable = parse_bash_command_paths("cat input.txt > output.txt")
@@ -1701,7 +2027,7 @@ readable, writable = parse_bash_command_paths("cp -r src/ dest/")
 
 **Note:**
 
-This function is defined in `kiss.agents.kiss_coding_agent` and is used internally by KISSCodingAgent.run_bash_command() to automatically determine which paths need read/write permissions before executing bash commands.
+This function is defined in `kiss.core.useful_tools` and is used internally by `UsefulTools.run_bash_command()` and `KISSCodingAgent.run_bash_command()` to automatically determine which paths need read/write permissions before executing bash commands.
 
 ______________________________________________________________________
 

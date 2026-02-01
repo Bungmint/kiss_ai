@@ -205,9 +205,7 @@ def solve_instance(
     }
 
     try:
-        with DockerManager(
-            image_name, workdir=config.workdir, mount_shared_volume=False
-        ) as env:
+        with DockerManager(image_name, workdir=config.workdir, mount_shared_volume=False) as env:
 
             def do_sub_task(prompt: str) -> str:
                 """Execute a sub-task using a separate agent.
@@ -394,11 +392,13 @@ def run_swebench(
 
                 # Save result to JSONL
                 if config.save_patches:
-                    result_line = json.dumps({
-                        "instance_id": result["instance_id"],
-                        "model_patch": result.get("model_patch", ""),
-                        "model_name_or_path": result["model_name_or_path"],
-                    })
+                    result_line = json.dumps(
+                        {
+                            "instance_id": result["instance_id"],
+                            "model_patch": result.get("model_patch", ""),
+                            "model_name_or_path": result["model_name_or_path"],
+                        }
+                    )
                     with results_path.open("a") as f:
                         f.write(result_line + "\n")
             else:

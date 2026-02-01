@@ -22,18 +22,22 @@ from kiss.docker.docker_manager import DockerManager
 @dataclass
 class TodoItem:
     """A single todo item in the task list."""
+
     id: int
     description: str
     status: str = "pending"  # pending, in_progress, completed, failed
 
+
 @dataclass
 class AgentState:
     """Mutable state for the coding agent."""
+
     todos: list[TodoItem] = field(default_factory=list)
     dynamic_tools: dict[str, Callable[..., str]] = field(default_factory=dict)
     error_count: int = 0
     last_error: str = ""
     completed_tasks: list[str] = field(default_factory=list)
+
 
 ORCHESTRATOR_PROMPT = """## Task
 {task}
@@ -63,6 +67,7 @@ Last Error: {last_error}
 SUB_AGENT_PROMPT = """## Sub-Task
 {task}
 Focus ONLY on this. Use run_bash, read_file, and write_file. Be concise and report results."""
+
 
 class SelfEvolvingMultiAgent:
     """Optimized coding agent with planning and tool-usage efficiency."""
@@ -163,8 +168,13 @@ class SelfEvolvingMultiAgent:
             return f"Tool '{name}' ready."
 
         tools: list[Callable[..., str]] = [
-            plan_task, execute_todo, complete_todo, run_bash,
-            create_tool, read_file, write_file
+            plan_task,
+            execute_todo,
+            complete_todo,
+            run_bash,
+            create_tool,
+            read_file,
+            write_file,
         ]
         tools.extend(self.state.dynamic_tools.values())
         return tools
@@ -206,6 +216,7 @@ class SelfEvolvingMultiAgent:
             "error_count": self.state.error_count,
             "dynamic_tools": len(self.state.dynamic_tools),
         }
+
 
 def run_task(task: str) -> dict:
     """Run task and return result with metrics for the evolver."""
@@ -570,7 +581,7 @@ def verify_task_completion(docker: DockerManager) -> bool:
         # Write test script
         docker.run_bash_command(
             f"cat > /tmp/verify_task.py << 'VERIFY_EOF'\n{COMPLEX_TASK_TEST}\nVERIFY_EOF",
-            "Creating verification script"
+            "Creating verification script",
         )
         # Run verification
         result = docker.run_bash_command("python /tmp/verify_task.py", "Verification")
@@ -599,9 +610,7 @@ def main() -> None:
     agent = SelfEvolvingMultiAgent()
 
     # Use explicit docker context to keep container alive for verification
-    with DockerManager(
-        agent.docker_image, workdir="/", mount_shared_volume=True
-    ) as docker:
+    with DockerManager(agent.docker_image, workdir="/", mount_shared_volume=True) as docker:
         agent.docker = docker
         docker.run_bash_command("mkdir -p /workspace", "Init")
         docker.workdir = agent.workdir

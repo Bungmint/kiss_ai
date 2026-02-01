@@ -550,10 +550,9 @@ def model(model_name: str, model_config: dict[str, Any] | None = None) -> Model:
             model_config=model_config,
         )
     # OpenAI models (generation and embedding)
-    elif (
-        model_name.startswith(("gpt", "text-embedding", "o1", "o3", "o4", "codex"))
-        and not model_name.startswith("openai/gpt-oss")
-    ):
+    elif model_name.startswith(
+        ("gpt", "text-embedding", "o1", "o3", "o4", "codex")
+    ) and not model_name.startswith("openai/gpt-oss"):
         return OpenAICompatibleModel(
             model_name=model_name,
             base_url="https://api.openai.com/v1",
@@ -604,9 +603,7 @@ def model(model_name: str, model_config: dict[str, Any] | None = None) -> Model:
         raise KISSError(f"Unknown model name: {model_name}")
 
 
-def calculate_cost(
-    model_name: str, num_input_tokens: int, num_output_tokens: int
-) -> float:
+def calculate_cost(model_name: str, num_input_tokens: int, num_output_tokens: int) -> float:
     """Calculates the cost in USD for the given token counts.
 
     Args:

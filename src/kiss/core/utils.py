@@ -167,9 +167,7 @@ def read_project_file(file_path_relative_to_project_root: str) -> str:
     import os
 
     # Try usual filesystem access from root
-    project_root = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "..")
-    )
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     abs_path = os.path.join(project_root, file_path_relative_to_project_root)
     if os.path.isfile(abs_path):
         with open(abs_path, encoding="utf-8") as f:
@@ -210,14 +208,12 @@ def read_project_file_from_package(file_name_as_python_package: str) -> str:
 
     try:
         package = __package__ or "kiss.core"
-        return importlib.resources.read_text(
-            package, file_name_as_python_package, encoding="utf-8"
-        )
+        return importlib.resources.read_text(package, file_name_as_python_package, encoding="utf-8")
     except Exception as e:
         raise KISSError(
-            f"Could not find '{file_name_as_python_package}' "
-            f"as a file or in a package. ({e})"
+            f"Could not find '{file_name_as_python_package}' as a file or in a package. ({e})"
         )
+
 
 def _fetch_page_content(url: str, headers: dict[str, str], max_content_length: int = 10000) -> str:
     """
@@ -245,7 +241,15 @@ def _fetch_page_content(url: str, headers: dict[str, str], max_content_length: i
 
         # Remove non-content elements
         non_content_tags = [
-            "script", "style", "noscript", "header", "footer", "nav", "aside", "iframe", "svg"
+            "script",
+            "style",
+            "noscript",
+            "header",
+            "footer",
+            "nav",
+            "aside",
+            "iframe",
+            "svg",
         ]
         for tag in soup(non_content_tags):
             tag.decompose()
@@ -406,3 +410,14 @@ def search_web(query: str, max_results: int = 5) -> str:
 
     return "No search results found."
 
+def resolve_path(p: str, base_dir: str) -> Path:
+    """Resolve a path relative to base_dir if not absolute."""
+    path = Path(p)
+    if not path.is_absolute():
+        return (Path(base_dir) / path).resolve()
+    return path.resolve()
+
+def is_subpath(target: Path, whitelist: list[Path]) -> bool:
+    """Check if target has any prefix in whitelist."""
+    target = Path(target).resolve()
+    return any(target.is_relative_to(p) for p in whitelist)

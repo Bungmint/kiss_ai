@@ -41,7 +41,6 @@ class KISSAgent(Base):
         self.budget_used = 0.0
         self.run_start_timestamp = int(time.time())
 
-
     def _set_prompt(self, prompt_template: str, arguments: dict[str, str] | None = None) -> None:
         """Sets the prompt for the agent."""
         assert self.model is not None
@@ -182,8 +181,8 @@ class KISSAgent(Base):
             self._formatter.print_status(f"Asking {self.model.model_name}...\n")
         start_timestamp = int(time.time())
 
-        function_calls, response_text, response = (
-            self.model.generate_and_process_with_tools(self._tool_map)
+        function_calls, response_text, response = self.model.generate_and_process_with_tools(
+            self._tool_map
         )
         self._update_tokens_and_budget_from_response(response)
         usage_info = self._get_usage_info_string()
@@ -315,5 +314,3 @@ class KISSAgent(Base):
             Returns the result of the agent's task.
         """
         return result
-
-

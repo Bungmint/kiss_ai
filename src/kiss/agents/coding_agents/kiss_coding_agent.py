@@ -5,9 +5,6 @@
 
 """Multi-agent coding system with orchestration, and sub-agents using KISSAgent."""
 
-import re
-import shlex
-import subprocess
 from pathlib import Path
 
 import yaml
@@ -17,6 +14,8 @@ from kiss.core.config import DEFAULT_CONFIG
 from kiss.core.kiss_agent import KISSAgent
 from kiss.core.kiss_error import KISSError
 from kiss.core.models.model_info import get_max_context_length
+from kiss.core.useful_tools import UsefulTools
+from kiss.core.utils import resolve_path
 
 ORCHESTRATOR_PROMPT = """
 
@@ -121,9 +120,9 @@ def finish(success: bool, summary: str) -> str:
     return result_str
 
 
-
 class SubTask:
     """Represents a sub-task in the multi-agent coding system."""
+
     task_counter: int = 0
 
     def __init__(self, name: str, context: str, description: str) -> None:
@@ -141,190 +140,6 @@ class SubTask:
 
     def __str__(self) -> str:
         return self.__repr__()
-
-def _extract_directory(path_str: str) -> str | None:
-    """Extract directory from a file path without resolving symlinks.
-
-    Args:
-        path_str: A file or directory path
-
-    Returns:
-        The directory path, or None if invalid
-    """
-    try:
-        path = Path(path_str)
-
-        # If it's an absolute path
-        if path.is_absolute():
-            # Check if path exists to determine if it's a file or directory
-            if path.exists():
-                return str(path)
-            else:
-                # Path doesn't exist - usTypeless, Typelesse heuristics
-                if path_str.endswith('/'):
-                    # Trailing slash indicates directory
-                    return str(path)
-                else:
-                    # Check if it has a file extension
-                    if path.suffix:
-                        # Has extension - likely a file
-                        return str(path)
-                    else:
-                        # No extension - could be directory
-                        # Check if parent exists and is a directory
-                        if path.parent.exists() and path.parent.is_dir():
-                            # Parent exists, so this is likely a file or subdir
-                            return str(path)
-                        else:
-                            # Parent doesn't exist either - assume it's a directory path
-                            return str(path)
-
-        # For relative paths, return None (we can't determine the directory reliably)
-        return None
-
-    except Exception:
-        return None
-
-
-def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
-    """Parse a bash command to extract readable and writable directory paths.
-
-    This function analyzes bash commands to determine which directories are
-    being read from and which are being written to.
-
-    Args:
-        command: A bash command string to parse
-
-    Returns:
-        A tuple of (readable_dirs, writable_dirs) where each is a list of directory paths
-
-    """
-    readable_paths: set[str] = set()
-    writable_paths: set[str] = set()
-
-    # Commands that read files/directories
-    read_commands = {
-        'cat', 'less', 'more', 'head', 'tail', 'grep', 'find', 'ls', 'diff',
-        'wc', 'sort', 'uniq', 'cut', 'sed', 'awk', 'tee', 'od', 'hexdump',
-        'file', 'stat', 'du', 'df', 'tree', 'read', 'source', '.', 'tar',
-        'zip', 'unzip', 'gzip', 'gunzip', 'bzip2', 'bunzip2', 'python',
-        'python3', 'node', 'ruby', 'perl', 'bash', 'sh', 'zsh', 'make',
-        'cmake', 'gcc', 'g++', 'clang', 'javac', 'java', 'cargo', 'npm',
-        'yarn', 'pip', 'go', 'rustc', 'rsync'
-    }
-
-    # Commands that write files/directories
-    write_commands = {
-        'touch', 'mkdir', 'rm', 'rmdir', 'mv', 'cp', 'dd', 'tee', 'install',
-        'chmod', 'chown', 'chgrp', 'ln', 'rsync'
-    }
-
-    # Redirection operators that write
-    write_redirects = {'>', '>>', '&>', '&>>', '1>', '2>', '2>&1'}
-
-    try:
-        # Handle pipes - split into sub-commands
-        pipe_parts = command.split('|')
-
-        for part in pipe_parts:
-            part = part.strip()
-
-            # Check for output redirection (writing)
-            for redirect in write_redirects:
-                if redirect in part:
-                    # Extract path after redirect
-                    redirect_match = re.search(rf'{re.escape(redirect)}\s*([^\s;&|]+)', part)
-                    if redirect_match:
-                        path = redirect_match.group(1).strip()
-                        path = path.strip('\'"')
-                        if path and path != '/dev/null':
-                            dir_path = _extract_directory(path)
-                            if dir_path:
-                                writable_paths.add(dir_path)
-
-            # Parse the command tokens
-            try:
-                tokens = shlex.split(part)
-            except ValueError:
-                # If shlex fails, do basic split
-                tokens = part.split()
-
-            if not tokens:
-                continue
-
-            cmd = tokens[0].split('/')[-1]  # Get base command name
-
-            # Process based on command type
-            if cmd in read_commands or cmd in write_commands:
-                # Extract file/directory arguments (skip flags)
-                paths: list[str] = []
-                i = 1
-                while i < len(tokens):
-                    token = tokens[i]
-
-                    # Skip flags and their arguments
-                    if token.startswith('-'):
-                        i += 1
-                        # Skip flag argument if it doesn't start with - or /
-                        if (i < len(tokens) and not tokens[i].startswith('-')
-                                and not tokens[i].startswith('/')):
-                            i += 1
-                        continue
-
-                    # Check if it looks like a path
-                    if '/' in token or not any(c in token for c in ['=', '$', '(', ')']):
-                        token = token.strip('\'"')
-                        if token and token != '/dev/null':
-                            paths.append(token)
-
-                    i += 1
-
-                # Classify paths based on command
-                if cmd in read_commands:
-                    for path in paths:
-                        dir_path = _extract_directory(path)
-                        if dir_path:
-                            readable_paths.add(dir_path)
-
-                if cmd in write_commands:
-                    # For write commands, typically the last path is written to
-                    if paths:
-                        if cmd in ['cp', 'mv', 'rsync']:
-                            # Source(s) are read, destination is written
-                            for path in paths[:-1]:
-                                dir_path = _extract_directory(path)
-                                if dir_path:
-                                    readable_paths.add(dir_path)
-
-                            # Last path is destination
-                            if len(paths) > 0:
-                                dir_path = _extract_directory(paths[-1])
-                                if dir_path:
-                                    writable_paths.add(dir_path)
-                        else:
-                            # Other write commands
-                            for path in paths:
-                                dir_path = _extract_directory(path)
-                                if dir_path:
-                                    writable_paths.add(dir_path)
-
-                # tee reads stdin and writes to file
-                if cmd == 'tee':
-                    for path in paths:
-                        dir_path = _extract_directory(path)
-                        if dir_path:
-                            writable_paths.add(dir_path)
-
-    except Exception as e:
-        # If parsing fails completely, return empty lists
-        print(f"Warning: Failed to parse command '{command}': {e}")
-        return ([], [])
-
-    # Clean up paths - remove empty strings and '.'
-    readable_dirs = sorted([p for p in readable_paths if p and p != '.'])
-    writable_dirs = sorted([p for p in writable_paths if p and p != '.'])
-
-    return (readable_dirs, writable_dirs)
 
 
 class KISSCodingAgent(Base):
@@ -354,8 +169,8 @@ class KISSCodingAgent(Base):
     ) -> None:
         Path(base_dir).mkdir(parents=True, exist_ok=True)
         self.base_dir = str(Path(base_dir).resolve())
-        self.readable_paths = [self._resolve_path(p) for p in readable_paths or []]
-        self.writable_paths = [self._resolve_path(p) for p in writable_paths or []]
+        self.readable_paths = [resolve_path(p, self.base_dir) for p in readable_paths or []]
+        self.writable_paths = [resolve_path(p, self.base_dir) for p in writable_paths or []]
         self.is_agentic = True
 
         self.trials = trials
@@ -373,6 +188,13 @@ class KISSCodingAgent(Base):
         self.budget_used: float = 0.0
         self.total_tokens_used: int = 0
 
+        # Initialize UsefulTools instance
+        self.useful_tools = UsefulTools(
+            base_dir=self.base_dir,
+            readable_paths=[str(p) for p in self.readable_paths],
+            writable_paths=[str(p) for p in self.writable_paths],
+        )
+
     def run_bash_command(self, command: str, description: str) -> str:
         """Runs a bash command and returns its output.
         Args:
@@ -381,26 +203,7 @@ class KISSCodingAgent(Base):
         Returns:
             The output of the command.
         """
-        print(f"Running command: {description}")
-
-        readable, writable = parse_bash_command_paths(command)
-        for path_str in readable:
-            if not self._is_subpath(Path(path_str).resolve(), self.readable_paths):
-                return f"Error: Access denied for reading {path_str}"
-        for path_str in writable:
-            if not self._is_subpath(Path(path_str).resolve(), self.writable_paths):
-                return f"Error: Access denied for writing to {path_str}"
-        try:
-            result = subprocess.run(
-                command,
-                shell=True,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            return result.stdout
-        except subprocess.CalledProcessError as e:
-            return f"Error: {e.stderr}"
+        return self.useful_tools.run_bash_command(command, description)
 
     def perform_task(
         self,
@@ -427,7 +230,7 @@ class KISSCodingAgent(Base):
                 max_steps=self.max_steps,
                 max_budget=self.max_budget,
             )
-            self.budget_used += executor.budget_used # type: ignore
+            self.budget_used += executor.budget_used  # type: ignore
             self.total_tokens_used += executor.total_tokens_used  # type: ignore
 
             ret = yaml.safe_load(result)
@@ -488,7 +291,7 @@ class KISSCodingAgent(Base):
                 max_steps=self.max_steps,
                 max_budget=self.max_budget,
             )
-            self.budget_used += executor.budget_used # type: ignore
+            self.budget_used += executor.budget_used  # type: ignore
             self.total_tokens_used += executor.total_tokens_used  # type: ignore
 
             ret = yaml.safe_load(result)
@@ -519,18 +322,14 @@ class KISSCodingAgent(Base):
         orchestrator_model_name: str = (
             DEFAULT_CONFIG.agent.kiss_coding_agent.orchestrator_model_name
         ),
-        subtasker_model_name: str = (
-            DEFAULT_CONFIG.agent.kiss_coding_agent.subtasker_model_name
-        ),
+        subtasker_model_name: str = (DEFAULT_CONFIG.agent.kiss_coding_agent.subtasker_model_name),
         dynamic_gepa_model_name: str = (
             DEFAULT_CONFIG.agent.kiss_coding_agent.dynamic_gepa_model_name
         ),
         trials: int = DEFAULT_CONFIG.agent.kiss_coding_agent.trials,
         max_steps: int = DEFAULT_CONFIG.agent.max_steps,
         max_budget: float = DEFAULT_CONFIG.agent.max_agent_budget,
-        base_dir: str = str(
-            Path(DEFAULT_CONFIG.agent.artifact_dir).resolve() / "kiss_workdir"
-        ),
+        base_dir: str = str(Path(DEFAULT_CONFIG.agent.artifact_dir).resolve() / "kiss_workdir"),
         readable_paths: list[str] | None = None,
         writable_paths: list[str] | None = None,
     ) -> str:
@@ -570,6 +369,7 @@ class KISSCodingAgent(Base):
         self.task_description = prompt_template.format(**self.arguments)
         return self.perform_task()
 
+
 def main() -> None:
     """Example usage of the KISSCodingAgent."""
 
@@ -587,9 +387,9 @@ def main() -> None:
         prompt_template=task_description,
     )
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("FINAL RESULT:")
-    print("="*80)
+    print("=" * 80)
     print(result)
 
 

@@ -128,25 +128,13 @@ class Base:
         """Return the trajectory as JSON for visualization."""
         return json.dumps(self.messages, indent=2)
 
-    def _add_message(
-        self, role: str, content: Any, timestamp: int | None = None
-    ) -> None:
+    def _add_message(self, role: str, content: Any, timestamp: int | None = None) -> None:
         """Add a message to the history."""
-        self.messages.append({
-            "unique_id": len(self.messages),
-            "role": role,
-            "content": content,
-            "timestamp": timestamp if timestamp is not None else int(time.time()),
-        })
-
-    def _resolve_path(self, p: str) -> Path:
-        """Resolve a path relative to base_dir if not absolute."""
-        path = Path(p)
-        if not path.is_absolute():
-            return (Path(self.base_dir) / path).resolve()
-        return path.resolve()
-
-    def _is_subpath(self, target: Path, whitelist: list[Path]) -> bool:
-        """Check if target has any prefix in whitelist."""
-        target = Path(target).resolve()
-        return any(target.is_relative_to(p) for p in whitelist)
+        self.messages.append(
+            {
+                "unique_id": len(self.messages),
+                "role": role,
+                "content": content,
+                "timestamp": timestamp if timestamp is not None else int(time.time()),
+            }
+        )

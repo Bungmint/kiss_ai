@@ -73,9 +73,7 @@ def _check_and_install_dependencies() -> None:
                 )
             print(f"Successfully installed: {', '.join(missing)}")
         except subprocess.CalledProcessError as e:
-            raise RuntimeError(
-                f"Failed to install dependencies {missing}: {e.stderr}"
-            ) from e
+            raise RuntimeError(f"Failed to install dependencies {missing}: {e.stderr}") from e
 
 
 def _is_network_error(error: Exception) -> bool:

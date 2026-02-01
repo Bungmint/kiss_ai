@@ -148,9 +148,9 @@ class AgentVariant:
             # Default weights: prioritize success (maximize), then minimize tokens and time
             # success is 0 or 1, tokens_used count, execution_time in seconds
             weights = {
-                "success": 1000000,       # Minimize success (0 is best)
-                "tokens_used": 1,         # Minimize token usage
-                "execution_time": 1000,   # Minimize execution time
+                "success": 1000000,  # Minimize success (0 is best)
+                "tokens_used": 1,  # Minimize token usage
+                "execution_time": 1000,  # Minimize execution time
             }
 
         score = 0.0
@@ -176,6 +176,7 @@ class AgentVariant:
             "parent_ids": self.parent_ids,
             "feedback": self.feedback,
         }
+
 
 class AgentEvolver:
     """Evolves AI agents using Pareto frontier optimization.
@@ -279,7 +280,8 @@ class AgentEvolver:
         return module
 
     def _evaluate_variant(
-        self, variant: AgentVariant,
+        self,
+        variant: AgentVariant,
     ) -> dict[str, Any]:
         """Run the agent on the long-running task and collect metrics."""
         print(f"Evaluating variant {variant.id}...")
@@ -329,9 +331,7 @@ class AgentEvolver:
                 return False
 
         # Remove variants dominated by new variant
-        self.pareto_frontier = [
-            v for v in self.pareto_frontier if not new_variant.dominates(v)
-        ]
+        self.pareto_frontier = [v for v in self.pareto_frontier if not new_variant.dominates(v)]
 
         # Add new variant to frontier
         self.pareto_frontier.append(new_variant)
@@ -377,8 +377,7 @@ class AgentEvolver:
     def _format_metrics(self, metrics: dict[str, float]) -> str:
         """Format metrics dictionary for display."""
         return ", ".join(
-            f"{k}={v:.2f}" if isinstance(v, float) else f"{k}={v}"
-            for k, v in metrics.items()
+            f"{k}={v:.2f}" if isinstance(v, float) else f"{k}={v}" for k, v in metrics.items()
         )
 
     def _sample_from_frontier(self) -> AgentVariant:
@@ -419,9 +418,7 @@ class AgentEvolver:
             parent_ids=[variant.id],
         )
 
-    def _crossover(
-        self, primary: AgentVariant, secondary: AgentVariant
-    ) -> AgentVariant | None:
+    def _crossover(self, primary: AgentVariant, secondary: AgentVariant) -> AgentVariant | None:
         """Create a new variant by crossing over two variants."""
         new_id = self._next_variant_id()
         target_folder, report_path = self._get_variant_paths(new_id)
@@ -589,6 +586,7 @@ LONG_RUNNING_TASK = """
 > *   Standard Linux utilities only (sed, awk, grep, flock/mkdir).
 > *   Safe: Operate entirely within a `./my_db` directory.
 """
+
 
 def main() -> None:
     """Run the AgentEvolver on a long-running task."""

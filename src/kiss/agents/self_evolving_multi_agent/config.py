@@ -64,6 +64,5 @@ class SelfEvolvingMultiAgentConfig(BaseModel):
     )
 
 
-
 # Register config with the global DEFAULT_CONFIG
 add_config("self_evolving_multi_agent", SelfEvolvingMultiAgentConfig)

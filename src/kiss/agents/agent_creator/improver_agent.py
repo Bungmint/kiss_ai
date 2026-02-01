@@ -29,9 +29,9 @@ You have to optimize an AI agent for long-running complex tasks.
 
   - The agent must be designed for **long-running, complex tasks** using
     the Agent API available at {kiss_folder}.  Specifically, you should
-    look at {kiss_folder}/API.md and {kiss_folder}/README.md first, and 
-    then look at code under the src folder as required. 
-    {kiss_folder}/src/kiss/core/models/model_info.py contains information 
+    look at {kiss_folder}/API.md and {kiss_folder}/README.md first, and
+    then look at code under the src folder as required.
+    {kiss_folder}/src/kiss/core/models/model_info.py contains information
     about different LLM models and their context lengths, costs, etc.
   - The agent **MUST** be tested for success on the given task description.
   - You **MUST not make the agent specific to any particular task, but
@@ -74,7 +74,7 @@ Create or modify the following files in {target_folder}:
 5. `requirements.txt` - Dependencies for the agent
 
 The agent should collect fine-grained feedback on the task as it is executing.
-When complete, provide a summary of the agent it created and evolved, and the 
+When complete, provide a summary of the agent it created and evolved, and the
 files that were written.
 
 ## Goals
@@ -150,13 +150,17 @@ class ImprovementReport:
         """Save the report to a JSON file."""
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
-            json.dump({
-                "implemented_ideas": self.implemented_ideas,
-                "failed_ideas": self.failed_ideas,
-                "generation": self.generation,
-                "metrics": self.metrics,
-                "summary": self.summary,
-            }, f, indent=2)
+            json.dump(
+                {
+                    "implemented_ideas": self.implemented_ideas,
+                    "failed_ideas": self.failed_ideas,
+                    "generation": self.generation,
+                    "metrics": self.metrics,
+                    "summary": self.summary,
+                },
+                f,
+                indent=2,
+            )
 
     @classmethod
     def load(cls, path: str) -> "ImprovementReport":
@@ -171,6 +175,7 @@ class ImprovementReport:
             summary=data.get("summary", ""),
         )
 
+
 class ImproverAgent:
     """Agent that improves existing agent code using a configurable coding agent."""
 
@@ -178,9 +183,7 @@ class ImproverAgent:
         self,
         max_steps: int | None = None,
         max_budget: float | None = None,
-        coding_agent_type: Literal[
-            "kiss code", "claude code", "gemini cli", "openai codex"
-        ]
+        coding_agent_type: Literal["kiss code", "claude code", "gemini cli", "openai codex"]
         | None = None,
     ):
         """Initialize the ImproverAgent.
@@ -431,9 +434,7 @@ class ImproverAgent:
 def main() -> None:
     """Example usage of ImproverAgent."""
     improver = ImproverAgent()
-    print(
-        f"max_steps={improver.max_steps}, max_budget=${improver.max_budget}"
-    )
+    print(f"max_steps={improver.max_steps}, max_budget=${improver.max_budget}")
 
 
 if __name__ == "__main__":

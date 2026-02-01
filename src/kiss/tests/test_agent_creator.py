@@ -94,8 +94,7 @@ class ImprovementReport:
         token_better = self.improved_tokens <= other.improved_tokens
         time_better = self.improved_time <= other.improved_time
         strictly_better = (
-            self.improved_tokens < other.improved_tokens
-            or self.improved_time < other.improved_time
+            self.improved_tokens < other.improved_tokens or self.improved_time < other.improved_time
         )
         return token_better and time_better and strictly_better
 
@@ -198,12 +197,8 @@ class ImproverVariant:
 
         For improvements, higher is better.
         """
-        tokens_better_or_equal = (
-            self.estimated_tokens_saved_pct >= other.estimated_tokens_saved_pct
-        )
-        time_better_or_equal = (
-            self.estimated_time_saved_pct >= other.estimated_time_saved_pct
-        )
+        tokens_better_or_equal = self.estimated_tokens_saved_pct >= other.estimated_tokens_saved_pct
+        time_better_or_equal = self.estimated_time_saved_pct >= other.estimated_time_saved_pct
         strictly_better = (
             self.estimated_tokens_saved_pct > other.estimated_tokens_saved_pct
             or self.estimated_time_saved_pct > other.estimated_time_saved_pct
@@ -680,7 +675,6 @@ if __name__ == "__main__":
         if not os.environ.get("KISS_RUN_INTEGRATION_TESTS"):
             self.skipTest("Integration tests disabled")
 
-
         from kiss.agents.agent_creator.improver_agent import (
             ImproverAgent,
         )
@@ -691,6 +685,7 @@ if __name__ == "__main__":
         success, report = improver.improve(
             source_folder=self.source_dir,
             target_folder=target_dir,
+            task_description="Test task for improving agent",
         )
 
         self.assertTrue(success)
@@ -710,7 +705,6 @@ if __name__ == "__main__":
         # Skip if not running integration tests
         if not os.environ.get("KISS_RUN_INTEGRATION_TESTS"):
             self.skipTest("Integration tests disabled")
-
 
         from kiss.agents.agent_creator.agent_evolver import (
             AgentEvolver as RealEvolver,

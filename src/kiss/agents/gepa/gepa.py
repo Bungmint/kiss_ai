@@ -377,7 +377,7 @@ class GEPA:
         merge_pairs: list[tuple[PromptCandidate, PromptCandidate, float]] = []
 
         for i, c1 in enumerate(self.pareto_frontier):
-            for c2 in self.pareto_frontier[i + 1:]:
+            for c2 in self.pareto_frontier[i + 1 :]:
                 pair_key = (min(c1.id, c2.id), max(c1.id, c2.id))
                 if pair_key in self._attempted_merges:
                     continue
@@ -564,9 +564,7 @@ class GEPA:
                     dev_item_scores,
                     dev_results,
                     dev_trajectories,
-                ) = self._run_minibatch(
-                    candidate.prompt_template, dev_batch, capture_results=True
-                )
+                ) = self._run_minibatch(candidate.prompt_template, dev_batch, capture_results=True)
                 # Store reflection data for this candidate (including trajectories)
                 candidate_reflection_data[candidate.id] = (
                     dev_batch,
@@ -632,8 +630,8 @@ class GEPA:
                 if self.use_merge and len(self.pareto_frontier) >= 2:
                     merged = self._try_merge_from_frontier()
                     if merged is not None:
-                        merged.val_scores, merged.per_item_val_scores, _, _ = (
-                            self._run_minibatch(merged.prompt_template, self.val_examples)
+                        merged.val_scores, merged.per_item_val_scores, _, _ = self._run_minibatch(
+                            merged.prompt_template, self.val_examples
                         )
                         self._update_pareto(merged)
                         if merged.val_instance_wins:

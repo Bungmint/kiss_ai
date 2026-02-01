@@ -5,7 +5,6 @@
 
 """OpenAI Codex Coding Agent using the OpenAI Agents SDK."""
 
-import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -14,11 +13,13 @@ import anyio
 from agents import Agent, Runner, function_tool
 from agents.tool import WebSearchTool
 
-from kiss.core.base import DEFAULT_SYSTEM_PROMPT, Base
 from kiss.core import DEFAULT_CONFIG
+from kiss.core.base import DEFAULT_SYSTEM_PROMPT, Base
 from kiss.core.formatter import Formatter
 from kiss.core.models.model_info import get_max_context_length
 from kiss.core.simple_formatter import SimpleFormatter
+from kiss.core.useful_tools import UsefulTools
+from kiss.core.utils import is_subpath, resolve_path
 
 DEFAULT_CODEX_MODEL = "gpt-5.2-codex"
 
@@ -28,7 +29,6 @@ SANDBOX_FULL_ACCESS = "danger-full-access"
 
 
 class OpenAICodexAgent(Base):
-
     def __init__(self, name: str) -> None:
         super().__init__(name)
 
@@ -47,21 +47,29 @@ class OpenAICodexAgent(Base):
         Path(base_dir).mkdir(parents=True, exist_ok=True)
         self.base_dir = base_dir
         base_path = Path(base_dir).resolve()
-        self.readable_paths = [self._resolve_path(p) for p in readable_paths or []] + [base_path]
-        self.writable_paths = [self._resolve_path(p) for p in writable_paths or []] + [base_path]
+        resolved_readable = [resolve_path(p, base_dir) for p in readable_paths or []]
+        self.readable_paths = resolved_readable + [base_path]
+        resolved_writable = [resolve_path(p, base_dir) for p in writable_paths or []]
+        self.writable_paths = resolved_writable + [base_path]
         self.max_tokens = get_max_context_length(model_name)
         self.is_agentic = True
         self.max_steps = max_steps
         self.max_budget = max_budget
         self._formatter = formatter or SimpleFormatter()
+        self.useful_tools = UsefulTools(
+            base_dir=base_dir,
+            readable_paths=[str(p) for p in self.readable_paths],
+            writable_paths=[str(p) for p in self.writable_paths],
+        )
 
     def _create_tools(self) -> list[Any]:
         """Create tools with path restrictions."""
+
         @function_tool
         def read_file(path: str) -> str:
             """Read file contents. Args: path - file path."""
-            resolved = self._resolve_path(path)
-            if not self._is_subpath(resolved, self.readable_paths):
+            resolved = resolve_path(path, self.base_dir)
+            if not is_subpath(resolved, self.readable_paths):
                 return f"Error: Access denied for {path}"
             try:
                 return resolved.read_text(encoding="utf-8")
@@ -71,8 +79,8 @@ class OpenAICodexAgent(Base):
         @function_tool
         def write_file(path: str, content: str) -> str:
             """Write content to file. Args: path - file path, content - text to write."""
-            resolved = self._resolve_path(path)
-            if not self._is_subpath(resolved, self.writable_paths):
+            resolved = resolve_path(path, self.base_dir)
+            if not is_subpath(resolved, self.writable_paths):
                 return f"Error: Access denied for {path}"
             try:
                 resolved.parent.mkdir(parents=True, exist_ok=True)
@@ -84,8 +92,8 @@ class OpenAICodexAgent(Base):
         @function_tool
         def list_dir(path: str = ".") -> str:
             """List directory contents. Args: path - directory path."""
-            resolved = self._resolve_path(path)
-            if not self._is_subpath(resolved, self.readable_paths):
+            resolved = resolve_path(path, self.base_dir)
+            if not is_subpath(resolved, self.readable_paths):
                 return f"Error: Access denied for {path}"
             try:
                 entries = [
@@ -99,26 +107,20 @@ class OpenAICodexAgent(Base):
         @function_tool
         def run_shell(command: str, timeout: int = 60) -> str:
             """Execute shell command. Args: command - shell command, timeout - seconds."""
-            try:
-                result = subprocess.run(command, shell=True, cwd=self.base_dir,
-                                        capture_output=True, text=True, timeout=timeout)
-                out = result.stdout + (f"\n[stderr] {result.stderr}" if result.stderr else "")
-                exit_msg = f"\n[exit {result.returncode}]" if result.returncode else ""
-                return out + exit_msg or "(no output)"
-            except subprocess.TimeoutExpired:
-                return f"Error: Timed out after {timeout}s"
-            except Exception as e:
-                return f"Error: {e}"
+            output = self.useful_tools.run_bash_command(
+                command=command, description=f"Executing: {command[:50]}..."
+            )
+            return output
 
         return [read_file, write_file, list_dir, run_shell, WebSearchTool()]
 
     def _update_token_usage(self, result: Any) -> None:
         """Update token counts from result."""
-        if hasattr(result, 'raw_responses'):
+        if hasattr(result, "raw_responses"):
             for response in result.raw_responses:
-                if hasattr(response, 'usage') and response.usage:
-                    self.total_tokens_used += getattr(response.usage, 'input_tokens', 0)
-                    self.total_tokens_used += getattr(response.usage, 'output_tokens', 0)
+                if hasattr(response, "usage") and response.usage:
+                    self.total_tokens_used += getattr(response.usage, "input_tokens", 0)
+                    self.total_tokens_used += getattr(response.usage, "output_tokens", 0)
 
     def _process_run_result(self, result: Any, timestamp: int) -> None:
         """Process run result and update state."""
@@ -131,13 +133,11 @@ class OpenAICodexAgent(Base):
                 self._formatter.print_label_and_value("MESSAGE", f"{content[:200]}...")
                 self._add_message("model", content, timestamp)
             elif item_type == "ToolCallItem":
-                name = getattr(item.raw_item, 'name', 'unknown')
+                name = getattr(item.raw_item, "name", "unknown")
                 self._formatter.print_label_and_value("TOOL", name)
                 self._add_message("model", f"Tool: {name}", timestamp)
             elif item_type == "ToolCallOutputItem":
-                self._formatter.print_label_and_value(
-                    "TOOL RESULT", f"{str(item.output)[:200]}..."
-                )
+                self._formatter.print_label_and_value("TOOL RESULT", f"{str(item.output)[:200]}...")
                 self._add_message("user", str(item.output), timestamp)
             elif item_type == "ReasoningItem":
                 self._formatter.print_label_and_value("REASONING", "...")

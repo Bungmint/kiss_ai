@@ -5,7 +5,6 @@
 
 """Gemini CLI Coding Agent using the Google ADK (Agent Development Kit)."""
 
-import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -17,11 +16,13 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
-from kiss.core.base import DEFAULT_SYSTEM_PROMPT, Base
 from kiss.core import DEFAULT_CONFIG
+from kiss.core.base import DEFAULT_SYSTEM_PROMPT, Base
 from kiss.core.formatter import Formatter
 from kiss.core.models.model_info import get_max_context_length
 from kiss.core.simple_formatter import SimpleFormatter
+from kiss.core.useful_tools import UsefulTools
+from kiss.core.utils import is_subpath, resolve_path
 
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 
@@ -48,14 +49,21 @@ class GeminiCliAgent(Base):
         Path(base_dir).mkdir(parents=True, exist_ok=True)
         self.base_dir = base_dir
         base_path = Path(base_dir).resolve()
-        self.readable_paths = [self._resolve_path(p) for p in readable_paths or []] + [base_path]
-        self.writable_paths = [self._resolve_path(p) for p in writable_paths or []] + [base_path]
+        resolved_readable = [resolve_path(p, base_dir) for p in readable_paths or []]
+        self.readable_paths = resolved_readable + [base_path]
+        resolved_writable = [resolve_path(p, base_dir) for p in writable_paths or []]
+        self.writable_paths = resolved_writable + [base_path]
         self.max_tokens = get_max_context_length(model_name)
         self.is_agentic = True
         self.max_steps = max_steps
         self.max_budget = max_budget
         self._formatter = formatter or SimpleFormatter()
         self.step_count: int = 0
+        self.useful_tools = UsefulTools(
+            base_dir=base_dir,
+            readable_paths=[str(p) for p in self.readable_paths],
+            writable_paths=[str(p) for p in self.writable_paths],
+        )
 
     def _create_tools(self) -> list[Any]:
         """Create tools with path restrictions for the Gemini agent."""
@@ -69,8 +77,8 @@ class GeminiCliAgent(Base):
             Returns:
                 dict: A dict with 'status' and 'content' or 'error'.
             """
-            resolved = self._resolve_path(path)
-            if not self._is_subpath(resolved, self.readable_paths):
+            resolved = resolve_path(path, self.base_dir)
+            if not is_subpath(resolved, self.readable_paths):
                 return {"status": "error", "error": f"Access denied for {path}"}
             try:
                 content = resolved.read_text(encoding="utf-8")
@@ -88,8 +96,8 @@ class GeminiCliAgent(Base):
             Returns:
                 dict: A dict with 'status' and 'message' or 'error'.
             """
-            resolved = self._resolve_path(path)
-            if not self._is_subpath(resolved, self.writable_paths):
+            resolved = resolve_path(path, self.base_dir)
+            if not is_subpath(resolved, self.writable_paths):
                 return {"status": "error", "error": f"Access denied for {path}"}
             try:
                 resolved.parent.mkdir(parents=True, exist_ok=True)
@@ -107,8 +115,8 @@ class GeminiCliAgent(Base):
             Returns:
                 dict: A dict with 'status' and 'entries' or 'error'.
             """
-            resolved = self._resolve_path(path)
-            if not self._is_subpath(resolved, self.readable_paths):
+            resolved = resolve_path(path, self.base_dir)
+            if not is_subpath(resolved, self.readable_paths):
                 return {"status": "error", "error": f"Access denied for {path}"}
             try:
                 entries = [
@@ -132,25 +140,24 @@ class GeminiCliAgent(Base):
             Returns:
                 dict: A dict with 'status', 'stdout', 'stderr', and 'exit_code'.
             """
-            try:
-                result = subprocess.run(
-                    command,
-                    shell=True,
-                    cwd=self.base_dir,
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout,
-                )
+            output = self.useful_tools.run_bash_command(
+                command=command, description=f"Executing: {command[:50]}..."
+            )
+
+            if output.startswith("Error:"):
                 return {
-                    "status": "success" if result.returncode == 0 else "error",
-                    "stdout": result.stdout or "(no output)",
-                    "stderr": result.stderr if result.stderr else "",
-                    "exit_code": result.returncode,
+                    "status": "error",
+                    "stdout": "",
+                    "stderr": output,
+                    "exit_code": 1,
                 }
-            except subprocess.TimeoutExpired:
-                return {"status": "error", "error": f"Timed out after {timeout}s"}
-            except Exception as e:
-                return {"status": "error", "error": str(e)}
+            else:
+                return {
+                    "status": "success",
+                    "stdout": output or "(no output)",
+                    "stderr": "",
+                    "exit_code": 0,
+                }
 
         def web_search(query: str) -> dict[str, Any]:
             """Search the web for information (placeholder - returns mock results).
@@ -192,25 +199,19 @@ class GeminiCliAgent(Base):
                     for part in event.content.parts:
                         if hasattr(part, "text") and part.text:
                             final_text = part.text
-                            self._formatter.print_label_and_value(
-                                "FINAL", f"{part.text[:200]}..."
-                            )
+                            self._formatter.print_label_and_value("FINAL", f"{part.text[:200]}...")
                             self._add_message("model", part.text, timestamp)
 
             # Process content parts
             elif event.content and event.content.parts:
                 for part in event.content.parts:
                     if hasattr(part, "text") and part.text:
-                        self._formatter.print_label_and_value(
-                            "MESSAGE", f"{part.text[:200]}..."
-                        )
+                        self._formatter.print_label_and_value("MESSAGE", f"{part.text[:200]}...")
                         self._add_message("model", part.text, timestamp)
                     elif hasattr(part, "function_call") and part.function_call:
                         name = part.function_call.name
                         args = part.function_call.args
-                        self._formatter.print_label_and_value(
-                            "TOOL CALL", f"{name}({args})"
-                        )
+                        self._formatter.print_label_and_value("TOOL CALL", f"{name}({args})")
                         self._add_message("model", f"Tool call: {name}({args})", timestamp)
                     elif hasattr(part, "function_response") and part.function_response:
                         response = part.function_response.response
