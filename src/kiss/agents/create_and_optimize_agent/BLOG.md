@@ -1,10 +1,12 @@
+
+
 ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/fua0wd1uhu227x18ohpz.jpeg)
 
 **What if your AI agents could evolve themselves—getting smarter, faster, and cheaper with each generation?**
 
 We're witnessing a Cambrian explosion in AI agent development. Teams are building increasingly sophisticated multi-agent systems, but they're hitting a wall: as agents grow more capable, they also grow more expensive. Token costs spiral. Latency compounds. What started as a clever automation becomes a budget-draining behemoth.
 
-Enter [**Agent Evolver**](https://github.com/ksenxx/kiss_ai/tree/main/src/kiss/agents/create_and_optimize_agent)—a system that breeds better AI agents through genetic evolution, optimizing for the two metrics that matter most: **cost and speed**. It is built using the [KISS](https://github.com/ksenxx/kiss_ai/) framework.
+Enter [**Agent Evolver**](https://github.com/ksenxx/kiss_ai/tree/main/src/kiss/agents/create_and_optimize_agent)—a system that breeds better AI agents through genetic evolution, optimizing for the two metrics that matter most: **cost and speed**.  It is built using the [KISS](https://github.com/ksenxx/kiss_ai/) framework.
 
 ## The Problem with Prompt Engineering
 
@@ -13,7 +15,6 @@ Let's be honest: prompt engineering has become the modern equivalent of hand-tun
 But here's the dirty secret: **prompt optimization only scratches the surface**.
 
 Your agent's efficiency isn't just about the words in your prompts. It's about:
-
 - How your orchestrator delegates to sub-agents
 - When you batch operations vs. run them sequentially
 - Which tools you create dynamically vs. hardcode
@@ -53,7 +54,6 @@ Each generation, Agent Evolver applies two evolutionary operations:
 Here's where it gets interesting. Agent Evolver doesn't optimize for a single metric—it maintains a **Pareto frontier** of non-dominated solutions.
 
 What does that mean? Consider two agents:
-
 - Agent A: 5,000 tokens, 10 seconds
 - Agent B: 3,000 tokens, 15 seconds
 
@@ -126,12 +126,11 @@ Under the hood, Agent Evolver is elegantly simple:
 ```
 
 Each generation, the system:
-
 1. Samples from the Pareto frontier
-1. Applies mutation or crossover
-1. Evaluates the offspring
-1. Updates the frontier with any non-dominated variants
-1. Copies the current best to an `optimal_agent` directory
+2. Applies mutation or crossover
+3. Evaluates the offspring
+4. Updates the frontier with any non-dominated variants
+5. Copies the current best to an `optimal_agent` directory
 
 The best agent is always available—even while evolution continues.
 
@@ -149,16 +148,17 @@ evolver = AgentEvolver(
     2. Suggest improvements with explanations  
     3. Auto-fix simple issues when confident
     """,
-    coding_agent_type="claude code",  # or "gemini cli" or "openai codex"
     max_generations=10,
+    initial_frontier_size=4,
     max_frontier_size=6,
     mutation_probability=0.8,
 )
 
-best_agent = await evolver.evolve()
+best_agent = evolver.evolve()
 print(f"Optimal agent: {best_agent.folder_path}")
-print(f"Token efficiency: {best_agent.tokens_used}")
-print(f"Speed: {best_agent.execution_time:.2f}s")
+print(f"Token efficiency: {best_agent.metrics['tokens_used']}")
+print(f"Speed: {best_agent.metrics['execution_time']:.2f}s")
+print(f"Cost: {best_agent.metrics['cost']}")
 ```
 
 You get back a complete, optimized agent package—code, config, tests, and documentation.
@@ -173,7 +173,7 @@ The best part? Every generation of evolution incorporates the latest public know
 
 Stop tuning prompts. Start evolving agents.
 
-______________________________________________________________________
+---
 
 *Agent Evolver is part of the KISS (Keep It Simple, Stupid) agent framework. It's open-source, production-ready, and waiting for your most ambitious multi-agent challenges.*
 

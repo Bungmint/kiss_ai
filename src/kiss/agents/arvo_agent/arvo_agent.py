@@ -14,7 +14,7 @@ import requests
 import yaml
 
 import kiss.core.utils as utils
-from kiss.agents.kiss import refine_prompt_template
+from kiss.agents.kiss import dynamic_gepa_agent
 from kiss.core.kiss_agent import KISSAgent
 from kiss.docker.docker_manager import DockerManager
 
@@ -129,10 +129,10 @@ def find_vulnerability(
                 or cast(dict[str, object], result).get("status") != "success"
             ):
                 trajectory = vuln_agent.get_trajectory()
-                refined_prompt_template = refine_prompt_template(
-                    original_prompt_template,
-                    prompt_template_vuln_agent,
-                    trajectory,
+                refined_prompt_template = dynamic_gepa_agent(
+                    original_prompt_template=original_prompt_template,
+                    previous_prompt_template=prompt_template_vuln_agent,
+                    agent_trajectory_summary=trajectory,
                     model_name=model_name,
                 )
                 print(f"Refined prompt template: {refined_prompt_template}")

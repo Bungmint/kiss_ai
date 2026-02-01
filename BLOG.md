@@ -73,7 +73,7 @@ KISS includes utility agents that work beautifully together. Let's build a **sel
 ```python
 import json
 from kiss.core.kiss_agent import KISSAgent
-from kiss.agents.kiss import refine_prompt_template, get_run_simple_coding_agent
+from kiss.agents.kiss import dynamic_gepa_agent, get_run_simple_coding_agent
 
 # Step 1: Define a test function for our coding task
 def test_fibonacci(code: str) -> bool:
@@ -129,10 +129,10 @@ for iteration in range(max_iterations):
         
         # Use the Prompt Refiner agent to improve our prompt
         print("🔄 Refining prompt based on failure...")
-        current_prompt = refine_prompt_template(
+        current_prompt = dynamic_gepa_agent(
             original_prompt_template=original_prompt,
             previous_prompt_template=current_prompt,
-            agent_trajectory=trajectory,
+            agent_trajectory_summary=trajectory,
             model_name="gpt-4o"
         )
         print(f"📝 New prompt:\n{current_prompt[:200]}...")
@@ -141,7 +141,7 @@ for iteration in range(max_iterations):
 **What's happening here?**
 
 1. **Coding Agent** ['get_run_simple_coding_agent'](https://github.com/ksenxx/kiss_ai/blob/main/src/kiss/agents/kiss.py): Generates code and validates it against test cases
-1. **Prompt Refiner Agent** ['refine_prompt_template'](https://github.com/ksenxx/kiss_ai/blob/main/src/kiss/agents/kiss.py): Analyzes failures and evolves the prompt
+1. **Dynamic GEPA Agent** ['dynamic_gepa_agent'](https://github.com/ksenxx/kiss_ai/blob/main/src/kiss/agents/kiss.py): Analyzes failures and evolves the prompt
 1. **Orchestration**: A simple Python loop coordinates the agents
 
 No special orchestration framework needed. No message buses. No complex state machines. Just Python functions calling Python functions.

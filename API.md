@@ -67,7 +67,7 @@ LLM model implementations and utilities.
 
 Pre-built agents and agent utilities.
 
-- **`kiss.py`** - Pre-built agent functions (`refine_prompt_template()`, `run_bash_task_in_sandboxed_ubuntu_latest()`, `get_run_simple_coding_agent()`)
+- **`kiss.py`** - Pre-built agent functions (`dynamic_gepa_agent()`, `run_bash_task_in_sandboxed_ubuntu_latest()`, `get_run_simple_coding_agent()`)
 
 #### `src/kiss/agents/coding_agents/`
 
@@ -2339,24 +2339,24 @@ ______________________________________________________________________
 
 Ready-to-use agent functions from `kiss.agents.kiss`.
 
-### `refine_prompt_template()`
+### `dynamic_gepa_agent()`
 
 ```python
-def refine_prompt_template(
+def dynamic_gepa_agent(
     original_prompt_template: str,
     previous_prompt_template: str,
-    agent_trajectory: str,
+    agent_trajectory_summary: str,
     model_name: str,
 ) -> str
 ```
 
-Refine the prompt template based on the agent's trajectory.
+Dynamic GEPA: Refines the prompt template based on the agent's trajectory summary.
 
 **Parameters:**
 
 - `original_prompt_template` (str): The original prompt template.
 - `previous_prompt_template` (str): The previous version of the prompt template that led to the given trajectory.
-- `agent_trajectory` (str): The agent's trajectory as a string.
+- `agent_trajectory_summary` (str): The agent's trajectory summary as a string.
 - `model_name` (str): The name of the model to use for the agent.
 
 **Returns:**
