@@ -116,7 +116,7 @@ KISS includes utility agents that work beautifully together. Let's build a **sel
 
 ```python
 from kiss.core.kiss_agent import KISSAgent
-from kiss.agents.kiss import refine_prompt_template
+from kiss.agents.kiss import dynamic_gepa_agent
 
 # Step 1: Define a test function for our coding task
 def test_fibonacci(code: str) -> bool:
@@ -170,10 +170,10 @@ for iteration in range(max_iterations):
         
         # Use the Prompt Refiner agent to improve our prompt
         print("🔄 Refining prompt based on failure...")
-        current_prompt = refine_prompt_template(
+        current_prompt = dynamic_gepa_agent(
             original_prompt_template=original_prompt,
             previous_prompt_template=current_prompt,
-            agent_trajectory=trajectory,
+            agent_trajectory_summary=trajectory,
             model_name="gemini-2.5-flash"
         )
         print(f"📝 New prompt:\n{current_prompt[:200]}...")
@@ -182,7 +182,7 @@ for iteration in range(max_iterations):
 **What's happening here?**
 
 1. **Coding Agent** [KISSAgent](https://github.com/ksenxx/kiss_ai/blob/main/src/kiss/core/kiss_agent.py): Generates code and validates it against test cases using the provided test function as a tool
-1. **Prompt Refiner Agent** ['refine_prompt_template'](https://github.com/ksenxx/kiss_ai/blob/main/src/kiss/agents/kiss.py): Analyzes failures and evolves the prompt based on the agent's trajectory
+1. **Dynamic GEPA Agent** ['dynamic_gepa_agent'](https://github.com/ksenxx/kiss_ai/blob/main/src/kiss/agents/kiss.py): Analyzes failures and evolves the prompt based on the agent's trajectory
 1. **Orchestration**: A simple Python loop (not to be confused with the ReAct loop) coordinates the agents
 
 No special orchestration framework needed. No message buses. No complex state machines. Just Python functions calling Python functions.
@@ -566,15 +566,15 @@ rag.clear_collection()
 
 The framework includes pre-built utility agents for common tasks:
 
-**Prompt Refinement Agent:**
+**Dynamic GEPA Agent:**
 
 ```python
-from kiss.agents.kiss import refine_prompt_template
+from kiss.agents.kiss import dynamic_gepa_agent
 
-refined_prompt = refine_prompt_template(
+refined_prompt = dynamic_gepa_agent(
     original_prompt_template="Original prompt...",
     previous_prompt_template="Previous version...",
-    agent_trajectory=agent.get_trajectory(),  # Returns JSON string
+    agent_trajectory_summary=agent.get_trajectory(),  # Returns JSON string
     model_name="gemini-2.5-flash"
 )
 ```
