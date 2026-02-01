@@ -140,7 +140,7 @@ class GeminiCliAgent(Base):
             Returns:
                 dict: A dict with 'status', 'stdout', 'stderr', and 'exit_code'.
             """
-            output = self.useful_tools.run_bash_command(
+            output = self.useful_tools.Bash(
                 command=command, description=f"Executing: {command[:50]}..."
             )
 

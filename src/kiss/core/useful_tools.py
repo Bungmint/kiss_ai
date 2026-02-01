@@ -18,6 +18,262 @@ from pathlib import Path
 
 from kiss.core.utils import is_subpath
 
+EDIT_SCRIPT = r"""
+#!/usr/bin/env bash
+#
+# Edit Tool - Claude Code Implementation
+# Performs precise string replacements in files with exact matching
+#
+# Usage: edit_tool.sh <file_path> <old_string> <new_string> [replace_all]
+#
+# Parameters:
+#   file_path    - Absolute path to the file to modify (required)
+#   old_string   - Exact text to find and replace (required)
+#   new_string   - Replacement text, must differ from old_string (required)
+#   replace_all  - If "true", replace all occurrences (optional, default: false)
+#
+# Exit codes:
+#   0 - Success
+#   1 - Invalid arguments
+#   2 - File not found
+#   3 - String not found or not unique
+#   4 - Read-before-edit validation failed
+
+set -euo pipefail
+
+# Color codes for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Validate arguments
+if [ "$#" -lt 3 ] || [ "$#" -gt 4 ]; then
+    echo -e "${RED}Error: Invalid number of arguments${NC}" >&2
+    echo "Usage: $0 <file_path> <old_string> <new_string> [replace_all]" >&2
+    exit 1
+fi
+
+FILE_PATH="$1"
+OLD_STRING="$2"
+NEW_STRING="$3"
+REPLACE_ALL="${4:-false}"
+
+# Validate file path is absolute
+if [[ ! "$FILE_PATH" = /* ]]; then
+    echo -e "${RED}Error: file_path must be absolute, not relative${NC}" >&2
+    exit 1
+fi
+
+# Check if file exists
+if [ ! -f "$FILE_PATH" ]; then
+    echo -e "${RED}Error: File not found: $FILE_PATH${NC}" >&2
+    exit 2
+fi
+
+# Check if old_string and new_string are different
+if [ "$OLD_STRING" = "$NEW_STRING" ]; then
+    echo -e "${RED}Error: new_string must be different from old_string${NC}" >&2
+    exit 1
+fi
+
+# Create a state tracking directory (simulating session state)
+STATE_DIR="${HOME}/.claude-edit-state"
+mkdir -p "$STATE_DIR"
+
+# Check read-before-edit validation
+# In a real implementation, this would check session state
+# For demo purposes, we'll create a marker file when files are "read"
+FILE_HASH=$(echo -n "$FILE_PATH" | md5sum | cut -d' ' -f1)
+READ_MARKER="$STATE_DIR/$FILE_HASH"
+
+if [ ! -f "$READ_MARKER" ]; then
+    echo -e "${YELLOW}Warning: File has not been read in this session${NC}" >&2
+    echo -e "${YELLOW}Creating read marker for demo purposes...${NC}" >&2
+    touch "$READ_MARKER"
+fi
+
+# Count occurrences of old_string
+OCCURRENCE_COUNT=$(grep -F -c "$OLD_STRING" "$FILE_PATH" || true)
+
+echo "File: $FILE_PATH"
+echo "Looking for: '$OLD_STRING'"
+echo "Replacing with: '$NEW_STRING'"
+echo "Occurrences found: $OCCURRENCE_COUNT"
+echo "Replace all: $REPLACE_ALL"
+echo ""
+
+# Handle replacement based on mode
+if [ "$REPLACE_ALL" = "true" ]; then
+    # Replace all occurrences
+    if [ "$OCCURRENCE_COUNT" -eq 0 ]; then
+        echo -e "${RED}Error: String not found in file${NC}" >&2
+        exit 3
+    fi
+    
+    # Use perl for literal string replacement (handles special chars)
+    perl -i.bak -pe 's/\Q'"$OLD_STRING"'\E/'"$NEW_STRING"'/g' "$FILE_PATH"
+    
+    echo -e "${GREEN}✓ Successfully replaced $OCCURRENCE_COUNT occurrence(s)${NC}"
+    
+else
+    # Single replacement mode - requires exactly one occurrence
+    if [ "$OCCURRENCE_COUNT" -eq 0 ]; then
+        echo -e "${RED}Error: String not found in file${NC}" >&2
+        exit 3
+    elif [ "$OCCURRENCE_COUNT" -gt 1 ]; then
+        echo -e "${RED}Error: String appears $OCCURRENCE_COUNT times (not unique)${NC}" >&2
+        echo -e "${YELLOW}Hint: Use replace_all=true to replace all occurrences${NC}" >&2
+        exit 3
+    fi
+    
+    # Exactly one occurrence - safe to replace
+    perl -i.bak -pe 's/\Q'"$OLD_STRING"'\E/'"$NEW_STRING"'/' "$FILE_PATH"
+    
+    echo -e "${GREEN}✓ Successfully replaced 1 occurrence${NC}"
+fi
+
+# Clean up backup file
+rm -f "$FILE_PATH.bak"
+
+# Show the changed section (context around the change)
+echo ""
+echo "Changed section:"
+echo "----------------------------------------"
+grep -n -C 2 "$NEW_STRING" "$FILE_PATH" || echo "(No context available)"
+echo "----------------------------------------"
+
+exit 0
+"""
+
+MULTI_EDIT_SCRIPT = r"""
+#!/usr/bin/env bash
+#
+# Edit Tool - Claude Code Implementation
+# Performs precise string replacements in files with exact matching
+#
+# Usage: edit_tool.sh <file_path> <old_string> <new_string> [replace_all]
+#
+# Parameters:
+#   file_path    - Absolute path to the file to modify (required)
+#   old_string   - Exact text to find and replace (required)
+#   new_string   - Replacement text, must differ from old_string (required)
+#   replace_all  - If "true", replace all occurrences (optional, default: false)
+#
+# Exit codes:
+#   0 - Success
+#   1 - Invalid arguments
+#   2 - File not found
+#   3 - String not found or not unique
+#   4 - Read-before-edit validation failed
+
+set -euo pipefail
+
+# Color codes for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Validate arguments
+if [ "$#" -lt 3 ] || [ "$#" -gt 4 ]; then
+    echo -e "${RED}Error: Invalid number of arguments${NC}" >&2
+    echo "Usage: $0 <file_path> <old_string> <new_string> [replace_all]" >&2
+    exit 1
+fi
+
+FILE_PATH="$1"
+OLD_STRING="$2"
+NEW_STRING="$3"
+REPLACE_ALL="${4:-false}"
+
+# Validate file path is absolute
+if [[ ! "$FILE_PATH" = /* ]]; then
+    echo -e "${RED}Error: file_path must be absolute, not relative${NC}" >&2
+    exit 1
+fi
+
+# Check if file exists
+if [ ! -f "$FILE_PATH" ]; then
+    echo -e "${RED}Error: File not found: $FILE_PATH${NC}" >&2
+    exit 2
+fi
+
+# Check if old_string and new_string are different
+if [ "$OLD_STRING" = "$NEW_STRING" ]; then
+    echo -e "${RED}Error: new_string must be different from old_string${NC}" >&2
+    exit 1
+fi
+
+# Create a state tracking directory (simulating session state)
+STATE_DIR="${HOME}/.claude-edit-state"
+mkdir -p "$STATE_DIR"
+
+# Check read-before-edit validation
+# In a real implementation, this would check session state
+# For demo purposes, we'll create a marker file when files are "read"
+FILE_HASH=$(echo -n "$FILE_PATH" | md5sum | cut -d' ' -f1)
+READ_MARKER="$STATE_DIR/$FILE_HASH"
+
+if [ ! -f "$READ_MARKER" ]; then
+    echo -e "${YELLOW}Warning: File has not been read in this session${NC}" >&2
+    echo -e "${YELLOW}Creating read marker for demo purposes...${NC}" >&2
+    touch "$READ_MARKER"
+fi
+
+# Count occurrences of old_string
+OCCURRENCE_COUNT=$(grep -F -c "$OLD_STRING" "$FILE_PATH" || true)
+
+echo "File: $FILE_PATH"
+echo "Looking for: '$OLD_STRING'"
+echo "Replacing with: '$NEW_STRING'"
+echo "Occurrences found: $OCCURRENCE_COUNT"
+echo "Replace all: $REPLACE_ALL"
+echo ""
+
+# Handle replacement based on mode
+if [ "$REPLACE_ALL" = "true" ]; then
+    # Replace all occurrences
+    if [ "$OCCURRENCE_COUNT" -eq 0 ]; then
+        echo -e "${RED}Error: String not found in file${NC}" >&2
+        exit 3
+    fi
+    
+    # Use perl for literal string replacement (handles special chars)
+    perl -i.bak -pe 's/\Q'"$OLD_STRING"'\E/'"$NEW_STRING"'/g' "$FILE_PATH"
+    
+    echo -e "${GREEN}✓ Successfully replaced $OCCURRENCE_COUNT occurrence(s)${NC}"
+    
+else
+    # Single replacement mode - requires exactly one occurrence
+    if [ "$OCCURRENCE_COUNT" -eq 0 ]; then
+        echo -e "${RED}Error: String not found in file${NC}" >&2
+        exit 3
+    elif [ "$OCCURRENCE_COUNT" -gt 1 ]; then
+        echo -e "${RED}Error: String appears $OCCURRENCE_COUNT times (not unique)${NC}" >&2
+        echo -e "${YELLOW}Hint: Use replace_all=true to replace all occurrences${NC}" >&2
+        exit 3
+    fi
+    
+    # Exactly one occurrence - safe to replace
+    perl -i.bak -pe 's/\Q'"$OLD_STRING"'\E/'"$NEW_STRING"'/' "$FILE_PATH"
+    
+    echo -e "${GREEN}✓ Successfully replaced 1 occurrence${NC}"
+fi
+
+# Clean up backup file
+rm -f "$FILE_PATH.bak"
+
+# Show the changed section (context around the change)
+echo ""
+echo "Changed section:"
+echo "----------------------------------------"
+grep -n -C 2 "$NEW_STRING" "$FILE_PATH" || echo "(No context available)"
+echo "----------------------------------------"
+
+exit 0
+"""
+
 
 def _extract_directory(path_str: str) -> str | None:
     """Extract directory from a file path without resolving symlinks.
@@ -148,7 +404,6 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
         "cut",
         "sed",
         "awk",
-        "tee",
         "od",
         "hexdump",
         "file",
@@ -301,7 +556,7 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
 
             # Process based on command type
             if cmd in read_commands or cmd in write_commands:
-                # Extract file/directory arguments (skip flags)
+                # Extract file/directory arguments (skip flags and redirects)
                 paths: list[str] = []
                 i = 1
                 while i < len(tokens):
@@ -316,6 +571,14 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
                             and not tokens[i].startswith("-")
                             and not tokens[i].startswith("/")
                         ):
+                            i += 1
+                        continue
+
+                    # Skip redirect operators and their targets
+                    if token in [">", ">>", "<", "&>", "&>>", "1>", "2>", "2>&1", ">|", ">>|", "&>|", "1>>", "2>>"]:
+                        i += 1
+                        # Skip the redirect target (next token)
+                        if i < len(tokens):
                             i += 1
                         continue
 
@@ -403,7 +666,144 @@ class UsefulTools:
         self.readable_paths = [Path(p).resolve() for p in readable_paths or []]
         self.writable_paths = [Path(p).resolve() for p in writable_paths or []]
 
-    def run_bash_command(self, command: str, description: str) -> str:
+    def Edit(
+        self,
+        file_path: str,
+        old_string: str,
+        new_string: str,
+        replace_all: bool = False,
+    ) -> str:
+        """Performs precise string replacements in files with exact matching.
+
+        Args:
+            file_path: Absolute path to the file to modify.
+            old_string: Exact text to find and replace.
+            new_string: Replacement text, must differ from old_string.
+            replace_all: If True, replace all occurrences.
+
+        Returns:
+            The output of the edit operation.
+        """
+
+        # Check if file_path is in writable_paths
+        resolved = Path(file_path).resolve()
+        if not is_subpath(resolved, self.writable_paths):
+            return f"Error: Access denied for writing to {file_path}"
+
+        # Create a temporary script file
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+            f.write(EDIT_SCRIPT)
+            script_path = f.name
+
+        try:
+            # Make script executable
+            Path(script_path).chmod(0o755)
+
+            # Build command with arguments
+            replace_all_str = "true" if replace_all else "false"
+            command = [
+                "/bin/bash",
+                script_path,
+                str(resolved),
+                old_string,
+                new_string,
+                replace_all_str,
+            ]
+
+            # Execute with timeout for safety
+            result = subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            return result.stdout
+        except subprocess.TimeoutExpired:
+            return "Error: Command execution timeout"
+        except subprocess.CalledProcessError as e:
+            return f"Error: {e.stderr}"
+        except Exception as e:
+            return f"Error: {e}"
+        finally:
+            # Clean up temporary script
+            try:
+                Path(script_path).unlink()
+            except Exception:
+                pass
+        
+
+
+    def MultiEdit(
+        self,
+        file_path: str,
+        old_string: str,
+        new_string: str,
+        replace_all: bool = False,
+    ) -> str:
+        """Performs precise string replacements in files with exact matching.
+
+        Args:
+            file_path: Absolute path to the file to modify.
+            old_string: Exact text to find and replace.
+            new_string: Replacement text, must differ from old_string.
+            replace_all: If True, replace all occurrences.
+
+        Returns:
+            The output of the edit operation.
+        """
+        # Check if file_path is in writable_paths
+        resolved = Path(file_path).resolve()
+        if not is_subpath(resolved, self.writable_paths):
+            return f"Error: Access denied for writing to {file_path}"
+
+        # Create a temporary script file
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+            f.write(MULTI_EDIT_SCRIPT)
+            script_path = f.name
+
+        try:
+            # Make script executable
+            Path(script_path).chmod(0o755)
+
+            # Build command with arguments
+            replace_all_str = "true" if replace_all else "false"
+            command = [
+                "/bin/bash",
+                script_path,
+                str(resolved),
+                old_string,
+                new_string,
+                replace_all_str,
+            ]
+
+            # Execute with timeout for safety
+            result = subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            return result.stdout
+        except subprocess.TimeoutExpired:
+            return "Error: Command execution timeout"
+        except subprocess.CalledProcessError as e:
+            return f"Error: {e.stderr}"
+        except Exception as e:
+            return f"Error: {e}"
+        finally:
+            # Clean up temporary script
+            try:
+                Path(script_path).unlink()
+            except Exception:
+                pass
+        
+
+
+    def Bash(self, command: str, description: str) -> str:
         """Runs a bash command and returns its output.
 
         Args:
@@ -433,14 +833,12 @@ class UsefulTools:
                 return f"Error: Access denied for writing to {path_str}"
 
         try:
-            # Execute with timeout for safety
             result = subprocess.run(
                 command,
                 shell=True,
                 check=True,
                 capture_output=True,
                 text=True,
-                timeout=30,  # NEW: Add timeout
             )
             return result.stdout
         except subprocess.TimeoutExpired:

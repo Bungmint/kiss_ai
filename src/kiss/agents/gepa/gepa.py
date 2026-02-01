@@ -25,8 +25,9 @@ import json
 import random
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import Any
 
-from kiss.agents.gepa.config import GEPAConfig  # noqa: F401
+from kiss.agents.gepa.config import GEPAConfig  # type: ignore # noqa: F401
 from kiss.core import config as config_module
 from kiss.core.kiss_agent import KISSAgent
 from kiss.core.utils import get_config_value, get_template_field_names
@@ -37,14 +38,12 @@ class PromptCandidate:
     """Represents a prompt candidate with its performance metrics."""
 
     prompt_template: str
-    dev_scores: dict[str, float] = field(default_factory=dict)
-    val_scores: dict[str, float] = field(default_factory=dict)
-    per_item_val_scores: list[dict[str, float]] = field(default_factory=list)
-    val_instance_wins: set[int] = field(default_factory=set)
-    # Track which validation instances this candidate has been evaluated on
-    evaluated_val_ids: set[int] = field(default_factory=set)
-    # Parent IDs for merge tracking and structural merge
-    parents: list[int] = field(default_factory=list)
+    dev_scores: dict[str, float] = field(default_factory=lambda: {})
+    val_scores: dict[str, float] = field(default_factory=lambda: {})
+    per_item_val_scores: list[dict[str, float]] = field(default_factory=lambda: [])
+    val_instance_wins: set[int] = field(default_factory=lambda: set())
+    evaluated_val_ids: set[int] = field(default_factory=lambda: set())
+    parents: list[int] = field(default_factory=lambda: [])
     id: int = 0
 
 
@@ -62,7 +61,7 @@ class GEPA:
 
     def __init__(
         self,
-        agent_wrapper: Callable[[str, dict[str, str]], tuple[str, list[dict]]],
+        agent_wrapper: Callable[[str, dict[str, str]], tuple[str, list[Any]]],
         initial_prompt_template: str,
         evaluation_fn: Callable[[str], dict[str, float]] | None = None,
         max_generations: int | None = None,
@@ -199,7 +198,7 @@ class GEPA:
         prompt: str,
         examples: list[dict[str, str]],
         capture_results: bool = False,
-    ) -> tuple[dict[str, float], list[dict[str, float]], list[str], list[list]]:
+    ) -> tuple[dict[str, float], list[dict[str, float]], list[str], list[Any]]:
         """Run prompt on examples.
 
         Returns:
@@ -208,7 +207,7 @@ class GEPA:
         """
         all_scores: list[dict[str, float]] = []
         results: list[str] = []
-        trajectories: list[list] = []
+        trajectories: list[list[Any]] = []
 
         for args in examples:
             result, trajectory = self.agent_wrapper(prompt, args)
@@ -230,7 +229,7 @@ class GEPA:
         examples: list[dict[str, str]],
         results: list[str],
         scores: list[dict[str, float]],
-        trajectories: list[list] | None = None,
+        trajectories: list[list[dict[str, Any]]] | None = None,
     ) -> str:
         """Format examples with inputs, outputs, trajectories, and feedback for reflection.
 

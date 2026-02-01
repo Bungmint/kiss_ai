@@ -203,7 +203,7 @@ class KISSCodingAgent(Base):
         Returns:
             The output of the command.
         """
-        return self.useful_tools.run_bash_command(command, description)
+        return self.useful_tools.Bash(command, description)
 
     def perform_task(
         self,
