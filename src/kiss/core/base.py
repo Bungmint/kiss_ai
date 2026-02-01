@@ -48,6 +48,7 @@ CODING_INSTRUCTIONS = """
 - Main implementation code first
 - Test code in a separate section using unittest or pytest
 - Include a __main__ block to run tests
+- Do not use 'system.exit' for early termination, rather throw an exception.
 
 ## Use tools when you need to:
 - Look up API documentation or library usage
@@ -56,6 +57,8 @@ CODING_INSTRUCTIONS = """
 
 ## After you have implemented the task, simplify the code
  - Remove unnessary object/struct attributes, variables, config variables
+ - Avoid using more that 1 object redirection
+ - Remove unnessary conditional checks
  - Remove redundant and duplicate code
  - Remove unnecessary comments
  - Make sure that the code is still working correctly
