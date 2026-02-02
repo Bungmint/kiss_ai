@@ -403,7 +403,7 @@ from kiss.agents.coding_agents import GeminiCliAgent
 agent = GeminiCliAgent(name="my_coding_agent")
 
 result = agent.run(
-    model_name="gemini-2.5-flash",
+    model_name="gemini-3-pro-preview",
     prompt_template="Write a fibonacci function with tests",
     readable_paths=["src/"],
     writable_paths=["output/"],
@@ -747,7 +747,7 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
 ### Development
 
 - `uv sync` - Install dependencies
-- `uv sync --group dev` - Install dependencies including dev tools (mypy, ruff, pytest)
+- `uv sync --group dev` - Install dependencies including dev tools (mypy, ruff, pytest, etc.)
 - `uv build` - Build the project package
 
 ### Testing
@@ -765,17 +765,11 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
 ### Code Quality
 
 - `uv run check` - Run all code quality checks (fresh dependency install, build, lint, and type check)
+- `uv run check --clean` - Run all code quality checks (fresh dependency install, build, lint, and type check after removing previous build options)
 - `uv run ruff format src/` - Format code with ruff (line-length: 100, target: py313)
 - `uv run ruff check src/` - Lint code with ruff (selects: E, F, W, I, N, UP)
 - `uv run mypy src/` - Type check with mypy (python_version: 3.13)
 - `uv run pyright src/` - Type check with pyright (alternative to mypy, stricter checking)
-
-### Utilities
-
-- `uv run python -m kiss.agents.arvo_agent.arvo_agent` - Run the ARVO Vulnerability Detector agent
-- `uv run src/kiss/agents/swe_agent_verified/run_swebench.py` - Run the SWE-bench Verified agent
-- `uv run python -m kiss.scripts.kissevolve_bubblesort` - Run the KISSEvolve bubble sort evolution example
-- `uv run python -m kiss.viz_trajectory.server artifacts` - Start the trajectory visualizer server
 
 ### Cleanup
 
@@ -889,6 +883,8 @@ Contributions are welcome! Please ensure your code:
 - Passes all tests (`uv run pytest`)
 - Passes linting (`uv run ruff check src/`)
 - Passes type checking (`uv run mypy src/`)
+- Passes type checking (`uv run pyright src/`)
+
 
 ## License
 
