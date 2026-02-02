@@ -383,6 +383,7 @@ MODEL_INFO: dict[str, ModelInfo] = {
     "openrouter/moonshotai/kimi-k2": _mi(131072, 0.50, 2.40, fc=False),  # Unreliable FC
     "openrouter/moonshotai/kimi-k2-0905": _mi(262144, 0.39, 1.90, fc=False),  # Unreliable FC
     "openrouter/moonshotai/kimi-k2-thinking": _mi(262144, 0.32, 0.48, fc=False),  # SLOW
+    "openrouter/moonshotai/kimi-k2.5": _mi(262144, 0.50, 2.80),  # Multimodal with agentic tool-calling
     # ==========================================================================
     # OpenRouter models - Nous Research (unreliable function calling)
     # ==========================================================================
