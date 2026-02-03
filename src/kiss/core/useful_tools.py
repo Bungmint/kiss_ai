@@ -502,7 +502,16 @@ def _render_page_with_playwright(url: str, wait_selector: str | None = None) -> 
 
 
 def _extract_search_results(soup: Any, selector: str, max_results: int) -> list[tuple[str, str]]:
-    """Extract search result links from parsed HTML."""
+    """Extract search result links from parsed HTML.
+
+    Args:
+        soup: BeautifulSoup parsed HTML object.
+        selector: CSS selector to find search result links.
+        max_results: Maximum number of results to extract.
+
+    Returns:
+        list[tuple[str, str]]: List of (title, url) tuples for search results.
+    """
     skip_domains = {"youtube.com", "maps.google", "accounts.google", "duckduckgo.com"}
     results: list[tuple[str, str]] = []
 
@@ -872,6 +881,13 @@ class UsefulTools:
         readable_paths: list[str] | None = None,
         writable_paths: list[str] | None = None,
     ) -> None:
+        """Initialize UsefulTools with security-restricted paths.
+
+        Args:
+            base_dir: The base directory for tool operations.
+            readable_paths: Optional list of paths allowed for read operations.
+            writable_paths: Optional list of paths allowed for write operations.
+        """
         Path(base_dir).mkdir(parents=True, exist_ok=True)
         self.base_dir = str(Path(base_dir).resolve())
         self.readable_paths = [Path(p).resolve() for p in readable_paths or []]

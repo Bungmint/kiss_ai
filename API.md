@@ -203,10 +203,12 @@ def run(
     trials: int = DEFAULT_CONFIG.agent.kiss_coding_agent.trials,
     max_steps: int = DEFAULT_CONFIG.agent.max_steps,
     max_budget: float = DEFAULT_CONFIG.agent.max_agent_budget,
+    work_dir: str = str(Path(DEFAULT_CONFIG.agent.artifact_dir).resolve() / "kiss_workdir"),
     base_dir: str = str(Path(DEFAULT_CONFIG.agent.artifact_dir).resolve() / "kiss_workdir"),
     readable_paths: list[str] | None = None,
     writable_paths: list[str] | None = None,
     docker_image: str | None = None,
+    formatter: Formatter | None = None,
 ) -> str
 ```
 
@@ -222,11 +224,12 @@ Run the multi-agent coding system with orchestration and sub-task delegation.
 - `trials` (int): Number of retry attempts for each task/subtask. Default is 3.
 - `max_steps` (int): Maximum number of steps per agent. Default is from config.
 - `max_budget` (float): Maximum budget in USD for this run. Default is from config.
+- `work_dir` (str): The working directory for the agent's operations.
 - `base_dir` (str): The base directory relative to which readable and writable paths are resolved if they are not absolute.
 - `readable_paths` (list[str] | None): The paths from which the agent is allowed to read. If None, no paths are allowed for read access.
 - `writable_paths` (list[str] | None): The paths to which the agent is allowed to write. If None, no paths are allowed for write access.
 - `docker_image` (str | None): Optional Docker image name to run bash commands in a container. If provided, all bash commands executed by sub-agents will run inside the Docker container instead of on the host. Example: "ubuntu:latest", "python:3.11-slim". Default is None (local execution).
-- `formatter` (Formatter | None): Custom formatter for output. Default is `CompactFormatter`.
+- `formatter` (Formatter | None): Custom formatter for output. Default is `SimpleFormatter`.
 
 **Returns:**
 
@@ -277,30 +280,6 @@ Execute a sub-task using a dedicated executor agent (using `subtasker_model_name
 
 - `str`: A YAML-encoded dictionary with keys 'success' (boolean) and 'summary' (string).
 
-#### `run_bash_command()`
-
-```python
-def run_bash_command(self, command: str, description: str) -> str
-```
-
-Run a bash command with automatic path permission checks. Uses `parse_bash_command_paths()` to extract readable and writable paths from the command, then validates permissions before execution.
-
-**Parameters:**
-
-- `command` (str): The bash command to execute.
-- `description` (str): A brief description of what the command does.
-
-**Returns:**
-
-- `str`: The command output (stdout), or an error message if permission denied or execution failed.
-
-**Notes:**
-
-- Automatically parses commands to detect file operations
-- Enforces readable_paths and writable_paths restrictions
-- Returns descriptive error messages for permission violations
-- Uses subprocess.run() with shell=True for command execution
-
 ### Instance Attributes (after `run()`)
 
 - `id` (int): Unique identifier for this agent instance.
@@ -309,10 +288,10 @@ Run a bash command with automatic path permission checks. Uses `parse_bash_comma
 - `subtasker_model_name` (str): Model name for executor agents handling sub-tasks.
 - `dynamic_gepa_model_name` (str): Model name for dynamic prompt refinement.
 - `task_description` (str): The formatted task description.
-- `messages` (list\[dict[str, Any]\]): List of messages in the trajectory (aggregated from all sub-agents).
 - `total_tokens_used` (int): Total tokens used across all agents in this run.
 - `budget_used` (float): Total budget used across all agents in this run.
 - `run_start_timestamp` (int): Unix timestamp when the run started.
+- `work_dir` (str): The working directory for the agent's operations.
 - `base_dir` (str): The base directory for the agent's working files.
 - `readable_paths` (list[Path]): List of paths the agent can read from.
 - `writable_paths` (list[Path]): List of paths the agent can write to.
@@ -325,7 +304,7 @@ Run a bash command with automatic path permission checks. Uses `parse_bash_comma
 
 ### Key Features
 
-- **Multi-Agent Architecture**: Orchestrator (using `orchestrator_model_name`) delegates to executor agents (using `subtasker_model_name`); 
+- **Multi-Agent Architecture**: Orchestrator (using `orchestrator_model_name`) delegates to executor agents (using `subtasker_model_name`);
 - **Dynamic GEPA (Genetic-Pareto) Refinement**:
   - Automatically refines prompts when tasks fail using trajectory analysis
   - Uses dynamic_gepa_model_name (default: claude-sonnet-4-5) for non-agentic prompt improvement
@@ -1056,22 +1035,10 @@ AgentEvolver evolves AI agents using a Pareto frontier approach, optimizing for 
 ### Constructor
 
 ```python
-AgentEvolver(
-    task_description: str,
-    max_generations: int | None = None,
-    initial_frontier_size: int | None = None,
-    max_frontier_size: int | None = None,
-    mutation_probability: float | None = None,
-)
+AgentEvolver()
 ```
 
-**Parameters:**
-
-- `task_description` (str): Description of the task the agent should perform.
-- `max_generations` (int | None): Maximum number of improvement generations. Uses config default if None.
-- `initial_frontier_size` (int | None): Number of initial agents to create. Uses config default if None.
-- `max_frontier_size` (int | None): Maximum size of the Pareto frontier. Uses config default if None.
-- `mutation_probability` (float | None): Probability of mutation vs crossover (1.0 = always mutate). Uses config default if None.
+AgentEvolver is instantiated without parameters. All configuration is passed to the `evolve()` method.
 
 **Note:** AgentEvolver uses KISSCodingAgent internally for agent improvement. Evaluation is done internally by loading and running the generated `agent.py` which must implement `agent_run(task: str) -> dict[str, Any]`.
 
@@ -1080,10 +1047,25 @@ AgentEvolver(
 #### `evolve()`
 
 ```python
-def evolve(self) -> AgentVariant
+def evolve(
+    self,
+    task_description: str,
+    max_generations: int | None = None,
+    initial_frontier_size: int | None = None,
+    max_frontier_size: int | None = None,
+    mutation_probability: float | None = None,
+) -> AgentVariant
 ```
 
 Run the evolutionary optimization process.
+
+**Parameters:**
+
+- `task_description` (str): Description of the task the agent should perform.
+- `max_generations` (int | None): Maximum number of improvement generations. Uses config default if None.
+- `initial_frontier_size` (int | None): Number of initial agents to create. Uses config default if None.
+- `max_frontier_size` (int | None): Maximum size of the Pareto frontier. Uses config default if None.
+- `mutation_probability` (float | None): Probability of mutation vs crossover (1.0 = always mutate). Uses config default if None.
 
 **Returns:**
 
@@ -1141,7 +1123,6 @@ class AgentVariant:
     parent_ids: list[int]
     id: int = 0
     generation: int = 0
-    feedback: str = ""
 ```
 
 **Attributes:**
@@ -1153,7 +1134,6 @@ class AgentVariant:
 - `parent_ids` (list[int]): List of parent variant IDs (for lineage tracking).
 - `id` (int): Unique identifier for this variant.
 - `generation` (int): Generation number when this variant was created.
-- `feedback` (str): Feedback from evaluation.
 
 ### ImprovementReport
 
@@ -1182,15 +1162,15 @@ class ImprovementReport:
 ```python
 from kiss.agents.create_and_optimize_agent import AgentEvolver
 
-evolver = AgentEvolver(
+evolver = AgentEvolver()
+
+best = evolver.evolve(
     task_description="Build a code analysis assistant that reviews Python files",
     max_generations=5,
     initial_frontier_size=2,
     max_frontier_size=4,
     mutation_probability=0.8,
 )
-
-best = evolver.evolve()
 
 print(f"Best variant: {best.folder_path}")
 print(f"Metrics: {best.metrics}")
@@ -1461,7 +1441,6 @@ Execute a bash command with automatic path permission checks and security valida
 
 **Security Features:**
 
-- Detects dangerous patterns (command substitution, variable manipulation, etc.)
 - Automatically parses commands to detect file operations
 - Enforces readable_paths and writable_paths restrictions
 - Returns descriptive error messages for violations
@@ -2126,13 +2105,10 @@ DEFAULT_CONFIG.agent.use_web = True
 - `max_steps` (int): Maximum steps for the KISS Coding Agent (default: 50)
 - `max_budget` (float): Maximum budget in USD for the KISS Coding Agent (default: 100.0)
 - `trials` (int): Retry attempts per task/subtask (default: 3)
-- `max_steps` (int): Maximum steps per agent (default: 50)
-- `max_budget` (float): Maximum total budget in USD (default: 100.0)
 
 #### `docker`
 
-- `default_image` (str): Default Docker image (default: "ubuntu:latest")
-- `default_workdir` (str): Default working directory in container (default: "/workspace")
+- `client_shared_path` (str): Path inside Docker container for shared volume (default: "/testbed")
 
 #### `gepa`, `kiss_evolve`, `create_and_optimize_agent`
 

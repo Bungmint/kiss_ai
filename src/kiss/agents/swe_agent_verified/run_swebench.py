@@ -499,7 +499,14 @@ def get_instance_by_id(
 
 
 def main() -> None:
-    """Main entry point."""
+    """Main entry point for running SWE-bench Verified benchmark.
+
+    Loads configuration from DEFAULT_CONFIG, runs the benchmark, and
+    prints a summary of results.
+
+    Returns:
+        None.
+    """
     config = DEFAULT_CONFIG.swebench_verified  # type: ignore[attr-defined]
 
     result = run_swebench(config=config)

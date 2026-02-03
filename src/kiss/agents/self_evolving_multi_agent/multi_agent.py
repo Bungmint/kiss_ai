@@ -93,6 +93,7 @@ class SelfEvolvingMultiAgent:
     """Optimized coding agent with planning and tool-usage efficiency."""
 
     def __init__(self) -> None:
+        """Initialize the SelfEvolvingMultiAgent with configuration from DEFAULT_CONFIG."""
         cfg = DEFAULT_CONFIG.self_evolving_multi_agent
         self.model_name = cfg.model
         self.docker_image = cfg.docker_image
@@ -109,13 +110,30 @@ class SelfEvolvingMultiAgent:
         self.docker: DockerManager | None = None
 
     def _format_todos(self) -> str:
+        """Format todo items as a string.
+
+        Returns:
+            str: Formatted list of todos with id, status, and description.
+        """
         items = [f"#{t.id}: [{t.status}] {t.description}" for t in self.state.todos]
         return "\n".join(items) or "None."
 
     def _format_done(self) -> str:
+        """Format completed tasks as a string.
+
+        Returns:
+            str: Comma-separated list of completed task summaries.
+        """
         return ", ".join(self.state.completed_tasks) or "None."
 
     def _create_tools(self) -> list[Callable[..., str]]:
+        """Create the set of tools available to the orchestrator.
+
+        Returns:
+            list[Callable[..., str]]: List of tool functions including plan_task,
+                execute_todo, complete_todo, run_bash, create_tool, read_file,
+                write_file, and any dynamic tools created during execution.
+        """
         def run_bash(command: str, description: str = "") -> str:
             if not self.docker:
                 raise KISSError("Docker not initialized.")
@@ -195,7 +213,14 @@ class SelfEvolvingMultiAgent:
         return tools
 
     def run(self, task: str) -> str:
-        """Run the agent on a task."""
+        """Run the agent on a task.
+
+        Args:
+            task: The task description for the agent to execute.
+
+        Returns:
+            str: The result from the orchestrator agent.
+        """
         self.state = AgentState()
         if self.docker:
             return self._run_orchestrator(task)
@@ -207,6 +232,14 @@ class SelfEvolvingMultiAgent:
             return self._run_orchestrator(task)
 
     def _run_orchestrator(self, task: str) -> str:
+        """Run the orchestrator agent on a task.
+
+        Args:
+            task: The task description for the orchestrator.
+
+        Returns:
+            str: The result from the orchestrator agent.
+        """
         orchestrator = KISSAgent(name="Orchestrator")
         return orchestrator.run(
             model_name=self.model_name,
@@ -223,6 +256,12 @@ class SelfEvolvingMultiAgent:
         )
 
     def get_stats(self) -> dict[str, Any]:
+        """Get execution statistics.
+
+        Returns:
+            dict[str, Any]: Dictionary with total_todos, completed, failed,
+                error_count, and dynamic_tools count.
+        """
         todos = self.state.todos
         return {
             "total_todos": len(todos),
@@ -233,7 +272,15 @@ class SelfEvolvingMultiAgent:
         }
 
 def run_task(task: str) -> dict:
-    """Run task and return result with metrics for the evolver."""
+    """Run task and return result with metrics for the evolver.
+
+    Args:
+        task: The task description to execute.
+
+    Returns:
+        dict: Dictionary with 'result', 'metrics' (llm_calls, steps), 'stats',
+            and optionally 'error' if the task failed.
+    """
     agent = SelfEvolvingMultiAgent()
     try:
         result = agent.run(task)
@@ -586,7 +633,14 @@ else:
 
 
 def verify_task_completion(docker: DockerManager) -> bool:
-    """Run the test script to verify task completion."""
+    """Run the test script to verify task completion.
+
+    Args:
+        docker: The DockerManager instance with the running container.
+
+    Returns:
+        bool: True if verification passed, False otherwise.
+    """
     print("\n" + "=" * 70)
     print("VERIFYING TASK COMPLETION")
     print("=" * 70)
@@ -612,7 +666,10 @@ def verify_task_completion(docker: DockerManager) -> bool:
 
 
 def main() -> None:
-    """Run the SelfEvolvingMultiAgent on a complex long-horizon task."""
+    """Run the SelfEvolvingMultiAgent on a complex long-horizon task.
+
+    Executes the COMPLEX_TASK and verifies completion using the test script.
+    """
     task = COMPLEX_TASK
 
     print("=" * 70)

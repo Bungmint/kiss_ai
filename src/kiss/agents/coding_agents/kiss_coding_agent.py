@@ -20,6 +20,7 @@ from kiss.core.formatter import Formatter
 from kiss.core.kiss_agent import KISSAgent
 from kiss.core.kiss_error import KISSError
 from kiss.core.models.model_info import get_max_context_length
+from kiss.core.simple_formatter import SimpleFormatter
 from kiss.core.useful_tools import UsefulTools
 from kiss.core.utils import resolve_path
 from kiss.docker.docker_manager import DockerManager
@@ -43,19 +44,12 @@ bash commands and coding.
 # Sub-task
 
 Name: {subtask_name}
-
 Description: {description}
 
 # Context
 This is part of a larger task:
 
 {task_description}
-
-
-# Requirements
-- Be concise and efficient
-- Use minimal steps (max {max_steps})
-- MUST have a tool call in your response
 
 {coding_instructions}
 """
@@ -64,10 +58,11 @@ def finish(success: bool, summary: str) -> str:
     """Finishes the current agent execution with success or failure, and summary.
 
     Args:
-        success: True if the task was successful, False otherwise
-        summary: Summary message to return
+        success: True if the task was successful, False otherwise.
+        summary: Summary message to return.
+
     Returns:
-        A tuple of (success, summary)
+        str: A YAML encoded dictionary containing 'success' and 'summary' keys.
     """
     result_str = yaml.dump(
         {
@@ -86,18 +81,34 @@ class SubTask:
     task_counter: int = 0
 
     def __init__(self, name: str, description: str) -> None:
+        """Initialize a SubTask instance.
+
+        Args:
+            name: The name of the sub-task.
+            description: A description of what the sub-task should accomplish.
+        """
         self.id = SubTask.task_counter
         self.name = name
         self.description = description
         SubTask.task_counter += 1
 
     def __repr__(self) -> str:
+        """Return a detailed string representation of the SubTask.
+
+        Returns:
+            str: A string showing the SubTask's id, name, and description.
+        """
         return (
             f"SubTask(id={self.id}, name={self.name}, "
             f"description={self.description})"
         )
 
     def __str__(self) -> str:
+        """Return string representation of the SubTask.
+
+        Returns:
+            str: Same as __repr__.
+        """
         return self.__repr__()
 
 
@@ -112,6 +123,11 @@ class KISSCodingAgent(Base):
     """
 
     def __init__(self, name: str) -> None:
+        """Initialize a KISSCodingAgent instance.
+
+        Args:
+            name: The name identifier for the agent.
+        """
         super().__init__(name)
 
     def _reset(
@@ -122,15 +138,35 @@ class KISSCodingAgent(Base):
         trials: int,
         max_steps: int,
         max_budget: float,
+        work_dir: str,
         base_dir: str,
         readable_paths: list[str] | None,
         writable_paths: list[str] | None,
         docker_image: str | None,
     ) -> None:
+        """Reset the agent's state for a new run.
+
+        Args:
+            orchestrator_model_name: The model name for the orchestrator agent.
+            subtasker_model_name: The model name for subtask execution.
+            dynamic_gepa_model_name: The model name for prompt refinement.
+            trials: Number of retry attempts for failed tasks.
+            max_steps: Maximum steps per agent execution.
+            max_budget: Maximum budget in USD.
+            work_dir: Working directory for the agent.
+            base_dir: Base directory for path resolution.
+            readable_paths: Paths allowed for reading.
+            writable_paths: Paths allowed for writing.
+            docker_image: Optional Docker image for sandboxed execution.
+        """
         Path(base_dir).mkdir(parents=True, exist_ok=True)
+        Path(work_dir).mkdir(parents=True, exist_ok=True)
         self.base_dir = str(Path(base_dir).resolve())
+        self.work_dir = str(Path(work_dir).resolve())
         self.readable_paths = [resolve_path(p, self.base_dir) for p in readable_paths or []]
         self.writable_paths = [resolve_path(p, self.base_dir) for p in writable_paths or []]
+        self.readable_paths.append(Path(self.work_dir))
+        self.writable_paths.append(Path(self.work_dir))
         self.is_agentic = True
 
         self.trials = trials
@@ -168,7 +204,10 @@ class KISSCodingAgent(Base):
             description: A brief description of the command.
 
         Returns:
-            The output of the command.
+            str: The output of the command.
+
+        Raises:
+            KISSError: If Docker manager is not initialized.
         """
         if self.docker_manager is None:
             raise KISSError("Docker manager not initialized")
@@ -179,11 +218,12 @@ class KISSCodingAgent(Base):
     ) -> str:
         """Perform the main task by orchestrating sub-tasks.
 
-        Args:
-            task_description: Description of the main task
         Returns:
-            A yaml encoded dictionary containing the keys
-            'success' (boolean) and 'summary' (string).
+            str: A YAML encoded dictionary containing 'success' (boolean)
+                and 'summary' (string) keys.
+
+        Raises:
+            KISSError: If the task fails after all retry trials.
         """
         self.formatter.print_status(f"Executing task: {self.task_description}")
         executor = KISSAgent(f"{self.name} Main")
@@ -222,15 +262,18 @@ class KISSCodingAgent(Base):
         subtask_name: str,
         description: str,
     ) -> str:
-        """Perform a sub-task
+        """Perform a sub-task.
 
         Args:
-            subtask_name: Name of the sub-task
-            description: Description of the sub-task
+            subtask_name: Name of the sub-task.
+            description: Description of the sub-task.
 
         Returns:
-            An yaml encoded dictionary containing the keys
-            'success' (boolean) and 'summary' (string).
+            str: A YAML encoded dictionary containing 'success' (boolean)
+                and 'summary' (string) keys.
+
+        Raises:
+            KISSError: If the subtask fails after all retry trials.
         """
         subtask = SubTask(subtask_name, description)
         self.formatter.print_status(f"Executing subtask: {subtask.name}")
@@ -294,6 +337,7 @@ class KISSCodingAgent(Base):
         trials: int = DEFAULT_CONFIG.agent.kiss_coding_agent.trials,
         max_steps: int = DEFAULT_CONFIG.agent.max_steps,
         max_budget: float = DEFAULT_CONFIG.agent.max_agent_budget,
+        work_dir: str = str(Path(DEFAULT_CONFIG.agent.artifact_dir).resolve() / "kiss_workdir"),
         base_dir: str = str(Path(DEFAULT_CONFIG.agent.artifact_dir).resolve() / "kiss_workdir"),
         readable_paths: list[str] | None = None,
         writable_paths: list[str] | None = None,
@@ -310,11 +354,14 @@ class KISSCodingAgent(Base):
             prompt_template: The prompt template for the task.
             arguments: The arguments for the task.
             tools: Optional tools to provide to executor agents.
-            max_steps: The maximum number of total steps (default: 30).
+            max_steps: The maximum number of total steps per agent.
             max_budget: The maximum budget in USD to spend.
-            base_dir: The base directory for agent workspaces.
-            readable_paths: The paths from which the agent is allowed to read from.
-            writable_paths: The paths to which the agent is allowed to write.
+            work_dir: The working directory for the agent.
+            base_dir: The base directory for expressing readable and writable paths.
+            readable_paths: The paths from which the agent is allowed to read.
+                relative paths in readable_paths is resolved against base_dir.
+            writable_paths: The paths to which the agent is allowed to write
+                relative paths in writable_paths is resolved against base_dir.
             docker_image: Optional Docker image name to run bash commands in a container.
                 If provided, bash commands will be executed inside the Docker container.
                 Example: "ubuntu:latest", "python:3.11-slim".
@@ -329,6 +376,7 @@ class KISSCodingAgent(Base):
             trials,
             max_steps,
             max_budget,
+            work_dir,
             base_dir,
             readable_paths,
             writable_paths,
@@ -337,7 +385,7 @@ class KISSCodingAgent(Base):
         self.prompt_template = prompt_template
         self.arguments = arguments or {}
         self.task_description = prompt_template.format(**self.arguments)
-        self.formatter = formatter or CompactFormatter()
+        self.formatter = formatter or SimpleFormatter()
 
         # Run with Docker container if docker_image is provided
         if self.docker_image:
@@ -348,11 +396,20 @@ class KISSCodingAgent(Base):
                 finally:
                     self.docker_manager = None
         else:
-            return self.perform_task()
+            old_cwd = os.getcwd()
+            try:
+                if self.work_dir:
+                    os.chdir(self.work_dir)
+                return self.perform_task()
+            finally:
+                os.chdir(old_cwd)
 
 
 def main() -> None:
-    """Example usage of the KISSCodingAgent."""
+    """Example usage of the KISSCodingAgent.
+
+    Creates a multi-agent system and runs a sample CSV processing task.
+    """
 
     agent = KISSCodingAgent("Example Multi-Agent")
     task_description = """
@@ -365,18 +422,14 @@ def main() -> None:
     """
 
     work_dir = tempfile.mkdtemp()
-    old_cwd = os.getcwd()
-    os.chdir(work_dir)
     try:
         result = agent.run(
             prompt_template=task_description,
-            base_dir=work_dir,
-            readable_paths=['.'],
-            writable_paths=['.'],
+            work_dir=work_dir,
+            formatter=CompactFormatter()
         )
     finally:
         shutil.rmtree(work_dir)
-        os.chdir(old_cwd)
 
 
     agent.formatter.print_status("FINAL RESULT:")

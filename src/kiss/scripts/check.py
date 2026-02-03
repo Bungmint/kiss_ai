@@ -13,7 +13,15 @@ from pathlib import Path
 
 
 def run_command(cmd: list[str], description: str) -> bool:
-    """Run a command and return True if successful."""
+    """Run a command and return True if successful.
+
+    Args:
+        cmd: List of command arguments to execute.
+        description: Human-readable description of the command for logging.
+
+    Returns:
+        True if the command exits with code 0, False otherwise.
+    """
     print(f"\n{'=' * 60}")
     print(f"Running: {description}")
     print(f"Command: {' '.join(cmd)}")
@@ -28,7 +36,15 @@ def run_command(cmd: list[str], description: str) -> bool:
 
 
 def find_markdown_files() -> list[str]:
-    """Find all markdown files in the project."""
+    """Find all markdown files in the project.
+
+    Searches recursively from the project root, skipping hidden directories
+    and common non-project directories like node_modules, venv, __pycache__,
+    and artifacts.
+
+    Returns:
+        Sorted list of absolute paths to markdown files found in the project.
+    """
     project_root = Path(__file__).parent.parent.parent.parent
     skip_dirs = {"node_modules", "venv", "__pycache__", "artifacts"}
     md_files = []
@@ -42,7 +58,15 @@ def find_markdown_files() -> list[str]:
 
 
 def _should_skip_path(path: Path) -> bool:
-    """Check if a path should be skipped (e.g., inside .venv or hidden directories)."""
+    """Check if a path should be skipped (e.g., inside .venv or hidden directories).
+
+    Args:
+        path: Path object to check.
+
+    Returns:
+        True if the path is inside a directory that should be skipped
+        (.venv, venv, .git, node_modules), False otherwise.
+    """
     skip_dirs = {".venv", "venv", ".git", "node_modules"}
     for part in path.parts:
         if part in skip_dirs:
@@ -53,10 +77,17 @@ def _should_skip_path(path: Path) -> bool:
 def clean_build_artifacts() -> None:
     """Remove build artifacts and caches.
 
+    Removes directories like build/, dist/, .mypy_cache/, .pytest_cache/,
+    .ruff_cache/, *.egg-info/, all __pycache__ directories, and all .pyc files.
+    Skips paths inside .venv, venv, .git, and node_modules directories.
+
     Equivalent to:
         rm -rf build/ dist/ .pytest_cache .mypy_cache .ruff_cache && \
         find . -type d -name __pycache__ -exec rm -r {} + && \
         find . -type f -name "*.pyc" -delete
+
+    Returns:
+        None.
     """
     project_root = Path(__file__).parent.parent.parent.parent
 
@@ -113,7 +144,15 @@ def clean_build_artifacts() -> None:
 
 
 def main() -> int:
-    """Run all code quality checks."""
+    """Run all code quality checks.
+
+    Parses command-line arguments and runs code quality checks including
+    dependency installation, building, linting with ruff, type checking with
+    mypy and pyright, and markdown formatting checks.
+
+    Returns:
+        Exit code 0 if all checks pass, 1 if any check fails.
+    """
     parser = argparse.ArgumentParser(description="Run code quality checks")
     parser.add_argument(
         "--clean",

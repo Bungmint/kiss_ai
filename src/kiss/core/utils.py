@@ -5,6 +5,7 @@
 
 """Utility functions for the KISS core module."""
 
+import math
 from pathlib import Path
 from string import Formatter as StringFormatter
 from typing import Any, TypeVar, cast
@@ -203,13 +204,30 @@ def read_project_file_from_package(file_name_as_python_package: str) -> str:
 
 
 def resolve_path(p: str, base_dir: str) -> Path:
-    """Resolve a path relative to base_dir if not absolute."""
+    """Resolve a path relative to base_dir if not absolute.
+
+    Args:
+        p: The path string to resolve.
+        base_dir: The base directory for relative path resolution.
+
+    Returns:
+        Path: The resolved absolute path.
+    """
     path = Path(p)
     if not path.is_absolute():
         return (Path(base_dir) / path).resolve()
     return path.resolve()
 
+
 def is_subpath(target: Path, whitelist: list[Path]) -> bool:
-    """Check if target has any prefix in whitelist."""
+    """Check if target has any prefix in whitelist.
+
+    Args:
+        target: The path to check.
+        whitelist: List of allowed path prefixes.
+
+    Returns:
+        bool: True if target is under any path in whitelist, False otherwise.
+    """
     target = Path(target).resolve()
     return any(target.is_relative_to(p) for p in whitelist)

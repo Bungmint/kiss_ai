@@ -731,7 +731,24 @@ def evaluate_agent_code(
     agent_code: str,
     tasks: list[EvaluationTask],
 ) -> dict[str, Any]:
-    """Evaluate agent code on tasks. Returns fitness and metrics."""
+    """Evaluate agent code on a set of evaluation tasks.
+
+    Compiles and executes the agent code, runs it on each task in a Docker
+    container, and computes fitness scores based on accuracy, efficiency,
+    and speed.
+
+    Args:
+        agent_code: The Python source code of the agent to evaluate.
+        tasks: List of EvaluationTask instances to test against.
+
+    Returns:
+        Dictionary containing:
+        - fitness: Overall fitness score (0.0 to 1.0)
+        - metrics: Dict with tasks_passed, tasks_total, total_time,
+          avg_time, total_llm_calls, avg_llm_calls, efficiency_score
+        - artifacts: Per-task results with passed status, time, llm_calls
+        - error: Error message if evaluation failed, None otherwise
+    """
     n = len(tasks)
     results: dict[str, Any] = {
         "fitness": 0.0,
@@ -804,7 +821,15 @@ def evaluate_agent_code(
 
 
 def create_code_agent_wrapper(default_model: str) -> Callable[..., str]:
-    """Create a code agent wrapper for KISSEvolve."""
+    """Create a code agent wrapper function for KISSEvolve.
+
+    Args:
+        default_model: The default LLM model name to use if not specified.
+
+    Returns:
+        A wrapper function that takes prompt_template, arguments, and
+        optional model_name, and returns the agent's response string.
+    """
     def wrapper(
         prompt_template: str,
         arguments: dict[str, str],
@@ -822,7 +847,11 @@ def create_code_agent_wrapper(default_model: str) -> Callable[..., str]:
 
 
 class AgentEvolver:
-    """Evolves agent code for efficiency and accuracy."""
+    """Evolves agent code for efficiency and accuracy.
+
+    Uses KISSEvolve to optimize agent code through evolutionary algorithms,
+    evaluating candidates on a set of tasks ranging from simple to long-horizon.
+    """
 
     def __init__(
         self,
@@ -832,6 +861,16 @@ class AgentEvolver:
         tasks: list[EvaluationTask] | None = None,
         focus_on_efficiency: bool = True,
     ):
+        """Initialize the AgentEvolver.
+
+        Args:
+            package_name: The Python package containing the agent code.
+            agent_file_path: Path to the agent file within the package.
+            model_name: LLM model for evolution (uses config default if None).
+            tasks: Evaluation tasks (uses EVALUATION_TASKS if None).
+            focus_on_efficiency: If True, optimize for fewer LLM calls;
+                otherwise optimize for accuracy.
+        """
         cfg = DEFAULT_CONFIG.self_evolving_multi_agent  # type: ignore[attr-defined]
         evolve_cfg = DEFAULT_CONFIG.kiss_evolve  # type: ignore[attr-defined]
 
@@ -846,7 +885,16 @@ class AgentEvolver:
         self.base_agent_code = _load_base_agent_code(package_name, agent_file_path)
 
     def evolve(self) -> CodeVariant:
-        """Run the evolutionary optimization."""
+        """Run the evolutionary optimization to find the best agent code.
+
+        Uses KISSEvolve with configured population size, generations, and
+        mutation rate to evolve agent code that maximizes fitness on the
+        evaluation tasks.
+
+        Returns:
+            The best CodeVariant found during evolution, containing the
+            optimized code, fitness score, and metrics.
+        """
         print(f"Evolving: model={self.model_name}, pop={self.population_size}, "
               f"gens={self.max_generations}, tasks={len(self.tasks)}")
 
@@ -901,7 +949,16 @@ Focus on: task understanding, error recovery, code verification, long-horizon ta
         return best
 
     def save_best(self, variant: CodeVariant, path: str | None = None) -> None:
-        """Save the best variant to a file."""
+        """Save the best variant's code to a file.
+
+        Args:
+            variant: The CodeVariant to save.
+            path: File path to save to. If None, saves to the artifact
+                directory under self_evolving_multi_agent/.
+
+        Returns:
+            None.
+        """
         if path is None:
             output_dir = Path(DEFAULT_CONFIG.agent.artifact_dir) / "self_evolving_multi_agent"
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -910,14 +967,28 @@ Focus on: task understanding, error recovery, code verification, long-horizon ta
         print(f"Saved to {path}")
 
     def run_baseline_evaluation(self) -> dict[str, Any]:
-        """Run evaluation on base agent code to establish baseline."""
+        """Run evaluation on base agent code to establish a baseline.
+
+        Evaluates the original agent code on all tasks to measure
+        the starting point before evolution.
+
+        Returns:
+            Dictionary with fitness score and metrics from evaluate_agent_code.
+        """
         results = evaluate_agent_code(self.base_agent_code, self.tasks)
         print(f"Baseline: fitness={results['fitness']:.4f}, metrics={results['metrics']}")
         return results
 
 
 def main() -> None:
-    """Evolve SelfEvolvingMultiAgent for efficiency and accuracy."""
+    """Evolve SelfEvolvingMultiAgent for efficiency and accuracy.
+
+    Loads configuration, creates an AgentEvolver, runs baseline evaluation,
+    evolves the agent, and saves the best variant.
+
+    Returns:
+        None.
+    """
     config = DEFAULT_CONFIG.self_evolving_multi_agent  # type: ignore[attr-defined]
 
     evolver = AgentEvolver(

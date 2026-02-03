@@ -11,7 +11,24 @@ from kiss.core.config_builder import add_config
 
 
 class SelfEvolvingMultiAgentConfig(BaseModel):
-    """Configuration for the Self Evolving Multi Agent."""
+    """Configuration for the Self Evolving Multi Agent.
+
+    This Pydantic model defines all configuration options for running
+    the self-evolving multi-agent system, including model selection,
+    agent limits, sub-agent settings, and Docker execution environment.
+
+    Attributes:
+        model: LLM model to use for the main agent.
+        sub_agent_model: LLM model for sub-agents.
+        evolver_model: LLM model for evolution/optimization.
+        max_steps: Maximum orchestrator steps allowed.
+        max_budget: Maximum budget in USD for the agent.
+        max_retries: Maximum retries on error.
+        sub_agent_max_steps: Maximum steps for sub-agents.
+        sub_agent_max_budget: Maximum budget for sub-agents in USD.
+        docker_image: Docker image for code execution.
+        workdir: Working directory inside the Docker container.
+    """
 
     # Model settings
     model: str = Field(
