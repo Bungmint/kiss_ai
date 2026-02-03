@@ -3,36 +3,20 @@
 # Koushik Sen (ksen@berkeley.edu)
 # add your name here
 
-"""Simple formatter implementation using Rich for terminal output."""
+"""Compact formatter implementation using terminal output."""
 
 import sys
-from collections.abc import Generator
 from typing import Any
 
-from rich import box
 from rich.console import Console
-from rich.markdown import Heading, Markdown
-from rich.panel import Panel
-from rich.text import Text
+from rich.markdown import Markdown
 
 from kiss.core.config import DEFAULT_CONFIG
 from kiss.core.formatter import Formatter
 
+LINE_LENGTH = 100
 
-def _left_aligned_heading(self: Any, console: Any, options: Any) -> Generator[Any]:
-    self.text.justify = "left"
-    if self.tag == "h1":
-        yield Panel(self.text, box=box.HEAVY, style="markdown.h1.border")
-    else:
-        if self.tag == "h2":
-            yield Text("")
-        yield self.text
-
-
-Heading.__rich_console__ = _left_aligned_heading  # type: ignore[method-assign]
-
-
-class SimpleFormatter(Formatter):
+class CompactFormatter(Formatter):
     def __init__(self) -> None:
         self.color = sys.stdout.isatty()
         self._console = Console() if self.color else None
@@ -40,7 +24,8 @@ class SimpleFormatter(Formatter):
 
     def format_message(self, message: dict[str, Any]) -> str:
         if DEFAULT_CONFIG.agent.verbose:
-            return f'\n## role="{message.get("role", "")}" #\n{message.get("content", "")}\n'
+            content = message.get("content", "").replace(chr(10), chr(92) + "n")
+            return f'[{message.get("role", "unknown")}]: {content}'[:LINE_LENGTH] + " ..."
         return ""
 
     def format_messages(self, messages: list[dict[str, Any]]) -> str:
@@ -50,25 +35,11 @@ class SimpleFormatter(Formatter):
 
     def print_message(self, message: dict[str, Any]) -> None:
         if DEFAULT_CONFIG.agent.verbose:
-            role = message.get("role", "")
-            content = message.get("content", "")
-            if self._console:
-                self._console.print(Markdown(f'\n## role="{role}" #'), style="bold")
-                self._console.print(Markdown(content))
-            else:
-                print(f'\n## role="{role}" #')
-                print(content)
+            print(self.format_message(message))
 
     def print_messages(self, messages: list[dict[str, Any]]) -> None:
         if DEFAULT_CONFIG.agent.verbose:
-            if self._console:
-                self._console.print()
-                self._console.print(Markdown("\n#  Agent Messages #"), style="bold")
-                for message in messages:
-                    self.print_message(message)
-            else:
-                print("\n#  Agent Messages #")
-                print(self.format_messages(messages), end="")
+            print(self.format_messages(messages))
 
     def print_status(self, message: str) -> None:
         if DEFAULT_CONFIG.agent.verbose:

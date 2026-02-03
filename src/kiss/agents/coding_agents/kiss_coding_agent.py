@@ -5,13 +5,18 @@
 
 """Multi-agent coding system with orchestration, and sub-agents using KISSAgent."""
 
+import os
+import shutil
+import tempfile
 from pathlib import Path
 
 import yaml
 
 from kiss.agents.kiss import dynamic_gepa_agent
 from kiss.core.base import CODING_INSTRUCTIONS, Base
+from kiss.core.compact_formatter import CompactFormatter
 from kiss.core.config import DEFAULT_CONFIG
+from kiss.core.formatter import Formatter
 from kiss.core.kiss_agent import KISSAgent
 from kiss.core.kiss_error import KISSError
 from kiss.core.models.model_info import get_max_context_length
@@ -20,7 +25,6 @@ from kiss.core.utils import resolve_path
 from kiss.docker.docker_manager import DockerManager
 
 ORCHESTRATOR_PROMPT = """
-
 ## Task
 
 {task_description}
@@ -40,22 +44,20 @@ bash commands and coding.
 
 Name: {subtask_name}
 
-Description:{description}
+Description: {description}
 
 # Context
 This is part of a larger task:
 
 {task_description}
 
-This is the relevant context for this sub-task:
-{context}
 
 # Requirements
 - Be concise and efficient
 - Use minimal steps (max {max_steps})
+- MUST have a tool call in your response
 
 {coding_instructions}
-
 """
 
 def finish(success: bool, summary: str) -> str:
@@ -83,17 +85,16 @@ class SubTask:
 
     task_counter: int = 0
 
-    def __init__(self, name: str, context: str, description: str) -> None:
+    def __init__(self, name: str, description: str) -> None:
         self.id = SubTask.task_counter
         self.name = name
-        self.context = context
         self.description = description
         SubTask.task_counter += 1
 
     def __repr__(self) -> str:
         return (
             f"SubTask(id={self.id}, name={self.name}, "
-            f"context={self.context}, description={self.description})"
+            f"description={self.description})"
         )
 
     def __str__(self) -> str:
@@ -184,7 +185,7 @@ class KISSCodingAgent(Base):
             A yaml encoded dictionary containing the keys
             'success' (boolean) and 'summary' (string).
         """
-        print(f"Executing task: {self.task_description}")
+        self.formatter.print_status(f"Executing task: {self.task_description}")
         executor = KISSAgent(f"{self.name} Main")
         task_prompt_template = ORCHESTRATOR_PROMPT
         for _ in range(self.trials):
@@ -197,6 +198,7 @@ class KISSCodingAgent(Base):
                 tools=[finish, self.perform_subtask],
                 max_steps=self.max_steps,
                 max_budget=self.max_budget,
+                formatter=self.formatter,
             )
             self.budget_used += executor.budget_used  # type: ignore
             self.total_tokens_used += executor.total_tokens_used  # type: ignore
@@ -204,7 +206,7 @@ class KISSCodingAgent(Base):
             ret = yaml.safe_load(result)
             success = ret.get("success", False)
             if not success:
-                print("Task failed, refining prompt and retrying...")
+                self.formatter.print_error("Task failed, refining prompt and retrying...")
                 task_prompt_template = dynamic_gepa_agent(
                     original_prompt_template=ORCHESTRATOR_PROMPT,
                     previous_prompt_template=task_prompt_template,
@@ -218,22 +220,20 @@ class KISSCodingAgent(Base):
     def perform_subtask(
         self,
         subtask_name: str,
-        context: str,
         description: str,
     ) -> str:
         """Perform a sub-task
 
         Args:
             subtask_name: Name of the sub-task
-            context: Context for the sub-task
             description: Description of the sub-task
 
         Returns:
             An yaml encoded dictionary containing the keys
             'success' (boolean) and 'summary' (string).
         """
-        subtask = SubTask(subtask_name, context, description)
-        print(f"Executing subtask: {subtask.name}")
+        subtask = SubTask(subtask_name, description)
+        self.formatter.print_status(f"Executing subtask: {subtask.name}")
         executor = KISSAgent(f"{self.name} Executor {subtask.name}")
         task_prompt_template = TASKING_PROMPT
 
@@ -247,7 +247,6 @@ class KISSCodingAgent(Base):
                 arguments={
                     "subtask_name": subtask.name,
                     "description": subtask.description,
-                    "context": subtask.context,
                     "task_description": self.task_description,
                     "max_steps": str(self.max_steps),
                     "coding_instructions": CODING_INSTRUCTIONS,
@@ -260,6 +259,7 @@ class KISSCodingAgent(Base):
                 ],
                 max_steps=self.max_steps,
                 max_budget=self.max_budget,
+                formatter=self.formatter,
             )
             self.budget_used += executor.budget_used  # type: ignore
             self.total_tokens_used += executor.total_tokens_used  # type: ignore
@@ -267,7 +267,9 @@ class KISSCodingAgent(Base):
             ret = yaml.safe_load(result)
             success = ret.get("success", False)
             if not success:
-                print(f"Subtask {subtask.name} failed, refining prompt and retrying...")
+                self.formatter.print_error(
+                    f"Subtask {subtask.name} failed, refining prompt and retrying..."
+                )
                 task_prompt_template = dynamic_gepa_agent(
                     original_prompt_template=TASKING_PROMPT,
                     previous_prompt_template=task_prompt_template,
@@ -296,6 +298,7 @@ class KISSCodingAgent(Base):
         readable_paths: list[str] | None = None,
         writable_paths: list[str] | None = None,
         docker_image: str | None = None,
+        formatter: Formatter | None = None,
     ) -> str:
         """Run the multi-agent coding system.
 
@@ -315,7 +318,7 @@ class KISSCodingAgent(Base):
             docker_image: Optional Docker image name to run bash commands in a container.
                 If provided, bash commands will be executed inside the Docker container.
                 Example: "ubuntu:latest", "python:3.11-slim".
-
+            formatter: The formatter to use for the agent. If None, the default formatter is used.
         Returns:
             The result of the task.
         """
@@ -334,6 +337,7 @@ class KISSCodingAgent(Base):
         self.prompt_template = prompt_template
         self.arguments = arguments or {}
         self.task_description = prompt_template.format(**self.arguments)
+        self.formatter = formatter or CompactFormatter()
 
         # Run with Docker container if docker_image is provided
         if self.docker_image:
@@ -360,14 +364,23 @@ def main() -> None:
     Return a summary of your work.
     """
 
-    result = agent.run(
-        prompt_template=task_description,
-    )
+    work_dir = tempfile.mkdtemp()
+    old_cwd = os.getcwd()
+    os.chdir(work_dir)
+    try:
+        result = agent.run(
+            prompt_template=task_description,
+            base_dir=work_dir,
+            readable_paths=['.'],
+            writable_paths=['.'],
+        )
+    finally:
+        shutil.rmtree(work_dir)
+        os.chdir(old_cwd)
 
-    print("\n" + "=" * 80)
-    print("FINAL RESULT:")
-    print("=" * 80)
-    print(result)
+
+    agent.formatter.print_status("FINAL RESULT:")
+    agent.formatter.print_status(result)
 
 
 if __name__ == "__main__":

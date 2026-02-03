@@ -14,9 +14,9 @@ run(task):
 
 Orchestrator Agent:
     Given: task, todo_list, completed_tasks, last_error
-    Tools: plan_task, execute_todo, complete_todo, run_bash, 
+    Tools: plan_task, execute_todo, complete_todo, run_bash,
            read_file, write_file, create_tool, finish
-    
+
     Loop until finish() called or budget exhausted:
         LLM decides next action based on current state
         - Simple work: use run_bash/write_file directly

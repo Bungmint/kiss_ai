@@ -253,7 +253,8 @@ Each agent can use a different model. Each agent has its own budget. Each agent 
 The Agent Creator module provides tools to automatically evolve and optimize AI agents for **token efficiency**, **execution speed**, and **cost** using evolutionary algorithms with Pareto frontier maintenance.
 
 **Key Component:**
- - **AgentEvolver**: Maintains a population of agent variants and evolves them using mutation and crossover operations
+
+- **AgentEvolver**: Maintains a population of agent variants and evolves them using mutation and crossover operations
 
 It uses a **Pareto frontier** approach to track non-dominated solutions, optimizing for multiple objectives simultaneously without requiring a single combined metric.
 
@@ -650,7 +651,8 @@ kiss/
 │   │   ├── base.py            # Base class with common functionality for all KISS agents
 │   │   ├── kiss_agent.py      # KISS agent with native function calling
 │   │   ├── formatter.py       # Output formatting base class
-│   │   ├── simple_formatter.py # Rich-formatted output
+│   │   ├── simple_formatter.py # Rich-formatted detailed output
+│   │   ├── compact_formatter.py # Compact single-line output formatting
 │   │   ├── config.py          # Configuration
 │   │   ├── config_builder.py  # Dynamic config builder with CLI support
 │   │   ├── kiss_error.py      # Custom error class
@@ -884,7 +886,6 @@ Contributions are welcome! Please ensure your code:
 - Passes linting (`uv run ruff check src/`)
 - Passes type checking (`uv run mypy src/`)
 - Passes type checking (`uv run pyright src/`)
-
 
 ## License
 

@@ -22,7 +22,8 @@ For a high-level overview and quick start guide, see [README.md](README.md).
 - [GEPA](#gepa) - Genetic-Pareto prompt optimizer
 - [KISSEvolve](#kissevolve) - Evolutionary algorithm discovery
 - [Utility Functions](#utility-functions) - Helper functions
-- [SimpleFormatter](#simpleformatter) - Terminal output formatting
+- [SimpleFormatter](#simpleformatter) - Rich terminal output formatting
+- [CompactFormatter](#compactformatter) - Compact single-line output formatting
 - [Pre-built Agents](#pre-built-agents) - Ready-to-use agents
 - [Configuration System](#configuration-system) - Config management
 
@@ -176,7 +177,7 @@ KISSCodingAgent(name: str)
 
 ```python
 class SubTask:
-    def __init__(self, name: str, context: str, description: str) -> None
+    def __init__(self, name: str, description: str) -> None
 ```
 
 Represents a sub-task in the multi-agent coding system.
@@ -185,7 +186,6 @@ Represents a sub-task in the multi-agent coding system.
 
 - `id` (int): Unique identifier for this sub-task (auto-incremented)
 - `name` (str): Name of the sub-task
-- `context` (str): Relevant context information for this sub-task
 - `description` (str): Detailed description of what needs to be done
 
 ### Methods
@@ -226,6 +226,7 @@ Run the multi-agent coding system with orchestration and sub-task delegation.
 - `readable_paths` (list[str] | None): The paths from which the agent is allowed to read. If None, no paths are allowed for read access.
 - `writable_paths` (list[str] | None): The paths to which the agent is allowed to write. If None, no paths are allowed for write access.
 - `docker_image` (str | None): Optional Docker image name to run bash commands in a container. If provided, all bash commands executed by sub-agents will run inside the Docker container instead of on the host. Example: "ubuntu:latest", "python:3.11-slim". Default is None (local execution).
+- `formatter` (Formatter | None): Custom formatter for output. Default is `CompactFormatter`.
 
 **Returns:**
 
@@ -261,17 +262,15 @@ Execute the main task using the orchestrator agent. The orchestrator can delegat
 def perform_subtask(
     self,
     subtask_name: str,
-    context: str,
     description: str,
 ) -> str
 ```
 
-Execute a sub-task using a dedicated executor agent. Can be called by the orchestrator or recursively by other sub-task executors.
+Execute a sub-task using a dedicated executor agent (using `subtasker_model_name`). Can be called by the orchestrator .
 
 **Parameters:**
 
 - `subtask_name` (str): Name of the sub-task for identification.
-- `context` (str): Relevant context information for this sub-task.
 - `description` (str): Detailed description of what needs to be done.
 
 **Returns:**
@@ -307,7 +306,7 @@ Run a bash command with automatic path permission checks. Uses `parse_bash_comma
 - `id` (int): Unique identifier for this agent instance.
 - `name` (str): The agent's name.
 - `orchestrator_model_name` (str): Model name for orchestrator agent.
-- `subtasker_model_name` (str): Model name for executor agents.
+- `subtasker_model_name` (str): Model name for executor agents handling sub-tasks.
 - `dynamic_gepa_model_name` (str): Model name for dynamic prompt refinement.
 - `task_description` (str): The formatted task description.
 - `messages` (list\[dict[str, Any]\]): List of messages in the trajectory (aggregated from all sub-agents).
@@ -326,7 +325,7 @@ Run a bash command with automatic path permission checks. Uses `parse_bash_comma
 
 ### Key Features
 
-- **Multi-Agent Architecture**: Orchestrator delegates to executor agents; supports recursive sub-task decomposition
+- **Multi-Agent Architecture**: Orchestrator (using `orchestrator_model_name`) delegates to executor agents (using `subtasker_model_name`); 
 - **Dynamic GEPA (Genetic-Pareto) Refinement**:
   - Automatically refines prompts when tasks fail using trajectory analysis
   - Uses dynamic_gepa_model_name (default: claude-sonnet-4-5) for non-agentic prompt improvement
@@ -1957,6 +1956,125 @@ Print a label and value pair with distinct colors. No output if verbose mode is 
 
 - `label` (str): The label to print (displayed in cyan).
 - `value` (str): The value to print (displayed in bold white).
+
+______________________________________________________________________
+
+## CompactFormatter
+
+Compact formatter implementation that shows truncated, single-line messages for more concise output. This formatter is used by default in `KISSCodingAgent` for cleaner logs during multi-agent orchestration. All output methods respect the `DEFAULT_CONFIG.agent.verbose` setting.
+
+### Constructor
+
+```python
+CompactFormatter()
+```
+
+### Methods
+
+#### `format_message()`
+
+```python
+def format_message(self, message: dict[str, Any]) -> str
+```
+
+Format a single message as a truncated single-line string. Returns empty string if verbose mode is disabled.
+
+**Parameters:**
+
+- `message` (dict): Message dictionary with 'role' and 'content' keys.
+
+**Returns:**
+
+- `str`: Truncated message in format `[role]: content...` (max 100 chars), or empty string if verbose is False.
+
+#### `format_messages()`
+
+```python
+def format_messages(self, messages: list[dict[str, Any]]) -> str
+```
+
+Format a list of messages as truncated single-line strings. Returns empty string if verbose mode is disabled.
+
+**Parameters:**
+
+- `messages` (list[dict]): List of message dictionaries.
+
+**Returns:**
+
+- `str`: Formatted messages string with each message on its own line, or empty string if verbose is False.
+
+#### `print_message()`
+
+```python
+def print_message(self, message: dict[str, Any]) -> None
+```
+
+Print a single message as a truncated single line. No output if verbose mode is disabled.
+
+**Parameters:**
+
+- `message` (dict): Message dictionary with 'role' and 'content' keys.
+
+#### `print_messages()`
+
+```python
+def print_messages(self, messages: list[dict[str, Any]]) -> None
+```
+
+Print a list of messages as truncated single lines. No output if verbose mode is disabled.
+
+**Parameters:**
+
+- `messages` (list[dict]): List of message dictionaries.
+
+#### `print_status()`
+
+```python
+def print_status(self, message: str) -> None
+```
+
+Print a status message in green. No output if verbose mode is disabled.
+
+**Parameters:**
+
+- `message` (str): The status message to print.
+
+#### `print_error()`
+
+```python
+def print_error(self, message: str) -> None
+```
+
+Print an error message in red to stderr. No output if verbose mode is disabled.
+
+**Parameters:**
+
+- `message` (str): The error message to print.
+
+#### `print_warning()`
+
+```python
+def print_warning(self, message: str) -> None
+```
+
+Print a warning message in yellow. No output if verbose mode is disabled.
+
+**Parameters:**
+
+- `message` (str): The warning message to print.
+
+#### `print_label_and_value()`
+
+```python
+def print_label_and_value(self, label: str, value: str) -> None
+```
+
+Print a label and value pair with distinct colors. No output if verbose mode is disabled.
+
+**Parameters:**
+
+- `label` (str): The label to print.
+- `value` (str): The value to print.
 
 ______________________________________________________________________
 
