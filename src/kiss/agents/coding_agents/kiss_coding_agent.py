@@ -20,7 +20,6 @@ from kiss.core.formatter import Formatter
 from kiss.core.kiss_agent import KISSAgent
 from kiss.core.kiss_error import KISSError
 from kiss.core.models.model_info import get_max_context_length
-from kiss.core.simple_formatter import SimpleFormatter
 from kiss.core.useful_tools import UsefulTools
 from kiss.core.utils import resolve_path
 from kiss.docker.docker_manager import DockerManager
@@ -385,7 +384,7 @@ class KISSCodingAgent(Base):
         self.prompt_template = prompt_template
         self.arguments = arguments or {}
         self.task_description = prompt_template.format(**self.arguments)
-        self.formatter = formatter or SimpleFormatter()
+        self.formatter = formatter or CompactFormatter()
 
         # Run with Docker container if docker_image is provided
         if self.docker_image:

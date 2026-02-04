@@ -99,6 +99,10 @@ def clean_build_artifacts() -> None:
         ".pytest_cache",
         ".ruff_cache",
         "*.egg-info",
+        ".cursor",
+        ".claude",
+        "artifacts",
+        "uv_cache",
     ]
 
     print(f"\n{'=' * 60}")
