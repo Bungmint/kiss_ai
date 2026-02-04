@@ -87,7 +87,7 @@ class TestFetchPageContent(unittest.TestCase):
             )
         }
         # Fetch with very small max length to test truncation
-        result = fetch_url("https://example.com", headers, max_content_length=50)
+        result = fetch_url("https://example.com", headers, max_characters=50)
 
         self.assertLessEqual(len(result), 70)  # 50 + "... [truncated]"
         self.assertIn("[truncated]", result)

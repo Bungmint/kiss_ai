@@ -382,14 +382,14 @@ SAFARI_HEADERS = {
 }
 
 
-def fetch_url(url: str, headers: dict[str, str], max_content_length: int = 10000) -> str:
+def fetch_url(url: str, headers: dict[str, str], max_characters: int = 10000) -> str:
     """
     Fetch and extract text content from a URL using BeautifulSoup.
 
     Args:
         url: The URL to fetch.
         headers: HTTP headers to use for the request.
-        max_content_length: Maximum length of content to return.
+        max_characters: Maximum number of characters to return.
 
     Returns:
         Extracted text content from the page.
@@ -434,8 +434,8 @@ def fetch_url(url: str, headers: dict[str, str], max_content_length: int = 10000
 
         text = re.sub(r"\s+", " ", main_content.get_text(separator=" ", strip=True)).strip()
 
-        if len(text) > max_content_length:
-            text = text[:max_content_length] + "... [truncated]"
+        if len(text) > max_characters:
+            text = text[:max_characters] + "... [truncated]"
 
         return text or "No readable content found."
     except requests.exceptions.Timeout:
