@@ -17,10 +17,11 @@ from pathlib import Path
 
 from kiss.agents.coding_agents.kiss_coding_agent import KISSCodingAgent
 from kiss.core.compact_formatter import CompactFormatter
+from kiss.core.config import DEFAULT_CONFIG
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 
-AGENT_EVOLVER_PROMPT = """
+AGENT_EVOLVER_PROMPT_PART1 = """
 You have to optimize an AI agent for long-running complex tasks.
 
 ## Agent Requirements
@@ -35,9 +36,15 @@ You have to optimize an AI agent for long-running complex tasks.
     {kiss_folder}/src/kiss/agents/self_evolving_multi_agent/multi_agent.py
     have examples of long-running complex task agents.
   - The agent **MUST** be tested for success on the given task description.
+"""
+
+AGENT_EVOLVER_PROMPT_PART2 = """
   - You **MUST not make the agent specific to any particular task, but
     rather make it a general purpose agent that can be used for any task**.
-  - You MUST use KISSAgent, or KissCodingAgent, or ClaudeCodingAgent, or
+"""
+
+AGENT_EVOLVER_PROMPT_PART3 = """
+  - You MUST use KISSAgent, or RelentlessCodingAgent, or ClaudeCodingAgent, or
     GeminiCliAgent, or OpenAICodexAgent or a mixture of them to implement
     the agent.
   - You MUST not use multithreading or multiprocessing or docker manager
@@ -347,11 +354,18 @@ class ImproverAgent:
         agent = KISSCodingAgent("Agent Improver")
 
         print(f"Running improvement on {work_dir}")
+        if not DEFAULT_CONFIG.create_and_optimize_agent.evolve_to_solve_task:
+            agent_evolver_prompt = (
+                AGENT_EVOLVER_PROMPT_PART1 + AGENT_EVOLVER_PROMPT_PART2 + AGENT_EVOLVER_PROMPT_PART3
+            )
+        else:
+            agent_evolver_prompt = AGENT_EVOLVER_PROMPT_PART1 + AGENT_EVOLVER_PROMPT_PART2
+
         start_time = time.time()
 
         try:
             result = agent.run(
-                prompt_template=AGENT_EVOLVER_PROMPT,
+                prompt_template=agent_evolver_prompt,
                 arguments={
                     "task_description": task_description,
                     "work_dir": work_dir,

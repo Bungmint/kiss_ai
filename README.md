@@ -14,7 +14,7 @@ KISS stands for ["Keep it Simple, Stupid"](https://en.wikipedia.org/wiki/KISS_pr
 
 Let's be honest. The AI agent ecosystem has become a jungle.
 
-Every week brings a new framework promising to revolutionize how we build AI agents. They come loaded with abstractions on top of abstractions, configuration files that rival tax forms, and dependency trees that make `node_modules` look tidy. By the time you've figured out how to make your first tool call, you've already burned through half your patience and all your enthusiasm.
+Every week brings a new framework promising to revolutionize how we build AI agents. They come loaded with abstractions on top of abstractions, configuration files that rival tax forms, and dependency trees that make `node_modules` look tidy. By the time you've figured out how to make your first tool call, you've already burned through half your patience and all your enthusiasm. Try the interactive Jupyter by running `uv run notebook --lab`.
 
 **What if there was another way?**
 
@@ -57,7 +57,7 @@ KISS uses **native function calling** from the LLM providers. Your Python functi
 KISS is a lightweight agent framework that implements a ReAct (Reasoning and Acting) loop for LLM agents. The framework provides:
 
 - **Simple Architecture**: Clean, minimal core that's easy to understand and extend
-- **Multi-Agent Coding System**: KISSCodingAgent with orchestration, sub-agent management, and automatic prompt refinement
+- **Multi-Agent Coding System**: RelentlessCodingAgent with orchestration, sub-agent management, and automatic task hand-off
 - **Create and Optimize Agent**: Multi-objective agent evolution and improvement with Pareto frontier
 - **GEPA Implementation From Scratch**: Genetic-Pareto prompt optimization for compound AI systems
 - **KISSEvolve Implementation From Scratch**: Evolutionary algorithm discovery framework with LLM-guided mutation and crossover
