@@ -57,7 +57,7 @@ KISS uses **native function calling** from the LLM providers. Your Python functi
 KISS is a lightweight agent framework that implements a ReAct (Reasoning and Acting) loop for LLM agents. The framework provides:
 
 - **Simple Architecture**: Clean, minimal core that's easy to understand and extend
-- **Multi-Agent Coding System**: KISSCodingAgent with orchestration, sub-agent management, and dynamic GEPA prompt refinement
+- **Multi-Agent Coding System**: KISSCodingAgent with orchestration, sub-agent management, and automatic prompt refinement
 - **Create and Optimize Agent**: Multi-objective agent evolution and improvement with Pareto frontier
 - **GEPA Implementation From Scratch**: Genetic-Pareto prompt optimization for compound AI systems
 - **KISSEvolve Implementation From Scratch**: Evolutionary algorithm discovery framework with LLM-guided mutation and crossover
@@ -190,7 +190,7 @@ KISS includes utility agents that work beautifully together. Let's build a **sel
 
 ```python
 from kiss.core.kiss_agent import KISSAgent
-from kiss.agents.kiss import dynamic_gepa_agent
+from kiss.agents.kiss import prompt_refiner_agent
 
 # Step 1: Define a test function for our coding task
 def test_fibonacci(code: str) -> bool:
@@ -242,9 +242,9 @@ for iteration in range(max_iterations):
         # Get the trajectory to understand what went wrong
         trajectory = coding_agent.get_trajectory()
         
-        # Use the Dynamic GEPA Refiner agent to improve our prompt
+        # Use the Prompt Refiner agent to improve our prompt
         print("🔄 Refining prompt based on failure...")
-        current_prompt = dynamic_gepa_agent(
+        current_prompt = prompt_refiner_agent(
             original_prompt_template=original_prompt,
             previous_prompt_template=current_prompt,
             agent_trajectory_summary=trajectory,
@@ -256,7 +256,7 @@ for iteration in range(max_iterations):
 **What's happening here?**
 
 1. **Coding Agent** [KISSAgent](https://github.com/ksenxx/kiss_ai/blob/main/src/kiss/core/kiss_agent.py): Generates code and validates it against test cases using the provided test function as a tool
-1. **Dynamic GEPA Agent** ['dynamic_gepa_agent'](https://github.com/ksenxx/kiss_ai/blob/main/src/kiss/agents/kiss.py): Analyzes failures and evolves the prompt based on the agent's trajectory
+1. **Prompt Refiner Agent** [`prompt_refiner_agent`](https://github.com/ksenxx/kiss_ai/blob/main/src/kiss/agents/kiss.py): Analyzes failures and refines the prompt based on the agent's trajectory
 1. **Orchestration**: A simple Python loop (not to be confused with the ReAct loop) coordinates the agents
 
 No special orchestration framework needed. No message buses. No complex state machines. Just Python functions calling Python functions.
@@ -398,7 +398,7 @@ print(f"Result: {result}")
 **Key Features:**
 
 - **Multi-Agent Architecture**: Orchestrator delegates to executor agents for specific sub-tasks
-- **Dynamic GEPA Refinement**: Automatically refines prompts when tasks fail using trajectory analysis
+- **Prompt Refinement**: Automatically refines prompts when tasks fail using trajectory analysis
 - **Efficient Orchestration**: Manages execution through smart task delegation
 - **Bash Command Parsing**: Automatically extracts readable/writable directories from bash commands using `parse_bash_command_paths()`
 - **Path Access Control**: Enforces read/write permissions on file system paths before command execution
@@ -598,12 +598,12 @@ rag.clear_collection()
 
 The framework includes pre-built utility agents for common tasks:
 
-**Dynamic GEPA Agent:**
+**Prompt Refiner Agent:**
 
 ```python
-from kiss.agents.kiss import dynamic_gepa_agent
+from kiss.agents.kiss import prompt_refiner_agent
 
-refined_prompt = dynamic_gepa_agent(
+refined_prompt = prompt_refiner_agent(
     original_prompt_template="Original prompt...",
     previous_prompt_template="Previous version...",
     agent_trajectory_summary=agent.get_trajectory(),  # Returns JSON string

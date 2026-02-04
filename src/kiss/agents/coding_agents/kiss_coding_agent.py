@@ -12,7 +12,7 @@ from pathlib import Path
 
 import yaml
 
-from kiss.agents.kiss import dynamic_gepa_agent
+from kiss.agents.kiss import prompt_refiner_agent
 from kiss.core.base import CODING_INSTRUCTIONS, Base
 from kiss.core.compact_formatter import CompactFormatter
 from kiss.core.config import DEFAULT_CONFIG
@@ -246,7 +246,7 @@ class KISSCodingAgent(Base):
             success = ret.get("success", False)
             if not success:
                 self.formatter.print_error("Task failed, refining prompt and retrying...")
-                task_prompt_template = dynamic_gepa_agent(
+                task_prompt_template = prompt_refiner_agent(
                     original_prompt_template=ORCHESTRATOR_PROMPT,
                     previous_prompt_template=task_prompt_template,
                     agent_trajectory_summary=result,
@@ -312,7 +312,7 @@ class KISSCodingAgent(Base):
                 self.formatter.print_error(
                     f"Subtask {subtask.name} failed, refining prompt and retrying..."
                 )
-                task_prompt_template = dynamic_gepa_agent(
+                task_prompt_template = prompt_refiner_agent(
                     original_prompt_template=TASKING_PROMPT,
                     previous_prompt_template=task_prompt_template,
                     agent_trajectory_summary=result,

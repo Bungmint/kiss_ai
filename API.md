@@ -159,7 +159,7 @@ A multi-agent coding system with orchestration and sub-agents using KISSAgent. I
 
 - **Orchestrator Agent**: Manages overall task execution and delegates to sub-tasks
 - **Executor Agents**: Handle specific sub-tasks independently
-- **Dynamic GEPA**: Automatically refines prompts on failures using trajectory analysis for improved retry attempts
+- **Prompt Refinement**: Automatically refines prompts on failures using trajectory analysis for improved retry attempts
 
 The system supports recursive sub-task delegation where any agent can call `perform_subtask()` to further decompose work.
 
@@ -305,7 +305,7 @@ Execute a sub-task using a dedicated executor agent (using `subtasker_model_name
 ### Key Features
 
 - **Multi-Agent Architecture**: Orchestrator (using `orchestrator_model_name`) delegates to executor agents (using `subtasker_model_name`);
-- **Dynamic GEPA (Genetic-Pareto) Refinement**:
+- **Prompt Refinement**:
   - Automatically refines prompts when tasks fail using trajectory analysis
   - Uses dynamic_gepa_model_name (default: claude-sonnet-4-5) for non-agentic prompt improvement
   - Analyzes original prompt, previous prompt, and agent trajectory to generate refined prompts
@@ -2120,10 +2120,10 @@ ______________________________________________________________________
 
 Ready-to-use agent functions from `kiss.agents.kiss`.
 
-### `dynamic_gepa_agent()`
+### `prompt_refiner_agent()`
 
 ```python
-def dynamic_gepa_agent(
+def prompt_refiner_agent(
     original_prompt_template: str,
     previous_prompt_template: str,
     agent_trajectory_summary: str,
@@ -2131,7 +2131,7 @@ def dynamic_gepa_agent(
 ) -> str
 ```
 
-Dynamic GEPA: Refines the prompt template based on the agent's trajectory summary.
+Refines the prompt template based on the agent's trajectory summary.
 
 **Parameters:**
 
