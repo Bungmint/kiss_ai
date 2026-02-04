@@ -346,9 +346,64 @@ KISSEvolve is an evolutionary algorithm discovery framework that uses LLM-guided
 
 For usage examples, API reference, and configuration options, please see the [KISSEvolve README](src/kiss/agents/kiss_evolve/README.md).
 
-### Using KISS Coding Agent: The Relentless Coding Agent
+### Using RelentlessCodingAgent
 
-The KISS Coding Agent is a multi-agent system with orchestration and sub-agents using KISSAgent. It efficiently breaks down complex coding tasks into manageable sub-tasks:
+For very very long running tasks, use the `RelentlessCodingAgent`. The agent will work relentlessly to complete your task:
+
+```python
+from kiss.agents.coding_agents.relentless_coding_agent import RelentlessCodingAgent
+
+agent = RelentlessCodingAgent(name="Simple Coding Agent")
+
+result = agent.run(
+    prompt_template="""
+        Create a Python script that reads a CSV file,
+        filters rows where age > 18, and writes to a new file.
+    """,
+    orchestrator_model_name="gpt-4o",
+    subtasker_model_name="gpt-4o-mini",
+    work_dir="./workspace",
+    max_steps=200,
+    trials=200
+)
+print(f"Result: {result}")
+```
+
+**Running with Docker:**
+
+You can optionally run bash commands inside a Docker container for isolation:
+
+```python
+from kiss.agents.coding_agents.relentless_coding_agent import RelentlessCodingAgent
+
+agent = RelentlessCodingAgent(name="Dockered Relenetless Coding Agent")
+
+result = agent.run(
+    prompt_template="""
+        Install numpy and create a script that generates 
+        a random matrix and computes its determinant.
+    """,
+    docker_image="python:3.11-slim",  # Bash commands run in Docker
+    max_steps=200,
+    trials=2000
+)
+print(f"Result: {result}")
+```
+
+**Key Features:**
+
+- **Multi-Agent Architecture**: Orchestrator delegates tasks to executor sub-agents for parallel task handling
+- **Token-Aware Continuation**: Agents signal when 50% of tokens are used, allowing seamless task handoff with context preservation
+- **Retry with Context**: Failed tasks automatically retry with previous summary appended to the prompt
+- **Configurable Trials**: Set high trial counts (e.g., 200+) for truly relentless execution
+- **Docker Support**: Optional isolated execution via Docker containers
+- **Path Access Control**: Enforces read/write permissions on file system paths
+- **Built-in Tools**: Bash, Edit, and MultiEdit tools for file operations
+- **Budget & Token Tracking**: Automatic cost and token usage monitoring across all sub-agents
+
+### Using KISS Coding Agent
+
+The KISS Coding Agent is a multi-agent system with orchestration and sub-agents using KISSAgent. It efficiently breaks down complex coding tasks into manageable sub-tasks and includes automatic prompt refinement on failures:
 
 ```python
 from kiss.agents.coding_agents import KISSCodingAgent
@@ -364,7 +419,7 @@ result = agent.run(
     """,
     orchestrator_model_name="claude-sonnet-4-5",  # Model for orchestration and execution
     subtasker_model_name="claude-opus-4-5"  # Model for subtasker agents
-    dynamic_gepa_model_name="claude-haiku-4-5",  # Model for prompt refinement on failures
+    refiner_model_name="claude-haiku-4-5",  # Model for prompt refinement on failures
     readable_paths=["src/"],  # Allowed read paths (relative to base_dir)
     writable_paths=["output/"],  # Allowed write paths (relative to base_dir)
     base_dir=".",  # Base working directory (project root)
@@ -374,31 +429,10 @@ result = agent.run(
 print(f"Result: {result}")
 ```
 
-**Running with Docker:**
-
-You can optionally run bash commands inside a Docker container for isolation:
-
-```python
-from kiss.agents.coding_agents import KISSCodingAgent
-
-agent = KISSCodingAgent(name="Docker Coding Agent")
-
-result = agent.run(
-    prompt_template="""
-        Install numpy and create a script that generates 
-        a random matrix and computes its determinant.
-    """,
-    docker_image="python:3.11-slim",  # Bash commands run in Docker
-    max_steps=50,
-    trials=2
-)
-print(f"Result: {result}")
-```
-
 **Key Features:**
 
 - **Multi-Agent Architecture**: Orchestrator delegates to executor agents for specific sub-tasks
-- **Prompt Refinement**: Automatically refines prompts when tasks fail using trajectory analysis
+- **Prompt Refinement**: Automatically refines prompts when tasks fail using trajectory analysis (KISSCodingAgent)
 - **Efficient Orchestration**: Manages execution through smart task delegation
 - **Bash Command Parsing**: Automatically extracts readable/writable directories from bash commands using `parse_bash_command_paths()`
 - **Path Access Control**: Enforces read/write permissions on file system paths before command execution
@@ -676,10 +710,11 @@ kiss/
 │   │   │   ├── config.py           # KISSEvolve configuration
 │   │   │   └── README.md           # KISSEvolve documentation
 │   │   ├── coding_agents/          # Coding agents for software development tasks
-│   │   │   ├── kiss_coding_agent.py   # Multi-agent coding system with orchestration
-│   │   │   ├── claude_coding_agent.py # Claude Coding Agent using Claude Agent SDK
-│   │   │   ├── gemini_cli_agent.py    # Gemini CLI Agent using Google ADK
-│   │   │   └── openai_codex_agent.py  # OpenAI Codex Agent using OpenAI Agents SDK
+│   │   │   ├── kiss_coding_agent.py       # Multi-agent coding system with orchestration
+│   │   │   ├── relentless_coding_agent.py # Simplified multi-agent system without prompt refinement
+│   │   │   ├── claude_coding_agent.py     # Claude Coding Agent using Claude Agent SDK
+│   │   │   ├── gemini_cli_agent.py        # Gemini CLI Agent using Google ADK
+│   │   │   └── openai_codex_agent.py      # OpenAI Codex Agent using OpenAI Agents SDK
 │   │   ├── self_evolving_multi_agent/  # Self-evolving multi-agent system
 │   │   │   ├── agent_evolver.py       # Agent evolution logic
 │   │   │   ├── multi_agent.py         # Multi-agent orchestration
