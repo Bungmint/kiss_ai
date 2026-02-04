@@ -404,7 +404,7 @@ def run(
     arguments: dict[str, str] | None = None,
     orchestrator_model_name: str = DEFAULT_CONFIG.agent.kiss_coding_agent.orchestrator_model_name,
     subtasker_model_name: str = DEFAULT_CONFIG.agent.kiss_coding_agent.subtasker_model_name,
-    dynamic_gepa_model_name: str = DEFAULT_CONFIG.agent.kiss_coding_agent.dynamic_gepa_model_name,
+    refiner_model_name: str = DEFAULT_CONFIG.agent.kiss_coding_agent.refiner_model_name,
     trials: int = DEFAULT_CONFIG.agent.kiss_coding_agent.trials,
     max_steps: int = DEFAULT_CONFIG.agent.max_steps,
     max_budget: float = DEFAULT_CONFIG.agent.max_agent_budget,
@@ -425,7 +425,7 @@ Run the multi-agent coding system with orchestration and sub-task delegation.
 - `arguments` (dict[str, str] | None): Arguments to substitute into the prompt template. Default is None.
 - `orchestrator_model_name` (str): Model for the main orchestrator agent. Default is from config (claude-sonnet-4-5).
 - `subtasker_model_name` (str): Model for executor agents handling sub-tasks. Default is from config (claude-opus-4-5).
-- `dynamic_gepa_model_name` (str): Model for dynamic prompt refinement when tasks fail. Default is from config (claude-sonnet-4-5).
+- `refiner_model_name` (str): Model for dynamic prompt refinement when tasks fail. Default is from config (claude-sonnet-4-5).
 - `trials` (int): Number of retry attempts for each task/subtask. Default is 3.
 - `max_steps` (int): Maximum number of steps per agent. Default is from config.
 - `max_budget` (float): Maximum budget in USD for this run. Default is from config.
@@ -491,7 +491,7 @@ Execute a sub-task using a dedicated executor agent (using `subtasker_model_name
 - `name` (str): The agent's name.
 - `orchestrator_model_name` (str): Model name for orchestrator agent.
 - `subtasker_model_name` (str): Model name for executor agents handling sub-tasks.
-- `dynamic_gepa_model_name` (str): Model name for dynamic prompt refinement.
+- `refiner_model_name` (str): Model name for dynamic prompt refinement.
 - `task_description` (str): The formatted task description.
 - `total_tokens_used` (int): Total tokens used across all agents in this run.
 - `budget_used` (float): Total budget used across all agents in this run.
@@ -512,7 +512,7 @@ Execute a sub-task using a dedicated executor agent (using `subtasker_model_name
 - **Multi-Agent Architecture**: Orchestrator (using `orchestrator_model_name`) delegates to executor agents (using `subtasker_model_name`);
 - **Prompt Refinement**:
   - Automatically refines prompts when tasks fail using trajectory analysis
-  - Uses dynamic_gepa_model_name (default: claude-sonnet-4-5) for non-agentic prompt improvement
+  - Uses refiner_model_name (default: claude-sonnet-4-5) for non-agentic prompt improvement
   - Analyzes original prompt, previous prompt, and agent trajectory to generate refined prompts
   - Retries tasks with refined prompts up to `trials` times
 - **Efficient Orchestration**: Manages execution to stay within configured step limits through smart delegation
@@ -536,7 +536,7 @@ result = agent.run(
         that is efficient and correct. Save it to fibonacci.py.
     """,
     orchestrator_model_name="claude-sonnet-4-5",
-    dynamic_gepa_model_name="claude-sonnet-4-5",
+    refiner_model_name="claude-sonnet-4-5",
     readable_paths=["src/"],
     writable_paths=["output/"],
     base_dir="workdir",
@@ -2306,7 +2306,7 @@ DEFAULT_CONFIG.agent.use_web = True
 
 - `orchestrator_model_name` (str): Model for main orchestration and executor agents (default: "claude-sonnet-4-5")
 - `subtasker_model_name` (str): Model for subtask generation and execution (default: "claude-opus-4-5")
-- `dynamic_gepa_model_name` (str): Model for dynamic prompt refinement on failures (default: "claude-sonnet-4-5")
+- `refiner_model_name` (str): Model for dynamic prompt refinement on failures (default: "claude-sonnet-4-5")
 - `max_steps` (int): Maximum steps for the KISS Coding Agent (default: 50)
 - `max_budget` (float): Maximum budget in USD for the KISS Coding Agent (default: 100.0)
 - `trials` (int): Retry attempts per task/subtask (default: 3)

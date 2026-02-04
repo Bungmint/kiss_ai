@@ -418,7 +418,9 @@ def main() -> None:
 
 
     agent.formatter.print_status("FINAL RESULT:")
-    agent.formatter.print_status(result)
+    result = yaml.safe_load(result)
+    agent.formatter.print_status("Completed successfully: " + str(result["success"]))
+    agent.formatter.print_status(result["summary"])
 
 
 if __name__ == "__main__":

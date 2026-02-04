@@ -828,7 +828,7 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
 - **KISS Coding Agent Settings**: Modify `DEFAULT_CONFIG.agent.kiss_coding_agent`:
   - `orchestrator_model_name`: Model for orchestration and execution (default: "claude-sonnet-4-5")
   - `subtasker_model_name`: Reserved for future use (default: "claude-opus-4-5")
-  - `dynamic_gepa_model_name`: Model for prompt refinement on failures (default: "claude-sonnet-4-5")
+  - `refiner_model_name`: Model for prompt refinement on failures (default: "claude-sonnet-4-5")
   - `trials`: Number of retry attempts per task/subtask (default: 3)
   - `max_steps`: Maximum steps per agent (default: 50)
   - `max_budget`: Maximum budget in USD (default: 100.0)
