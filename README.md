@@ -138,41 +138,6 @@ print(f"Metrics: {best_variant.metrics}")
 For usage examples, API reference, and configuration options, please see the [Agent Creator and Optimizer README](src/kiss/agents/create_and_optimize_agent/README.md).
 
 
-## 🎨 Output Formatting
-
-Unlike other agentic systems, you do not need to specify the output schema for the agent. Just create
-a suitable "finish" function with parameters. The parameters could be treated as the top level keys
-in a json format.
-
-**Example: Custom Structured Output**
-
-```python
-from kiss.core.kiss_agent import KISSAgent
-
-# Define a custom finish function with your desired output structure
-def finish(
-    sentiment: str,
-    confidence: float,
-    key_phrases: str,
-    summary: str
-) -> str:
-    """
-    Complete the analysis with structured results.
-    
-    Args:
-        sentiment: The overall sentiment ('positive', 'negative', or 'neutral')
-        confidence: Confidence score between 0.0 and 1.0
-        key_phrases: Comma-separated list of key phrases found in the text
-        summary: A brief summary of the analysis
-    
-    Returns:
-        The formatted analysis result
-    """
-    ...
-
-```
-
-The agent will automatically use your custom `finish` function instead of the default one which returns its argument. The function's parameters define what information the agent must provide, and the docstring helps the LLM understand how to format each field.
 
 ## 💪 Using Relentless Coding Agent
 
@@ -229,6 +194,41 @@ print(f"Result: {result}")
 - **Built-in Tools**: Bash, Edit, and MultiEdit tools for file operations
 - **Budget & Token Tracking**: Automatic cost and token usage monitoring across all sub-agents
 
+## 🎨 Output Formatting
+
+Unlike other agentic systems, you do not need to specify the output schema for the agent. Just create
+a suitable "finish" function with parameters. The parameters could be treated as the top level keys
+in a json format.
+
+**Example: Custom Structured Output**
+
+```python
+from kiss.core.kiss_agent import KISSAgent
+
+# Define a custom finish function with your desired output structure
+def finish(
+    sentiment: str,
+    confidence: float,
+    key_phrases: str,
+    summary: str
+) -> str:
+    """
+    Complete the analysis with structured results.
+    
+    Args:
+        sentiment: The overall sentiment ('positive', 'negative', or 'neutral')
+        confidence: Confidence score between 0.0 and 1.0
+        key_phrases: Comma-separated list of key phrases found in the text
+        summary: A brief summary of the analysis
+    
+    Returns:
+        The formatted analysis result
+    """
+    ...
+
+```
+
+The agent will automatically use your custom `finish` function instead of the default one which returns its argument. The function's parameters define what information the agent must provide, and the docstring helps the LLM understand how to format each field.
 
 ## 📖 Overview
 
@@ -322,28 +322,28 @@ uv sync --group claude --group dev
 
 ### KISSAgent API Reference
 
-> 📖 **For detailed KISSAgent API documentation, see [API.md](API.md)**
+📖 **For detailed KISSAgent API documentation, see [API.md](API.md)**
 
 
 
-### Using GEPA for Prompt Optimization
+## 🎯 Using GEPA for Prompt Optimization
 
-📖 **For detailed GEPA documentation, see [GEPA README](src/kiss/agents/gepa/README.md)**
 
 KISS has a fresh implementation of GEPA with some improvements. GEPA (Genetic-Pareto) is a prompt optimization framework that uses natural language reflection to evolve prompts. It maintains an instance-level Pareto frontier of top-performing prompts and combines complementary lessons through structural merge. GEPA is based on the paper ["GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning"](https://arxiv.org/pdf/2507.19457).
 
-For usage examples, API reference, and configuration options, please see the [GEPA README](src/kiss/agents/gepa/README.md).
+📖 **For detailed GEPA documentation, see [GEPA README](src/kiss/agents/gepa/README.md)**
 
 ### Using KISSEvolve for Algorithm Discovery
 
-📖 **For detailed KISSEvolve documentation, see [KISSEvolve README](src/kiss/agents/kiss_evolve/README.md)**
 
 KISSEvolve is an evolutionary algorithm discovery framework that uses LLM-guided mutation and crossover to evolve code variants. It supports advanced features including island-based evolution, novelty rejection sampling, and multiple parent sampling methods.
 
 For usage examples, API reference, and configuration options, please see the [KISSEvolve README](src/kiss/agents/kiss_evolve/README.md).
 
+📖 **For detailed KISSEvolve documentation, see [KISSEvolve README](src/kiss/agents/kiss_evolve/README.md)**
 
-### Using KISS Coding Agent
+
+## 💻 Using KISS Coding Agent
 
 The KISS Coding Agent is a multi-agent system with orchestration and sub-agents using KISSAgent. It efficiently breaks down complex coding tasks into manageable sub-tasks and includes automatic prompt refinement on failures:
 
@@ -380,7 +380,7 @@ print(f"Result: {result}")
 - **Path Access Control**: Enforces read/write permissions on file system paths before command execution
 - **Docker Support**: Optional Docker container execution via the `docker_image` parameter for isolated bash command execution
 
-### Using Claude Coding Agent
+## 🧠 Using Claude Coding Agent
 
 Since everyone loves Claude Code, I thought I will provide API access to Claude Code so that you can use the best coding agent.
 The Claude Coding Agent uses the Claude Agent SDK to generate tested Python programs with file system access controls:
@@ -413,7 +413,7 @@ if result:
 - `Bash`: Shell command execution
 - `WebSearch`, `WebFetch`: Web access
 
-### Using Gemini CLI Agent
+## 🤖 Using Gemini CLI Agent
 
 The Gemini CLI Agent uses the Google ADK (Agent Development Kit) to generate tested Python programs:
 
@@ -434,7 +434,7 @@ if result:
     print(f"Result: {result}")
 ```
 
-### Using OpenAI Codex Agent
+## 🌐 Using OpenAI Codex Agent
 
 The OpenAI Codex Agent uses the OpenAI Agents SDK to generate tested Python programs:
 
@@ -509,7 +509,7 @@ The SWE-bench Verified agent is a Software Engineering agent that:
 
 See the [SWE-bench Verified README](src/kiss/evals/swe_agent_verified/README.md) for detailed documentation.
  -->
-### Using SimpleRAG for Retrieval-Augmented Generation
+## 🔍 Using SimpleRAG for Retrieval-Augmented Generation
 
 SimpleRAG provides a lightweight RAG system with in-memory vector storage and similarity search:
 
@@ -630,7 +630,7 @@ result = run_simple_coding_agent(
 )
 print(result)
 ```
-## Project Structure -->
+## 📁 Project Structure -->
 
 ## ⚡ Multiprocessing
 
@@ -740,7 +740,7 @@ with DockerManager(image_name="nginx", ports={80: 8080}) as docker:
 
 The Docker manager automatically handles image pulling, container lifecycle, and cleanup of temporary directories.
 
-## Project Structure -->
+## 📁 Project Structure -->
 
 
 
