@@ -278,7 +278,7 @@ export TOGETHER_API_KEY="your-key-here"
 export OPENROUTER_API_KEY="your-key-here"
 ```
 
-### 📋 Selective Installation (Dependency Groups)
+### Selective Installation (Dependency Groups)
 
 KISS supports selective installation via dependency groups for minimal footprints:
 
@@ -320,7 +320,7 @@ uv sync --group claude --group dev
 | `evals` | Benchmark running | datasets, swebench, orjson, scipy, scikit-learn |
 | `dev` | Development tools | mypy, ruff, pyright, pytest, jupyter, notebook |
 
-### 📚 KISSAgent API Reference
+## 📚 KISSAgent API Reference
 
 📖 **For detailed KISSAgent API documentation, see [API.md](API.md)**
 
@@ -695,7 +695,7 @@ print(result)
 
 KISS provides utilities for parallel execution of Python functions using multiprocessing. This is useful for running multiple independent tasks concurrently to maximize CPU utilization.
 
-### 🚀 Basic Usage
+### Basic Usage
 
 ```python
 from kiss.multiprocessing import run_functions_in_parallel
@@ -712,7 +712,7 @@ results = run_functions_in_parallel(tasks)
 print(results)  # [3, 12]
 ```
 
-### 🔑 With Keyword Arguments
+### With Keyword Arguments
 
 ```python
 from kiss.multiprocessing import run_functions_in_parallel_with_kwargs
@@ -743,7 +743,7 @@ The multiprocessing utilities automatically scale to the number of available CPU
 
 KISS provides a `DockerManager` class for managing Docker containers and executing commands inside them. This is useful for running code in isolated environments, testing with specific dependencies, or working with SWE-bench tasks.
 
-### 🚀 Basic Usage
+### Basic Usage
 
 ```python
 from kiss.docker import DockerManager
@@ -758,7 +758,7 @@ with DockerManager(image_name="ubuntu", tag="22.04", workdir="/app") as docker:
     print(output)
 ```
 
-### 🔧 Manual Lifecycle Management
+### Manual Lifecycle Management
 
 ```python
 from kiss.docker import DockerManager
@@ -774,7 +774,7 @@ finally:
     docker.close()  # Stop and remove container
 ```
 
-### 🔌 Port Mapping
+### Port Mapping
 
 ```python
 from kiss.docker import DockerManager
@@ -789,7 +789,7 @@ with DockerManager(image_name="nginx", ports={80: 8080}) as docker:
     print(f"Server available at http://localhost:{host_port}")
 ```
 
-### ⚙️ Configuration Options
+### Configuration Options
 
 - `image_name`: Docker image name (e.g., 'ubuntu', 'python:3.11')
 - `tag`: Image tag/version (default: 'latest')
@@ -1004,14 +1004,14 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
 
 ## 🛠️ Available Commands
 
-### 💻 Development
+### Development
 
 - `uv sync` - Install all dependencies (full installation)
 - `uv sync --group dev` - Install dev tools (mypy, ruff, pytest, jupyter, etc.)
 - `uv sync --group <name>` - Install specific dependency group (see [Selective Installation](#selective-installation-dependency-groups))
 - `uv build` - Build the project package
 
-### 🧪 Testing
+### Testing
 
 - `uv run pytest` - Run all tests (uses testpaths from pyproject.toml)
 - `uv run pytest src/kiss/tests/ -v` - Run all tests with verbose output
@@ -1023,7 +1023,7 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
 - `uv run python -m unittest src.kiss.tests.test_docker_manager -v` - Run docker manager tests (unittest)
 - `uv run python -m unittest discover -s src/kiss/tests -v` - Run all tests using unittest
 
-### ✅ Code Quality
+### Code Quality
 
 - `uv run check` - Run all code quality checks (fresh dependency install, build, lint, and type check)
 - `uv run check --clean` - Run all code quality checks (fresh dependency install, build, lint, and type check after removing previous build options)
@@ -1032,7 +1032,7 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
 - `uv run mypy src/` - Type check with mypy (python_version: 3.13)
 - `uv run pyright src/` - Type check with pyright (alternative to mypy, stricter checking)
 
-### 📓 Notebook
+### Notebook
 
 - `uv run notebook --test` - Test all imports and basic functionality
 - `uv run notebook --lab` - Open the tutorial notebook in JupyterLab (recommended)
@@ -1040,7 +1040,7 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
 - `uv run notebook --execute` - Execute notebook cells and update outputs in place
 - `uv run notebook --convert` - Convert notebook to Python script
 
-### 🧹 Cleanup
+### Cleanup
 
 ```bash
 rm -rf build/ dist/ .pytest_cache .mypy_cache .ruff_cache && \
@@ -1058,7 +1058,7 @@ Agent trajectories are automatically saved to the artifacts directory (default: 
 - Timestamps
 - Budget and token usage statistics
 
-### 👁️ Visualizing Trajectories
+### Visualizing Trajectories
 
 The framework includes a web-based trajectory visualizer for viewing agent execution histories:
 
@@ -1081,7 +1081,10 @@ The visualizer provides:
 - **Message Display**: Clean, organized view of agent conversations
 - **Metadata Display**: Shows agent ID, model, steps, tokens, and budget information
 
-> 📖 **For detailed trajectory visualizer documentation, see [Trajectory Visualizer README](src/kiss/viz_trajectory/README.md)**
+📖 **For detailed trajectory visualizer documentation, see [Trajectory Visualizer README](src/kiss/viz_trajectory/README.md)**
+
+
+## 🤖 Models Supported
 
 **Supported Models**: The framework includes context length, pricing, and capability flags for:
 
@@ -1127,7 +1130,7 @@ Each model in `MODEL_INFO` includes capability flags:
 
 Token counts are extracted directly from API responses, ensuring accuracy and supporting multiple agents sharing the same model instance.
 
-### 🔢 Embedding Support
+### Embedding Support
 
 The framework provides embedding generation capabilities through the `get_embedding()` method on model instances:
 
