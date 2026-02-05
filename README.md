@@ -95,9 +95,9 @@ print(final)
 
 No special orchestration framework needed. No message buses. No complex state machines. Just Python functions calling Python functions.
 
-### Using Agent Creator and Optimizer
+## Using Agent Creator and Optimizer
 
-> 📖 **For detailed Agent Creator and Optimizer documentation, see [Agent Creator and Optimizer README](src/kiss/agents/create_and_optimize_agent/README.md)**
+📖 **For detailed Agent Creator and Optimizer documentation, see [Agent Creator and Optimizer README](src/kiss/agents/create_and_optimize_agent/README.md)**
 
 The Agent Creator module provides tools to automatically evolve and optimize AI agents for **token efficiency**, **execution speed**, and **cost** using evolutionary algorithms with Pareto frontier maintenance.
 
@@ -270,7 +270,7 @@ uv sync --group claude --group dev
 
 ### Using GEPA for Prompt Optimization
 
-> 📖 **For detailed GEPA documentation, see [GEPA README](src/kiss/agents/gepa/README.md)**
+📖 **For detailed GEPA documentation, see [GEPA README](src/kiss/agents/gepa/README.md)**
 
 KISS has a fresh implementation of GEPA with some improvements. GEPA (Genetic-Pareto) is a prompt optimization framework that uses natural language reflection to evolve prompts. It maintains an instance-level Pareto frontier of top-performing prompts and combines complementary lessons through structural merge. GEPA is based on the paper ["GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning"](https://arxiv.org/pdf/2507.19457).
 
@@ -278,7 +278,7 @@ For usage examples, API reference, and configuration options, please see the [GE
 
 ### Using KISSEvolve for Algorithm Discovery
 
-> 📖 **For detailed KISSEvolve documentation, see [KISSEvolve README](src/kiss/agents/kiss_evolve/README.md)**
+📖 **For detailed KISSEvolve documentation, see [KISSEvolve README](src/kiss/agents/kiss_evolve/README.md)**
 
 KISSEvolve is an evolutionary algorithm discovery framework that uses LLM-guided mutation and crossover to evolve code variants. It supports advanced features including island-based evolution, novelty rejection sampling, and multiple parent sampling methods.
 
