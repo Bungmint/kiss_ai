@@ -49,7 +49,7 @@ That's a fully functional AI agent that uses tools. No annotations. No boilerpla
 
 KISS uses **native function calling** from the LLM providers for efficiency and accuracy. Your Python functions become tools automatically. Type hints become schemas. Docstrings become descriptions. No crazy annotations.  Everything just works.
 
-## Blogs
+## 📝 Blogs
 
 - [Meet KISS Agent Framework](https://dev.to/koushik_sen_d549bf321e6fb/meet-the-kiss-agent-framework-2ij6/)
 - [Agent Evolver: The Darwin of AI Agents](https://dev.to/koushik_sen_d549bf321e6fb/agent-evolver-the-darwin-of-ai-agents-4iio)
@@ -97,7 +97,7 @@ print(final)
 
 No special orchestration framework needed. No message buses. No complex state machines. Just Python functions calling Python functions.
 
-## Using Agent Creator and Optimizer
+## 🧬 Using Agent Creator and Optimizer
 
 📖 **For detailed Agent Creator and Optimizer documentation, see [Agent Creator and Optimizer README](src/kiss/agents/create_and_optimize_agent/README.md)**
 
@@ -138,7 +138,7 @@ print(f"Metrics: {best_variant.metrics}")
 For usage examples, API reference, and configuration options, please see the [Agent Creator and Optimizer README](src/kiss/agents/create_and_optimize_agent/README.md).
 
 
-## Output Formatting
+## 🎨 Output Formatting
 
 Unlike other agentic systems, you do not need to specify the output schema for the agent. Just create
 a suitable "finish" function with parameters. The parameters could be treated as the top level keys
@@ -174,13 +174,13 @@ def finish(
 
 The agent will automatically use your custom `finish` function instead of the default one which returns its argument. The function's parameters define what information the agent must provide, and the docstring helps the LLM understand how to format each field.
 
-## Overview
+## 📖 Overview
 
 KISS is a lightweight, yet powerful, multi agent framework that implements a ReAct (Reasoning and Acting) loop for LLM agents. The framework provides:
 
 - **Simple Architecture**: Clean, minimal core that's easy to understand and extend
-- **Multi-Agent Coding System**: Relentless Coding Agent with orchestration, sub-agent management, and automatic task hand-off (new idea)
-- **Create and Optimize Agent**: Multi-objective agent evolution and improvement with Pareto frontier (new idea)
+- **Multi-Agent Coding System**: Relentless Coding Agent with orchestration, sub-agent management, and automatic task hand-off (💡 new idea)
+- **Create and Optimize Agent**: Multi-objective agent evolution and improvement with Pareto frontier (💡 new idea)
 - **GEPA Implementation From Scratch**: Genetic-Pareto prompt optimization for compound AI systems
 - **KISSEvolve Implementation From Scratch**: Evolutionary algorithm discovery framework with LLM-guided mutation and crossover
 - **Model Agnostic**: Support for multiple LLM providers (OpenAI, Anthropic, Gemini, Together AI, OpenRouter)
@@ -196,7 +196,7 @@ KISS is a lightweight, yet powerful, multi agent framework that implements a ReA
 - **Multiprocessing Support**: Utilities for parallel execution of functions using multiprocessing
 - **Trajectory Visualization**: Web-based visualizer for viewing agent execution trajectories with modern UI
 
-## Installation
+## 📦 Installation
 
 ```bash
 # Install uv if you haven't already
@@ -333,7 +333,7 @@ print(f"Result: {result}")
 **Key Features:**
 
 - **Multi-Agent Architecture**: Orchestrator delegates tasks to executor sub-agents for parallel task handling
-- **Token-Aware Continuation**: Agents signal when 50% of tokens are used, allowing seamless task handoff with context preservation (new idea)
+- **Token-Aware Continuation**: Agents signal when 50% of tokens are used, allowing seamless task handoff with context preservation (💡 new idea)
 - **Retry with Context**: Failed tasks automatically retry with previous summary appended to the prompt
 - **Configurable Trials**: Set high trial counts (e.g., 200+) for truly relentless execution
 - **Docker Support**: Optional isolated execution via Docker containers
@@ -630,7 +630,7 @@ print(result)
 ```
 ## Project Structure -->
 
-## Multiprocessing
+## ⚡ Multiprocessing
 
 KISS provides utilities for parallel execution of Python functions using multiprocessing. This is useful for running multiple independent tasks concurrently to maximize CPU utilization.
 
@@ -678,6 +678,67 @@ print(f"Available CPU cores: {num_cores}")
 
 The multiprocessing utilities automatically scale to the number of available CPU cores, using at most as many workers as there are tasks to avoid unnecessary overhead.
 
+## 🐳 Docker Manager
+
+KISS provides a `DockerManager` class for managing Docker containers and executing commands inside them. This is useful for running code in isolated environments, testing with specific dependencies, or working with SWE-bench tasks.
+
+### Basic Usage
+
+```python
+from kiss.docker import DockerManager
+
+# Create a Docker manager for an Ubuntu container
+with DockerManager(image_name="ubuntu", tag="22.04", workdir="/app") as docker:
+    # Run commands inside the container
+    output = docker.run_bash_command("echo 'Hello from Docker!'", "Print greeting")
+    print(output)
+    
+    output = docker.run_bash_command("python3 --version", "Check Python version")
+    print(output)
+```
+
+### Manual Lifecycle Management
+
+```python
+from kiss.docker import DockerManager
+
+docker = DockerManager(image_name="python", tag="3.11", workdir="/workspace")
+docker.open()  # Pull image and start container
+
+try:
+    output = docker.run_bash_command("pip install numpy", "Install numpy")
+    output = docker.run_bash_command("python -c 'import numpy; print(numpy.__version__)'", "Check numpy")
+    print(output)
+finally:
+    docker.close()  # Stop and remove container
+```
+
+### Port Mapping
+
+```python
+from kiss.docker import DockerManager
+
+# Map container port 8080 to host port 8080
+with DockerManager(image_name="nginx", ports={80: 8080}) as docker:
+    # Start a web server
+    docker.run_bash_command("nginx", "Start nginx")
+    
+    # Get the actual host port (useful when Docker assigns a random port)
+    host_port = docker.get_host_port(80)
+    print(f"Server available at http://localhost:{host_port}")
+```
+
+### Configuration Options
+
+- `image_name`: Docker image name (e.g., 'ubuntu', 'python:3.11')
+- `tag`: Image tag/version (default: 'latest')
+- `workdir`: Working directory inside the container (default: '/')
+- `mount_shared_volume`: Whether to mount a shared volume for file transfer (default: True)
+- `ports`: Port mapping from container to host (e.g., `{8080: 8080}`)
+
+The Docker manager automatically handles image pulling, container lifecycle, and cleanup of temporary directories.
+
+## Project Structure -->
 
 
 
@@ -786,7 +847,7 @@ kiss/
 └── README.md
 ```
 
-## Versioning
+## 🏷️ Versioning
 
 The project uses semantic versioning (MAJOR.MINOR.PATCH). The version is defined in a single source of truth:
 
@@ -807,7 +868,7 @@ To update the version, simply edit `src/kiss/_version.py`:
 __version__ = "0.1.0"  # Update to new version
 ```
 
-## Configuration
+## ⚙️ Configuration
 
 Configuration is managed through environment variables and the `DEFAULT_CONFIG` object:
 
@@ -880,7 +941,7 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
   - `docker_image`: Docker image for execution (default: "python:3.12-slim")
   - `workdir`: Working directory in container (default: "/workspace")
 
-## Available Commands
+## 🛠️ Available Commands
 
 ### Development
 
@@ -926,7 +987,7 @@ find . -type d -name __pycache__ -exec rm -r {} + && \
 find . -type f -name "*.pyc" -delete
 ```
 
-## Trajectory Saving and Visualization
+## 📊 Trajectory Saving and Visualization
 
 Agent trajectories are automatically saved to the artifacts directory (default: `artifacts/`). Each trajectory includes:
 
@@ -1022,7 +1083,7 @@ The framework provides embedding generation capabilities through the `get_embedd
 
 Embeddings are primarily used by the `SimpleRAG` system for document retrieval. When using `SimpleRAG`, ensure you use an OpenAI, Together AI, or Gemini model that supports embeddings.
 
-## Contributing
+## 🤗 Contributing
 
 Contributions are welcome! Please ensure your code:
 
@@ -1032,10 +1093,10 @@ Contributions are welcome! Please ensure your code:
 - Passes type checking (`uv run mypy src/`)
 - Passes type checking (`uv run pyright src/`)
 
-## License
+## 📄 License
 
 Apache-2.0
 
-## Authors
+## ✍️ Authors
 
 - Koushik Sen (ksen@berkeley.edu) | [LinkedIn](https://www.linkedin.com/in/koushik-sen-80b99a/) | [X @koushik77](https://x.com/koushik77)
