@@ -38,7 +38,7 @@ class TestOpenAICodexAgentPermissions(unittest.TestCase):
 
         self.agent = OpenAICodexAgent("test-agent")
         self.agent._reset(
-            model_name="gpt-5.2-codex",
+            model_name="gpt-5.3-codex",
             readable_paths=[str(self.readable_dir)],
             writable_paths=[str(self.writable_dir)],
             base_dir=str(self.temp_dir),
@@ -124,7 +124,7 @@ class TestOpenAICodexAgentPermissions(unittest.TestCase):
         self.assertFalse(new_dir.exists())
 
         agent = OpenAICodexAgent("test-agent-2")
-        agent._reset("gpt-5.2-codex", None, None, str(new_dir), 10, 0.5, None)
+        agent._reset("gpt-5.3-codex", None, None, str(new_dir), 10, 0.5, None)
         self.assertTrue(new_dir.exists())
 
 
@@ -165,7 +165,7 @@ class TestOpenAICodexAgentRun(unittest.TestCase):
         task = """Write a simple Python function that adds two numbers."""
 
         result = agent.run(
-            model_name="gpt-5.2-codex",
+            model_name="gpt-5.3-codex",
             prompt_template=task,
             readable_paths=[str(self.project_root / "src")],
             writable_paths=[str(self.output_dir)],

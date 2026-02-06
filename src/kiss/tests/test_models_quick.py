@@ -39,7 +39,7 @@ TEST_TIMEOUT = 60
 ALL_GENERATION_MODELS = [
     "gpt-4.1-mini",  # OpenAI - fast, reliable
     "Qwen/Qwen3-Next-80B-A3B-Instruct",  # Together AI Qwen - fast MoE
-    "zai-org/GLM-4.6",  # Together AI GLM - fast, reliable
+    "zai-org/GLM-4.7",  # Together AI GLM - enhanced agentic coding
     "claude-haiku-4-5",  # Anthropic - fast
     "openrouter/google/gemini-2.5-flash",  # OpenRouter Gemini - fast
     "openrouter/amazon/nova-lite-v1",  # OpenRouter Nova - fast, affordable

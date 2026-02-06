@@ -21,7 +21,7 @@ from kiss.core.simple_formatter import SimpleFormatter
 from kiss.core.useful_tools import UsefulTools
 from kiss.core.utils import is_subpath, resolve_path
 
-DEFAULT_CODEX_MODEL = "gpt-5.2-codex"
+DEFAULT_CODEX_MODEL = "gpt-5.3-codex"
 
 SANDBOX_READ_ONLY = "read-only"
 SANDBOX_WORKSPACE_WRITE = "workspace-write"
@@ -254,7 +254,7 @@ def main() -> None:
     task_description = """
     can you write, test, and optimize a fibonacci function in Python that is efficient and correct?
     """
-    result = agent.run(model_name="gpt-5.2-codex", prompt_template=task_description)
+    result = agent.run(model_name="gpt-5.3-codex", prompt_template=task_description)
 
     if result:
         print("\n--- FINAL AGENT REPORT ---")

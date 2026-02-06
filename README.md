@@ -535,7 +535,7 @@ from kiss.agents.coding_agents import OpenAICodexAgent
 agent = OpenAICodexAgent(name="My Coding Agent")
 
 result = agent.run(
-    model_name="gpt-5.2-codex",
+    model_name="gpt-5.3-codex",
     prompt_template="Write a fibonacci function with tests",
     readable_paths=["src/"],
     writable_paths=["output/"],
@@ -1122,29 +1122,34 @@ The visualizer provides:
 
 **Generation Models** (text generation with function calling support):
 
-- **OpenAI**: gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4, gpt-5, gpt-5.1, gpt-5.2
-- **Anthropic**: claude-opus-4-5, claude-opus-4-1, claude-sonnet-4-5, claude-sonnet-4, claude-haiku-4-5
+- **OpenAI**: gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4, gpt-5, gpt-5.1, gpt-5.2, gpt-5.3-codex
+- **Anthropic**: claude-opus-4-5, claude-opus-4-1, claude-sonnet-4-5, claude-sonnet-4, claude-haiku-4-5, claude-opus-4-6
 - **Gemini**: gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash
 - **Gemini (preview, unreliable function calling)**: gemini-3-pro-preview, gemini-3-flash-preview, gemini-2.5-flash-lite
 - **Together AI (Llama)**: Llama-4-Scout/Maverick (with function calling), Llama-3.x series (generation only)
 - **Together AI (Qwen)**: Qwen2.5-72B-Instruct-Turbo, Qwen3 series (with function calling)
 - **Together AI (DeepSeek)**: DeepSeek-R1, DeepSeek-V3.1 (with function calling)
 - **Together AI (Other)**: Kimi-K2-Instruct, GLM-4.5/4.6, Nemotron-Nano-9B
-- **OpenRouter**: Access to 400+ models from multiple providers via unified API:
-  - OpenAI (gpt-4.1, gpt-4o, gpt-5, gpt-5.1, gpt-5.2, o1, o3, o3-pro, o4-mini, codex-mini)
-  - Anthropic (claude-3-haiku, claude-3.5-haiku, claude-3.5-sonnet, claude-3.7-sonnet, claude-sonnet-4/4.5, claude-haiku-4.5, claude-opus-4/4.1/4.5)
-  - Google (gemini-2.0-flash, gemini-2.5-flash/pro, gemini-3-flash/pro-preview, gemma-3-27b)
-  - Meta Llama (llama-3.3-70b, llama-4-maverick/scout)
-  - DeepSeek (deepseek-chat, deepseek-r1, deepseek-v3.1/v3.2)
-  - Qwen (qwen-2.5-72b, qwen-turbo/plus/max, qwen3-8b/14b/32b/235b, qwen3-coder, qwq-32b)
+- **OpenRouter**: Access to 325+ models from 50+ providers via unified API:
+  - OpenAI (gpt-3.5-turbo, gpt-4, gpt-4-turbo, gpt-4.1, gpt-4o variants, gpt-5/5.1/5.2, gpt-5-codex, o1, o3, o3-pro, o4-mini, codex-mini, gpt-audio)
+  - Anthropic (claude-3-haiku, claude-3.5-haiku/sonnet, claude-3.7-sonnet, claude-sonnet-4/4.5, claude-haiku-4.5, claude-opus-4/4.1/4.5/4.6)
+  - Google (gemini-2.0-flash, gemini-2.5-flash/pro, gemini-3-flash/pro-preview, gemma-2-9b/27b, gemma-3-4b/12b/27b)
+  - Meta Llama (llama-3-8b/70b, llama-3.1-8b/70b/405b, llama-3.2-1b/3b/11b-vision, llama-3.3-70b, llama-4-maverick/scout, llama-guard-2/3/4)
+  - DeepSeek (deepseek-chat, deepseek-r1/r1-turbo, deepseek-r1-distill variants, deepseek-v3/v3.2/v3.2-speciale, deepseek-coder-v2, deepseek-prover-v2)
+  - Qwen (qwen-2.5-7b/72b, qwen-turbo/plus/max, qwen3-8b/14b/30b/32b/235b, qwen3-coder/coder-plus/coder-next, qwen3-vl variants, qwq-32b)
   - Amazon Nova (nova-micro/lite/pro, nova-2-lite, nova-premier)
-  - Cohere (command-r, command-r-plus, command-a)
-  - X.AI Grok (grok-3/3-mini, grok-4/4-fast, grok-4.1-fast)
-  - MiniMax (minimax-m1, minimax-m2/m2.1)
-  - ByteDance Seed (seed-1.6, seed-1.6-flash)
-  - MoonshotAI (kimi-k2, kimi-k2-thinking)
-  - Mistral (codestral, devstral, mistral-large/medium/small, mixtral)
-  - And many more (nvidia, z-ai/glm, inception, arcee-ai, etc.)
+  - Cohere (command-r, command-r-plus, command-a, command-r7b)
+  - X.AI Grok (grok-3/3-mini, grok-4/4-fast, grok-4.1-fast, grok-code-fast)
+  - MiniMax (minimax-01, minimax-m1, minimax-m2/m2.1/m2-her)
+  - ByteDance Seed (seed-1.6, seed-1.6-flash, seed-2.0, seed-2.0-thinking)
+  - MoonshotAI (kimi-k2, kimi-k2-thinking, kimi-k2.5, kimi-dev-72b)
+  - Mistral (codestral, devstral, mistral-large/medium/small, mixtral-8x7b/8x22b, ministral-3b/8b/14b, pixtral, voxtral)
+  - NVIDIA (llama-3.1-nemotron-70b, llama-3.3-nemotron-super-49b, nemotron-nano-9b/12b-vl, nemotron-3-nano-30b)
+  - Z.AI/GLM (glm-4-32b, glm-4.5/4.5-air, glm-4.6/4.6v, glm-4.7/4.7-flash)
+  - AllenAI (olmo-3-7b/32b-instruct/think, olmo-3.1-32b-instruct/think, molmo-2-8b)
+  - Perplexity (sonar, sonar-pro, sonar-pro-search, sonar-deep-research, sonar-reasoning-pro)
+  - Prime Intellect (intellect-3)
+  - And 30+ more providers (aion-labs, arcee-ai, baidu, ibm-granite, inflection, liquid, morph, nousresearch, opengvlab, relace, sao10k, stepfun, tencent, thedrummer, tngtech, writer, etc.)
 
 **Embedding Models** (for RAG and semantic search):
 
