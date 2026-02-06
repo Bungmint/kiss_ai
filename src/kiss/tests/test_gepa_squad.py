@@ -11,7 +11,7 @@ import yaml
 from datasets import load_dataset
 
 import kiss.core.utils as utils
-from kiss.agents.gepa import GEPA
+from kiss.agents.gepa import GEPA, create_progress_callback
 from kiss.core.kiss_agent import KISSAgent
 from kiss.tests.conftest import requires_openai_api_key
 
@@ -177,6 +177,7 @@ as the 'result' argument.
             pareto_size=2,
             mutation_rate=0.5,
             dev_val_split=0.5,  # 50% dev, 50% val
+            progress_callback=create_progress_callback(),
         )
 
         # Run optimization with dev/val split

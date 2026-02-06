@@ -8,7 +8,7 @@
 import unittest
 
 import kiss.core.utils as utils
-from kiss.agents.gepa import GEPA, PromptCandidate
+from kiss.agents.gepa import GEPA, PromptCandidate, create_progress_callback
 from kiss.core.kiss_agent import KISSAgent
 from kiss.tests.conftest import requires_openai_api_key
 
@@ -126,6 +126,7 @@ Call finish with status='success' and result=<answer>."""
             max_generations=1,
             population_size=1,
             mutation_rate=0.0,
+            progress_callback=create_progress_callback(),
         )
 
         best = gepa.optimize(train_examples)
@@ -165,6 +166,7 @@ Call finish with status='success' and result=<answer>."""
             population_size=1,
             dev_val_split=0.5,
             mutation_rate=0.0,
+            progress_callback=create_progress_callback(),
         )
 
         best = gepa.optimize(train_examples)
@@ -205,6 +207,7 @@ Call finish with status='success' and result=<answer>."""
             max_generations=1,
             population_size=1,
             mutation_rate=0.0,
+            progress_callback=create_progress_callback(),
         )
 
         best = gepa.optimize(train_examples, dev_minibatch_size=2)
@@ -248,6 +251,7 @@ class TestGEPAOptimizeWithMutation(unittest.TestCase):
             pareto_size=2,
             mutation_rate=0.8,  # High mutation rate
             dev_val_split=0.5,
+            progress_callback=create_progress_callback(verbose=True),
         )
 
         best = gepa.optimize(train_examples, dev_minibatch_size=2)
@@ -290,6 +294,7 @@ class TestGEPAOptimizeWithMutation(unittest.TestCase):
             pareto_size=3,
             mutation_rate=0.5,
             dev_val_split=0.5,
+            progress_callback=create_progress_callback(),
         )
 
         best = gepa.optimize(train_examples, dev_minibatch_size=2)
@@ -332,6 +337,7 @@ class TestGEPAOptimizeParetoFrontier(unittest.TestCase):
             population_size=2,
             pareto_size=3,
             mutation_rate=0.5,
+            progress_callback=create_progress_callback(),
         )
 
         gepa.optimize(train_examples)
@@ -377,6 +383,7 @@ class TestGEPAOptimizeParetoFrontier(unittest.TestCase):
             population_size=3,
             pareto_size=pareto_size,
             mutation_rate=0.6,
+            progress_callback=create_progress_callback(),
         )
 
         gepa.optimize(train_examples)
@@ -421,6 +428,7 @@ class TestGEPAOptimizeWithMerge(unittest.TestCase):
             use_merge=True,
             merge_val_overlap_floor=1,
             max_merge_invocations=3,
+            progress_callback=create_progress_callback(verbose=True),
         )
 
         best = gepa.optimize(train_examples, dev_minibatch_size=2)
@@ -457,6 +465,7 @@ class TestGEPAOptimizeWithMerge(unittest.TestCase):
             population_size=2,
             mutation_rate=0.5,
             use_merge=False,
+            progress_callback=create_progress_callback(),
         )
 
         best = gepa.optimize(train_examples)
@@ -497,6 +506,7 @@ class TestGEPAOptimizeGetters(unittest.TestCase):
             max_generations=1,
             population_size=1,
             mutation_rate=0.0,
+            progress_callback=create_progress_callback(),
         )
 
         gepa.optimize(train_examples)
@@ -534,6 +544,7 @@ class TestGEPAOptimizeGetters(unittest.TestCase):
             max_generations=1,
             population_size=1,
             mutation_rate=0.0,
+            progress_callback=create_progress_callback(),
         )
 
         gepa.optimize(train_examples)
@@ -597,6 +608,7 @@ Answer using the finish tool."""
             max_generations=1,
             population_size=1,
             mutation_rate=0.0,
+            progress_callback=create_progress_callback(),
         )
 
         best = gepa.optimize(train_examples)
@@ -634,6 +646,7 @@ Answer using the finish tool."""
             max_generations=2,
             population_size=2,
             mutation_rate=0.5,
+            progress_callback=create_progress_callback(),
         )
 
         best = gepa.optimize(train_examples)
@@ -673,6 +686,7 @@ class TestGEPAOptimizeScoring(unittest.TestCase):
             max_generations=1,
             population_size=1,
             mutation_rate=0.0,
+            progress_callback=create_progress_callback(),
         )
 
         best = gepa.optimize(train_examples)
@@ -716,6 +730,7 @@ class TestGEPAOptimizeScoring(unittest.TestCase):
             population_size=2,
             mutation_rate=0.5,
             perfect_score=1.0,
+            progress_callback=create_progress_callback(),
         )
 
         best = gepa.optimize(train_examples)
@@ -754,6 +769,7 @@ class TestGEPAOptimizeEdgeCases(unittest.TestCase):
             max_generations=1,
             population_size=1,
             mutation_rate=0.0,
+            progress_callback=create_progress_callback(),
         )
 
         best = gepa.optimize(train_examples)
@@ -790,6 +806,7 @@ class TestGEPAOptimizeEdgeCases(unittest.TestCase):
             max_generations=1,
             population_size=1,
             mutation_rate=0.0,
+            progress_callback=create_progress_callback(),
         )
 
         best = gepa.optimize(train_examples)
@@ -827,6 +844,7 @@ class TestGEPAOptimizeEdgeCases(unittest.TestCase):
             population_size=2,
             pareto_size=3,
             mutation_rate=0.5,
+            progress_callback=create_progress_callback(),
         )
 
         best = gepa.optimize(train_examples)
@@ -872,6 +890,7 @@ Solve and call finish with status='success' and result=<answer>."""
             max_generations=1,
             population_size=1,
             mutation_rate=0.0,
+            progress_callback=create_progress_callback(),
         )
 
         gepa.optimize(train_examples)

@@ -6,7 +6,7 @@
 """Test GEPA optimization and measure improvement factor."""
 
 import kiss.core.utils as utils
-from kiss.agents.gepa import GEPA
+from kiss.agents.gepa import GEPA, create_progress_callback
 from kiss.core.kiss_agent import KISSAgent
 from kiss.core.kiss_error import KISSError
 from kiss.tests.conftest import has_openai_api_key
@@ -175,6 +175,7 @@ Do something with it."""
         dev_val_split=0.5,
         use_merge=True,
         merge_val_overlap_floor=1,
+        progress_callback=create_progress_callback(verbose=True),
     )
 
     print("\nRunning optimization...")

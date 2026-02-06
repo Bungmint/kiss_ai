@@ -1408,6 +1408,7 @@ GEPA(
     use_merge: bool = True,
     max_merge_invocations: int = 5,
     merge_val_overlap_floor: int = 2,
+    progress_callback: Callable[[GEPAProgress], None] | None = None,
 )
 ```
 
@@ -1426,6 +1427,59 @@ GEPA(
 - `use_merge` (bool): Whether to use structural merge. Default is True.
 - `max_merge_invocations` (int): Maximum merge attempts. Default is 5.
 - `merge_val_overlap_floor` (int): Minimum validation overlap for merge. Default is 2.
+- `progress_callback` (Callable | None): Optional callback function called with `GEPAProgress` during optimization.
+
+### GEPAPhase
+
+Enum representing the current phase of GEPA optimization:
+
+```python
+class GEPAPhase(Enum):
+    DEV_EVALUATION = "dev_evaluation"    # Evaluating on dev set
+    VAL_EVALUATION = "val_evaluation"    # Evaluating on validation set
+    REFLECTION = "reflection"            # LLM reflecting to generate mutations
+    MUTATION_GATING = "mutation_gating"  # Testing if mutation should be accepted
+    MERGE = "merge"                      # Structural merge from Pareto frontier
+    PARETO_UPDATE = "pareto_update"      # New candidate added to Pareto frontier
+```
+
+### GEPAProgress
+
+Progress information passed to the callback during optimization:
+
+```python
+@dataclass
+class GEPAProgress:
+    generation: int              # Current generation number (0-indexed)
+    max_generations: int         # Total number of generations
+    phase: GEPAPhase             # Current optimization phase
+    candidate_id: int | None     # ID of current candidate (if applicable)
+    candidate_index: int | None  # Index in population (if applicable)
+    population_size: int         # Current population size
+    best_val_accuracy: float | None     # Best validation accuracy so far
+    current_val_accuracy: float | None  # Current candidate's validation accuracy
+    pareto_frontier_size: int    # Size of Pareto frontier
+    num_candidates_evaluated: int  # Candidates evaluated this generation
+    message: str                 # Description of current activity
+```
+
+### create_progress_callback
+
+```python
+def create_progress_callback(verbose: bool = False) -> Callable[[GEPAProgress], None]
+```
+
+Create a standard progress callback for GEPA optimization.
+
+**Parameters:**
+
+- `verbose` (bool): If True, prints all phases. If False, only prints val evaluation completion messages and Pareto frontier updates.
+
+**Returns:**
+
+- A callback function that prints progress updates during optimization.
+
+**Note:** The `pareto_update` phase is always printed (even when `verbose=False`) to show when new candidates join the Pareto frontier, including the full prompt template.
 
 ### Methods
 
