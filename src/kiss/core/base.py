@@ -20,15 +20,7 @@ from kiss.core.utils import config_to_dict
 
 
 def _str_presenter(dumper: yaml.Dumper, data: str) -> ScalarNode:
-    """Custom YAML string presenter that uses literal block style for multiline strings.
-
-    Args:
-        dumper: The YAML dumper instance.
-        data: The string data to represent.
-
-    Returns:
-        ScalarNode: A YAML scalar node with literal block style.
-    """
+    """Use literal block style for multiline strings in YAML output."""
     return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")  # type: ignore[reportUnknownMemberType]
 
 

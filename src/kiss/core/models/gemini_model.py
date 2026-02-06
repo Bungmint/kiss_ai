@@ -33,18 +33,7 @@ class GeminiModel(Model):
         """
         super().__init__(model_name, model_config=model_config)
         self.api_key = api_key
-        # Store thought signatures from function calls for use in responses
         self._thought_signatures: dict[str, bytes] = {}
-
-    def __str__(self) -> str:
-        """Return string representation of the model.
-
-        Returns:
-            str: A string describing the model class and name.
-        """
-        return f"{self.__class__.__name__}(name={self.model_name})"
-
-    __repr__ = __str__
 
     def initialize(self, prompt: str) -> None:
         """Initializes the conversation with an initial user prompt.

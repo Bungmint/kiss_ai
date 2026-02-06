@@ -99,23 +99,7 @@ class SubTask:
         SubTask.task_counter += 1
 
     def __repr__(self) -> str:
-        """Return a detailed string representation of the SubTask.
-
-        Returns:
-            str: A string showing the SubTask's id, name, and description.
-        """
-        return (
-            f"SubTask(id={self.id}, name={self.name}, "
-            f"description={self.description})"
-        )
-
-    def __str__(self) -> str:
-        """Return string representation of the SubTask.
-
-        Returns:
-            str: Same as __repr__.
-        """
-        return self.__repr__()
+        return f"SubTask(id={self.id}, name={self.name}, description={self.description})"
 
 
 class RelentlessCodingAgent(Base):

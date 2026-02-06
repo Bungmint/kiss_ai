@@ -578,6 +578,8 @@ ______________________________________________________________________
 
 ## ClaudeCodingAgent
 
+> **Requires:** `claude-agent-sdk` and `anthropic` packages. Install with `uv sync --group claude-coding-agent`. This class is `None` if the SDK is not installed.
+
 A coding agent that uses the Claude Agent SDK to generate tested Python programs with file system access controls.
 
 ### Constructor
@@ -686,6 +688,8 @@ ______________________________________________________________________
 
 ## GeminiCliAgent
 
+> **Requires:** `google-adk` and `google-genai` packages. Install with `uv sync --group gemini`. This class is `None` if the SDK is not installed.
+
 A coding agent that uses the Google ADK (Agent Development Kit) to generate tested Python programs with file system access controls.
 
 ### Constructor
@@ -791,6 +795,8 @@ if result:
 ______________________________________________________________________
 
 ## OpenAICodexAgent
+
+> **Requires:** `openai-agents` package. Install with `uv sync --group openai`. This class is `None` if the SDK is not installed.
 
 A coding agent that uses the OpenAI Agents SDK to generate tested Python programs with file system access controls.
 

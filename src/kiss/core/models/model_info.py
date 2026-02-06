@@ -15,10 +15,22 @@ from typing import Any
 
 from kiss.core import config as config_module
 from kiss.core.kiss_error import KISSError
-from kiss.core.models.anthropic_model import AnthropicModel
-from kiss.core.models.gemini_model import GeminiModel
 from kiss.core.models.model import Model
-from kiss.core.models.openai_compatible_model import OpenAICompatibleModel
+
+try:
+    from kiss.core.models.openai_compatible_model import OpenAICompatibleModel
+except ImportError:
+    OpenAICompatibleModel = None  # type: ignore[assignment,misc]
+
+try:
+    from kiss.core.models.anthropic_model import AnthropicModel
+except ImportError:
+    AnthropicModel = None  # type: ignore[assignment,misc]
+
+try:
+    from kiss.core.models.gemini_model import GeminiModel
+except ImportError:
+    GeminiModel = None  # type: ignore[assignment,misc]
 
 
 class ModelInfo:
@@ -887,6 +899,10 @@ def model(model_name: str, model_config: dict[str, Any] | None = None) -> Model:
     """
     # OpenRouter models (strip "openrouter/" prefix for API calls)
     if model_name.startswith("openrouter/"):
+        if OpenAICompatibleModel is None:
+            raise KISSError(
+                "OpenAI SDK not installed. Install 'openai' to use OpenRouter models."
+            )
         return OpenAICompatibleModel(
             model_name=model_name,
             base_url="https://openrouter.ai/api/v1",
@@ -895,6 +911,10 @@ def model(model_name: str, model_config: dict[str, Any] | None = None) -> Model:
         )
     # Google Gemini embedding models (text-embedding-004 is Gemini, not OpenAI)
     elif model_name == "text-embedding-004":
+        if GeminiModel is None:
+            raise KISSError(
+                "Google GenAI SDK not installed. Install 'google-genai' to use Gemini models."
+            )
         return GeminiModel(
             model_name=model_name,
             api_key=config_module.DEFAULT_CONFIG.agent.api_keys.GEMINI_API_KEY,
@@ -904,6 +924,10 @@ def model(model_name: str, model_config: dict[str, Any] | None = None) -> Model:
     elif model_name.startswith(
         ("gpt", "text-embedding", "o1", "o3", "o4", "codex")
     ) and not model_name.startswith("openai/gpt-oss"):
+        if OpenAICompatibleModel is None:
+            raise KISSError(
+                "OpenAI SDK not installed. Install 'openai' to use OpenAI models."
+            )
         return OpenAICompatibleModel(
             model_name=model_name,
             base_url="https://api.openai.com/v1",
@@ -934,6 +958,10 @@ def model(model_name: str, model_config: dict[str, Any] | None = None) -> Model:
             "Alibaba-NLP/",
         )
     ):
+        if OpenAICompatibleModel is None:
+            raise KISSError(
+                "OpenAI SDK not installed. Install 'openai' to use Together AI models."
+            )
         return OpenAICompatibleModel(
             model_name=model_name,
             base_url="https://api.together.xyz/v1",
@@ -942,6 +970,10 @@ def model(model_name: str, model_config: dict[str, Any] | None = None) -> Model:
         )
     # Anthropic Claude models (direct Anthropic API)
     elif model_name.startswith("claude-"):
+        if AnthropicModel is None:
+            raise KISSError(
+                "Anthropic SDK not installed. Install 'anthropic' to use Claude models."
+            )
         return AnthropicModel(
             model_name=model_name,
             api_key=config_module.DEFAULT_CONFIG.agent.api_keys.ANTHROPIC_API_KEY,
@@ -949,6 +981,10 @@ def model(model_name: str, model_config: dict[str, Any] | None = None) -> Model:
         )
     # Google Gemini models (direct Google API)
     elif model_name.startswith("gemini-"):
+        if GeminiModel is None:
+            raise KISSError(
+                "Google GenAI SDK not installed. Install 'google-genai' to use Gemini models."
+            )
         return GeminiModel(
             model_name=model_name,
             api_key=config_module.DEFAULT_CONFIG.agent.api_keys.GEMINI_API_KEY,

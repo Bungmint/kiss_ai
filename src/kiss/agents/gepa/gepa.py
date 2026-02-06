@@ -6,7 +6,7 @@
 
 """GEPA (Genetic-Pareto): Reflective Prompt Evolution for Compound AI Systems.
 
-Based on: "GEPA: REFLECTIVE PROMPT EVOLUTION CAN OUTPERFORM REINFORCEMENT LEARNING"
+Based on: "GEPA: Reflective Prompt Evolution can Outperform Reinforcement Learning"
 https://arxiv.org/pdf/2507.19457
 
 Algorithm:

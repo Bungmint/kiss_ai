@@ -1,15 +1,4 @@
-"""
-Hardened version of useful_tools.py with immediate security improvements.
-
-This version adds:
-1. Expanded command lists
-2. Additional redirect operators
-3. Dangerous pattern detection
-4. Comprehensive logging
-
-Note: This is still NOT production-ready. For production use, implement
-proper sandboxing (bubblewrap, Docker, etc.) as described in SECURITY_FIXES.md
-"""
+"""Useful tools for agents: file editing, bash execution, web search, and URL fetching."""
 
 import re
 import shlex
@@ -170,156 +159,6 @@ echo "----------------------------------------"
 exit 0
 """
 
-MULTI_EDIT_SCRIPT = r"""
-#!/usr/bin/env bash
-#
-# Multi Edit Tool - Claude Code Implementation
-# Performs precise string replacements in files with exact matching
-#
-# Usage: edit_tool.sh <file_path> <old_string> <new_string> [replace_all]
-#
-# Parameters:
-#   file_path    - Absolute path to the file to modify (required)
-#   old_string   - Exact text to find and replace (required)
-#   new_string   - Replacement text, must differ from old_string (required)
-#   replace_all  - If "true", replace all occurrences (optional, default: false)
-#
-# Exit codes:
-#   0 - Success
-#   1 - Invalid arguments
-#   2 - File not found
-#   3 - String not found or not unique
-#   4 - Read-before-edit validation failed
-
-set -euo pipefail
-
-# Color codes for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
-# Validate arguments
-if [ "$#" -lt 3 ] || [ "$#" -gt 4 ]; then
-    echo -e "${RED}Error: Invalid number of arguments${NC}" >&2
-    echo "Usage: $0 <file_path> <old_string> <new_string> [replace_all]" >&2
-    exit 1
-fi
-
-FILE_PATH="$1"
-OLD_STRING="$2"
-NEW_STRING="$3"
-REPLACE_ALL="${4:-false}"
-
-# Validate file path is absolute
-if [[ ! "$FILE_PATH" = /* ]]; then
-    echo -e "${RED}Error: file_path must be absolute, not relative${NC}" >&2
-    exit 1
-fi
-
-# Check if file exists
-if [ ! -f "$FILE_PATH" ]; then
-    echo -e "${RED}Error: File not found: $FILE_PATH${NC}" >&2
-    exit 2
-fi
-
-# Check if old_string and new_string are different
-if [ "$OLD_STRING" = "$NEW_STRING" ]; then
-    echo -e "${RED}Error: new_string must be different from old_string${NC}" >&2
-    exit 1
-fi
-
-# Create a state tracking directory (simulating session state)
-STATE_DIR="${HOME}/.claude-edit-state"
-mkdir -p "$STATE_DIR"
-
-# Check read-before-edit validation
-# In a real implementation, this would check session state
-# For demo purposes, we'll create a marker file when files are "read"
-FILE_HASH=$(echo -n "$FILE_PATH" | md5sum | cut -d' ' -f1)
-READ_MARKER="$STATE_DIR/$FILE_HASH"
-
-if [ ! -f "$READ_MARKER" ]; then
-    echo -e "${YELLOW}Warning: File has not been read in this session${NC}" >&2
-    echo -e "${YELLOW}Creating read marker for demo purposes...${NC}" >&2
-    touch "$READ_MARKER"
-fi
-
-# Count occurrences of old_string
-OCCURRENCE_COUNT=$(grep -F -c "$OLD_STRING" "$FILE_PATH" || true)
-
-echo "File: $FILE_PATH"
-echo "Looking for: '$OLD_STRING'"
-echo "Replacing with: '$NEW_STRING'"
-echo "Occurrences found: $OCCURRENCE_COUNT"
-echo "Replace all: $REPLACE_ALL"
-echo ""
-
-# Handle replacement based on mode
-if [ "$REPLACE_ALL" = "true" ]; then
-    # Replace all occurrences
-    if [ "$OCCURRENCE_COUNT" -eq 0 ]; then
-        echo -e "${RED}Error: String not found in file${NC}" >&2
-        exit 3
-    fi
-
-    # Use python for literal string replacement (handles special chars)
-    # Pass strings via environment variables to handle embedded quotes safely
-    export EDIT_FILE_PATH="$FILE_PATH" EDIT_OLD_STRING="$OLD_STRING"
-    export EDIT_NEW_STRING="$NEW_STRING"
-    python3 -c "
-import os
-file_path = os.environ['EDIT_FILE_PATH']
-old_string = os.environ['EDIT_OLD_STRING']
-new_string = os.environ['EDIT_NEW_STRING']
-with open(file_path, 'r') as f:
-    content = f.read()
-content = content.replace(old_string, new_string)
-with open(file_path, 'w') as f:
-    f.write(content)
-"
-
-    echo -e "${GREEN}✓ Successfully replaced $OCCURRENCE_COUNT occurrence(s)${NC}"
-
-else
-    # Single replacement mode - requires exactly one occurrence
-    if [ "$OCCURRENCE_COUNT" -eq 0 ]; then
-        echo -e "${RED}Error: String not found in file${NC}" >&2
-        exit 3
-    elif [ "$OCCURRENCE_COUNT" -gt 1 ]; then
-        echo -e "${RED}Error: String appears $OCCURRENCE_COUNT times (not unique)${NC}" >&2
-        echo -e "${YELLOW}Hint: Use replace_all=true to replace all occurrences${NC}" >&2
-        exit 3
-    fi
-
-    # Exactly one occurrence - safe to replace
-    # Pass strings via environment variables to handle embedded quotes safely
-    export EDIT_FILE_PATH="$FILE_PATH" EDIT_OLD_STRING="$OLD_STRING"
-    export EDIT_NEW_STRING="$NEW_STRING"
-    python3 -c "
-import os
-file_path = os.environ['EDIT_FILE_PATH']
-old_string = os.environ['EDIT_OLD_STRING']
-new_string = os.environ['EDIT_NEW_STRING']
-with open(file_path, 'r') as f:
-    content = f.read()
-content = content.replace(old_string, new_string, 1)
-with open(file_path, 'w') as f:
-    f.write(content)
-"
-
-    echo -e "${GREEN}✓ Successfully replaced 1 occurrence${NC}"
-fi
-
-# Show the changed section (context around the change)
-echo ""
-echo "Changed section:"
-echo "----------------------------------------"
-grep -n -C 2 "$NEW_STRING" "$FILE_PATH" || echo "(No context available)"
-echo "----------------------------------------"
-
-exit 0
-"""
 
 
 def _extract_directory(path_str: str) -> str | None:
@@ -377,8 +216,6 @@ def fetch_url(
     Returns:
         Extracted text content from the page.
     """
-    import re
-
     import requests
     from bs4 import BeautifulSoup
 
@@ -969,54 +806,7 @@ class UsefulTools:
         Returns:
             The output of the edit operation.
         """
-        # Check if file_path is in writable_paths
-        resolved = Path(file_path).resolve()
-        if not is_subpath(resolved, self.writable_paths):
-            return f"Error: Access denied for writing to {file_path}"
-
-        # Create a temporary script file
-        import tempfile
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
-            f.write(MULTI_EDIT_SCRIPT)
-            script_path = f.name
-
-        try:
-            # Make script executable
-            Path(script_path).chmod(0o755)
-
-            # Build command with arguments
-            replace_all_str = "true" if replace_all else "false"
-            command = [
-                "/bin/bash",
-                script_path,
-                str(resolved),
-                old_string,
-                new_string,
-                replace_all_str,
-            ]
-
-            # Execute with timeout for safety
-            result = subprocess.run(
-                command,
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=timeout_seconds,
-            )
-            return result.stdout
-        except subprocess.TimeoutExpired:
-            return "Error: Command execution timeout"
-        except subprocess.CalledProcessError as e:
-            error_msg = e.stderr.strip() if e.stderr else str(e)
-            return f"Error: {error_msg}"
-        except Exception as e:
-            return f"Error: {e}"
-        finally:
-            # Clean up temporary script
-            try:
-                Path(script_path).unlink()
-            except Exception:
-                pass
+        return self.Edit(file_path, old_string, new_string, replace_all, timeout_seconds)
 
     def Bash(self, command: str, description: str, timeout_seconds: float = 30) -> str:  # noqa: N802
         """Runs a bash command and returns its output.

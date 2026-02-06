@@ -157,7 +157,6 @@ print(f"Best agent: {best_variant.folder_path}")
 print(f"Metrics: {best_variant.metrics}")
 ```
 
-
 **Key Features:**
 
 - **Multi-Objective Optimization**: Optimizes for flexible metrics (e.g., success, token usage, execution time, cost)
@@ -388,6 +387,8 @@ uv sync --group claude --group dev
 | `evals` | Benchmark running | datasets, swebench, orjson, scipy, scikit-learn |
 | `dev` | Development tools | mypy, ruff, pyright, pytest, jupyter, notebook |
 
+> **Optional Dependencies:** All LLM provider SDKs (`openai`, `anthropic`, `google-genai`) are optional. You can import `kiss.core` and `kiss.agents` without installing all of them. When you try to use a model whose SDK is not installed, KISS raises a clear `KISSError` telling you which package to install. Similarly, the coding agents (`ClaudeCodingAgent`, `GeminiCliAgent`, `OpenAICodexAgent`) only require their respective SDKs — you won't get import errors for agents whose SDKs you haven't installed.
+
 ## 📚 KISSAgent API Reference
 
 📖 **For detailed KISSAgent API documentation, see [API.md](API.md)**
@@ -504,6 +505,8 @@ print(f"Result: {result}")
 
 ## 🧠 Using Claude Coding Agent
 
+> **Requires:** `claude-agent-sdk` and `anthropic` packages. Install with `uv sync --group claude-coding-agent`.
+
 Since everyone loves Claude Code, I thought I will provide API access to Claude Code so that you can use the best coding agent.
 The Claude Coding Agent uses the Claude Agent SDK to generate tested Python programs with file system access controls:
 
@@ -537,6 +540,8 @@ if result:
 
 ## 🤖 Using Gemini CLI Agent
 
+> **Requires:** `google-adk` and `google-genai` packages. Install with `uv sync --group gemini`.
+
 The Gemini CLI Agent uses the Google ADK (Agent Development Kit) to generate tested Python programs:
 
 ```python
@@ -557,6 +562,8 @@ if result:
 ```
 
 ## 🌐 Using OpenAI Codex Agent
+
+> **Requires:** `openai-agents` package. Install with `uv sync --group openai`.
 
 The OpenAI Codex Agent uses the OpenAI Agents SDK to generate tested Python programs:
 
