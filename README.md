@@ -586,62 +586,6 @@ if result:
     print(f"Result: {result}")
 ```
 
-<!-- ### Running Agent Examples
-
-**Vulnerability Detector Agent (ARVO):**
-
-```bash
-uv run python -m kiss.evals.arvo_agent.arvo_agent
-```
-
-The ARVO Vulnerability Detector agent uses the Arvo fuzzing framework to discover security vulnerabilities in C/C++ code:
-
-- Runs in a Docker container with Arvo fuzzing framework
-- Analyzes code to create hypotheses for potential vulnerabilities
-- Generates Python scripts to create test inputs for fuzzing
-- Detects ASAN crashes to identify security vulnerabilities
-- Automatically refines prompts when vulnerabilities are not found
-
-**Programmatic Usage:**
-
-```python
-from kiss.evals.arvo_agent.arvo_agent import find_vulnerability, get_all_arvo_tags
-
-# Get available Arvo Docker image tags
-tags = get_all_arvo_tags("n132/arvo")
-
-# Find vulnerabilities in a specific Docker image
-result = find_vulnerability(
-    model_name="gemini-3-pro-preview",
-    image_name="n132/arvo:tag-name",
-    num_trials=10,  # Number of attempts to find a vulnerability
-    location="/src"  # Location of the source code in the container
-)
-
-if result:
-    print(f"Vulnerability found! POC script: {result}")
-else:
-    print("No vulnerability found after all trials")
-```
-
-**SWE-bench Verified Agent:**
-
-```bash
-uv run src/kiss/evals/swe_agent_verified/run_swebench.py --swebench_verified.model gemini-2.5-flash --swebench_verified.instance_id "django__django-11099"
-```
-
-The SWE-bench Verified agent is a Software Engineering agent that:
-
-- Runs in pre-built SWE-bench Docker containers with repositories pre-installed
-- Executes bash commands to solve real-world GitHub issues
-- Can read, edit, and create files in the `/testbed` directory
-- Follows a structured workflow for issue resolution
-- Automatically evaluates results using the official SWE-bench evaluation harness
-- Supports command-line configuration for model, instance selection, budget, and more
-
-See the [SWE-bench Verified README](src/kiss/evals/swe_agent_verified/README.md) for detailed documentation.
- -->
-
 ## 🔍 Using SimpleRAG for Retrieval-Augmented Generation
 
 SimpleRAG provides a lightweight RAG system with in-memory vector storage and similarity search:
@@ -702,68 +646,6 @@ doc = rag.get_document("3")
 # Clear all documents
 rag.clear_collection()
 ```
-
-<!-- ### Using Useful Agents
-
-The framework includes pre-built utility agents for common tasks:
-
-**Prompt Refiner Agent:**
-
-```python
-from kiss.agents.kiss import prompt_refiner_agent
-
-refined_prompt = prompt_refiner_agent(
-    original_prompt_template="Original prompt...",
-    previous_prompt_template="Previous version...",
-    agent_trajectory_summary=agent.get_trajectory(),  # Returns JSON string
-    model_name="gemini-2.5-flash"
-)
-```
-
-**General Bash Agent:**
-
-```python
-from kiss.agents.kiss import run_bash_task_in_sandboxed_ubuntu_latest
-
-result = run_bash_task_in_sandboxed_ubuntu_latest(
-    task="Install and configure nginx",
-    model_name="gemini-3-pro-preview"
-)
-```
-
-**Simple Coding Agent:**
-
-```python
-from kiss.agents.kiss import get_run_simple_coding_agent
-
-def test_fn(code: str) -> bool:
-    """Test if the generated code is correct."""
-    try:
-        namespace = {}
-        exec(code, namespace)
-        func = namespace.get('my_function')
-        if not func:
-            return False
-        # Add your test logic here
-        return func(42) == 84  # Example test
-    except Exception:
-        return False
-
-prompt_template = """
-Write a Python function called 'my_function' that doubles its input.
-The function should be: def my_function(x): return x * 2
-"""
-
-# get_run_simple_coding_agent returns a function that can be used to run the agent
-run_simple_coding_agent = get_run_simple_coding_agent(test_fn)
-result = run_simple_coding_agent(
-    prompt_template=prompt_template,
-    arguments={},
-    model_name="gemini-2.5-flash"
-)
-print(result)
-```
-## 📁 Project Structure -->
 
 ## ⚡ Multiprocessing
 
@@ -873,7 +755,7 @@ with DockerManager(image_name="nginx", ports={80: 8080}) as docker:
 
 The Docker manager automatically handles image pulling, container lifecycle, and cleanup of temporary directories.
 
-## 📁 Project Structure -->
+## 📁 Project Structure
 
 ```
 kiss/
@@ -954,11 +836,9 @@ kiss/
 │   │   ├── test_kissevolve_bubblesort.py
 │   │   ├── test_gepa_squad.py
 │   │   ├── test_gepa_hotpotqa.py
-│   │   ├── test_gepa_improvement.py
 │   │   ├── test_gepa_integration.py
 │   │   ├── test_gepa_progress_callback.py # Tests for GEPA progress callbacks
 │   │   ├── test_docker_manager.py
-│   │   ├── test_models_quick.py   # Quick tests for models based on ModelInfo capabilities
 │   │   ├── test_model_config.py
 │   │   ├── test_model_implementations.py  # Integration tests for model implementations
 │   │   ├── test_a_model.py
@@ -1007,7 +887,7 @@ print(f"KISS version: {__version__}")
 To update the version, simply edit `src/kiss/_version.py`:
 
 ```python
-__version__ = "0.1.0"  # Update to new version
+__version__ = "0.1.9"  # Update to new version
 ```
 
 ## ⚙️ Configuration
@@ -1098,7 +978,6 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
 - `uv run pytest src/kiss/tests/ -v` - Run all tests with verbose output
 - `uv run pytest src/kiss/tests/test_kiss_agent_agentic.py -v` - Run agentic agent tests
 - `uv run pytest src/kiss/tests/test_kiss_agent_non_agentic.py -v` - Run non-agentic agent tests
-- `uv run pytest src/kiss/tests/test_models_quick.py -v` - Run quick model tests
 - `uv run pytest src/kiss/tests/test_multiprocess.py -v` - Run multiprocessing tests
 - `uv run python -m unittest src.kiss.tests.test_gepa_squad -v` - Run GEPA Squad tests (unittest)
 - `uv run python -m unittest src.kiss.tests.test_docker_manager -v` - Run docker manager tests (unittest)
