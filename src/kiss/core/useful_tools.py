@@ -179,7 +179,8 @@ SAFE_SPECIAL_PREFIXES = (
 
 
 def _is_safe_special_path(path: str) -> bool:
-    return path in SAFE_SPECIAL_PATHS or path.startswith(SAFE_SPECIAL_PREFIXES)
+    cleaned = path.strip(")'\"`);}]")
+    return cleaned in SAFE_SPECIAL_PATHS or cleaned.startswith(SAFE_SPECIAL_PREFIXES)
 
 
 def _extract_directory(path_str: str) -> str | None:
@@ -430,6 +431,20 @@ def search_web(query: str, max_results: int = 10) -> str:
     return "No search results found."
 
 
+def _strip_heredocs(command: str) -> str:
+    """Strip heredoc content from a bash command.
+
+    Removes everything between << DELIM and DELIM (or <<- DELIM and DELIM),
+    so that heredoc body text is not parsed as command arguments.
+    """
+    return re.sub(
+        r"<<-?\s*'?\"?(\w+)'?\"?\s*\n.*?\n\s*\1\b",
+        "",
+        command,
+        flags=re.DOTALL,
+    )
+
+
 def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
     """Parse a bash command to extract readable and writable directory paths.
 
@@ -572,6 +587,9 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
     }
 
     try:
+        # Strip heredoc content so body text is not parsed as arguments
+        command = _strip_heredocs(command)
+
         # Handle pipes - split into sub-commands
         pipe_parts = command.split("|")
 
@@ -582,7 +600,7 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
             for redirect in write_redirects:
                 if redirect in part:
                     # Extract path after redirect
-                    redirect_match = re.search(rf"{re.escape(redirect)}\s*([^\s;&|]+)", part)
+                    redirect_match = re.search(rf"{re.escape(redirect)}\s*([^\s;&|()]+)", part)
                     if redirect_match:
                         path = redirect_match.group(1).strip()
                         path = path.strip("'\"")
@@ -592,7 +610,7 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
                                 writable_paths.add(dir_path)
 
             # Check for input redirection (reading)
-            input_redirect_match = re.search(r"<\s*([^\s;&|]+)", part)
+            input_redirect_match = re.search(r"<\s*([^\s;&|()]+)", part)
             if input_redirect_match:
                 path = input_redirect_match.group(1).strip()
                 path = path.strip("'\"")
@@ -635,10 +653,10 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
 
                     # Skip redirect operators and their targets
                     redirect_ops = [
-                        ">", ">>", "<", "&>", "&>>", "1>", "2>",
+                        ">", ">>", "<", "<<", "<<<", "&>", "&>>", "1>", "2>",
                         "2>&1", ">|", ">>|", "&>|", "1>>", "2>>",
                     ]
-                    if token in redirect_ops:
+                    if token in redirect_ops or token.startswith("<<"):
                         i += 1
                         # Skip the redirect target (next token)
                         if i < len(tokens):

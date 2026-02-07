@@ -5,6 +5,7 @@
 
 """Multi-agent coding system with orchestration, and sub-agents using KISSAgent."""
 
+import os
 import tempfile
 from pathlib import Path
 
@@ -22,6 +23,25 @@ from kiss.core.useful_tools import UsefulTools
 from kiss.core.utils import resolve_path
 from kiss.docker.docker_manager import DockerManager
 
+IMPORTANT_INSTRUCTIONS = """
+ - If you have used 50% of your max_tokens, call 'finish' with 'success'
+   set to False and 'summary' set to a summary of the work you have done
+   so far and the work you need to do next.
+ - Be specific about what you have done and what you need to do next.
+ - The summary should have two sections: starting with the headers "Work Done"
+   and "Work to Do Next".
+ - The summary should be compact, but should be detailed enough so that next
+   agent does not repeat the work you have already done.
+ - The summary should have the same format as the user's original
+   prompt.  The summary should have information about testing, checking, and debugging
+   the code you have written so that next agent don't have to repeat testing,
+   checking, and debugging the code.
+ - The user's original prompt and the summary will be given to a new agent
+   to continue the task.
+ - DO NOT REPEAT any work (such as testing, checking, debuggings, verifications, etc.)
+   that your predecessor agent has already done.
+"""
+
 ORCHESTRATOR_PROMPT = """
 ## Task
 
@@ -30,18 +50,15 @@ ORCHESTRATOR_PROMPT = """
 
 {coding_instructions}
 
-Call perform_subtask() to perform a sub-task.
-perform_subtask() will return a yaml encoded dictionary containing the keys
-'success' (boolean) and 'summary' (string).
+ - perform_subtask() will return a yaml encoded dictionary containing the keys
+   'success' (boolean) and 'summary' (string).
+ - Call perform_subtask() to perform a sub-task.
+ - DO NOT call perform_subtask() if you can do the sub-task yourself while
+   keeping the cost down.
+ - You MUST save time and cost of performing a task.
 
-# **Important Instructions**:
- - If you have used 50% of your max_tokens, call 'finish' with 'success'
-   set to False and 'summary' set to a summary of the work you have done
-   so far and the work you need to do next.  Be specific about what you have done
-   and what you need to do next.
- - The user's original prompt and the summary will be given to a new agent
-   to continue the task.
- - DO NOT repeat any work that your predecessor agent has already done.
+# Important Instructions
+{important_instructions}
 """
 
 TASKING_PROMPT = """
@@ -58,14 +75,8 @@ Description: {description}
 
 {coding_instructions}
 
-# **Important Instructions**:
- - If you have used 50% of your max_tokens, call 'finish' with 'success'
-   set to False and 'summary' set to a summary of the work you have done
-   so far and the work you need to do next.  Be specific about what you have done
-   and what you need to do next.
- - The user's original prompt and the summary will be given to a new agent
-   to continue the task.
- - DO NOT repeat any work that your predecessor agent has already done.
+# Important Instructions
+{important_instructions}
 """
 
 
@@ -245,6 +256,7 @@ class RelentlessCodingAgent(Base):
                 arguments={
                     "task_description": self.task_description,
                     "coding_instructions": CODING_INSTRUCTIONS,
+                    "important_instructions": IMPORTANT_INSTRUCTIONS,
                 },
                 tools=[finish, self.perform_subtask],
                 max_steps=self.max_steps,
@@ -299,6 +311,7 @@ class RelentlessCodingAgent(Base):
                     "subtask_name": subtask.name,
                     "description": subtask.description,
                     "coding_instructions": CODING_INSTRUCTIONS,
+                    "important_instructions": IMPORTANT_INSTRUCTIONS,
                 },
                 tools=[
                     finish,
@@ -426,12 +439,16 @@ def main() -> None:
     """
 
     work_dir = tempfile.mkdtemp()
-    result = agent.run(
-        prompt_template=task_description,
-        work_dir=work_dir,
-        formatter=CompactFormatter()
-    )
-
+    old_cwd = os.getcwd()
+    try:
+        os.chdir(work_dir)
+        result = agent.run(
+            prompt_template=task_description,
+            work_dir=work_dir,
+            formatter=CompactFormatter()
+        )
+    finally:
+        os.chdir(old_cwd)
 
     agent.formatter.print_status("FINAL RESULT:")
     result = yaml.safe_load(result)

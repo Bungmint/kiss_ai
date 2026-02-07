@@ -18,6 +18,7 @@ from kiss.core.useful_tools import (
     _extract_search_results,
     _is_safe_special_path,
     _render_page_with_playwright,
+    _strip_heredocs,
     fetch_url,
     parse_bash_command_paths,
 )
@@ -190,6 +191,12 @@ class TestParseBashCommandPaths:
         readable, _ = parse_bash_command_paths("cat < /proc/self/status")
         assert readable == []
 
+    def test_safe_paths_in_subshell(self):
+        readable, writable = parse_bash_command_paths("$(echo hello > /dev/null)")
+        assert readable == [] and writable == []
+        readable, writable = parse_bash_command_paths("echo hello 2>/dev/null)")
+        assert readable == [] and writable == []
+
     def test_multiple_files(self, temp_test_dir):
         file1 = temp_test_dir / "file1.txt"
         file2 = temp_test_dir / "file2.txt"
@@ -220,6 +227,49 @@ class TestParseBashCommandPaths:
         readable, writable = parse_bash_command_paths(1)  # type: ignore[arg-type]
         assert readable == [] and writable == []
 
+    def test_heredoc_paths_not_extracted(self, temp_test_dir):
+        cmd = (
+            f"cat > {temp_test_dir}/out.sh << 'EOF'\n"
+            "#!/bin/bash\necho /etc/passwd\ngrep /var/log/syslog\nEOF"
+        )
+        readable, writable = parse_bash_command_paths(cmd)
+        assert "/etc/passwd" not in " ".join(readable)
+        assert "/var/log/syslog" not in " ".join(readable)
+
+    def test_heredoc_redirect_still_detected(self, temp_test_dir):
+        cmd = f"cat > {temp_test_dir}/out.sh << 'EOF'\nsome content\nEOF"
+        _, writable = parse_bash_command_paths(cmd)
+        assert str(temp_test_dir / "out.sh") in writable
+
+
+class TestStripHeredocs:
+    def test_strips_single_quoted_heredoc(self):
+        cmd = "cat > file.sh << 'EOF'\n#!/bin/bash\necho /etc/passwd\nEOF"
+        assert "/etc/passwd" not in _strip_heredocs(cmd)
+        assert "cat > file.sh" in _strip_heredocs(cmd)
+
+    def test_strips_unquoted_heredoc(self):
+        cmd = "cat > file.sh << EOF\necho /var/log/syslog\nEOF"
+        assert "/var/log/syslog" not in _strip_heredocs(cmd)
+
+    def test_strips_double_quoted_heredoc(self):
+        cmd = 'cat > file.sh << "EOF"\necho /secret/path\nEOF'
+        assert "/secret/path" not in _strip_heredocs(cmd)
+
+    def test_strips_indented_heredoc(self):
+        cmd = "cat > file.sh <<- MARKER\n\techo /private/data\n\tMARKER"
+        assert "/private/data" not in _strip_heredocs(cmd)
+
+    def test_no_heredoc_unchanged(self):
+        cmd = "echo hello > /dev/null"
+        assert _strip_heredocs(cmd) == cmd
+
+    def test_multiple_heredocs(self):
+        cmd = "cat << 'A'\n/path/one\nA\ncat << 'B'\n/path/two\nB"
+        result = _strip_heredocs(cmd)
+        assert "/path/one" not in result
+        assert "/path/two" not in result
+
 
 class TestIsSafeSpecialPath:
     @pytest.mark.parametrize("path", sorted(SAFE_SPECIAL_PATHS))
@@ -229,6 +279,13 @@ class TestIsSafeSpecialPath:
     @pytest.mark.parametrize("prefix", SAFE_SPECIAL_PREFIXES)
     def test_prefix_safe_paths(self, prefix):
         assert _is_safe_special_path(prefix + "something") is True
+
+    def test_safe_paths_with_trailing_punctuation(self):
+        assert _is_safe_special_path("/dev/null)") is True
+        assert _is_safe_special_path("/dev/null')") is True
+        assert _is_safe_special_path('/dev/null")') is True
+        assert _is_safe_special_path("/dev/null;") is True
+        assert _is_safe_special_path("/dev/fd/3)") is True
 
     def test_non_safe_paths(self):
         assert _is_safe_special_path("/etc/passwd") is False

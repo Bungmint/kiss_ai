@@ -1000,7 +1000,7 @@ class TestReportProgressDirectly(unittest.TestCase):
 
     def test_report_progress_does_nothing_without_callback(self):
         evolver = TestableAgentEvolver()
-        evolver.__reset__(
+        evolver._reset(
             task_description="test",
             max_generations=1,
             initial_frontier_size=1,
@@ -1021,7 +1021,7 @@ class TestReportProgressDirectly(unittest.TestCase):
             received.append(p)
 
         evolver = TestableAgentEvolver()
-        evolver.__reset__(
+        evolver._reset(
             task_description="test",
             max_generations=5,
             initial_frontier_size=1,
@@ -1047,7 +1047,7 @@ class TestReportProgressDirectly(unittest.TestCase):
             received.append(p)
 
         evolver = TestableAgentEvolver()
-        evolver.__reset__(
+        evolver._reset(
             task_description="test",
             max_generations=5,
             initial_frontier_size=1,
@@ -1087,7 +1087,7 @@ class TestReportProgressDirectly(unittest.TestCase):
             received.append(p)
 
         evolver = TestableAgentEvolver()
-        evolver.__reset__(
+        evolver._reset(
             task_description="test",
             max_generations=5,
             initial_frontier_size=1,
@@ -1108,7 +1108,7 @@ class TestReportProgressDirectly(unittest.TestCase):
 
     def test_update_best_score_tracks_minimum(self):
         evolver = TestableAgentEvolver()
-        evolver.__reset__(
+        evolver._reset(
             task_description="test",
             max_generations=1,
             initial_frontier_size=1,
@@ -1147,7 +1147,7 @@ class TestReportProgressDirectly(unittest.TestCase):
 
     def test_update_best_score_noop_on_empty_frontier(self):
         evolver = TestableAgentEvolver()
-        evolver.__reset__(
+        evolver._reset(
             task_description="test",
             max_generations=1,
             initial_frontier_size=1,

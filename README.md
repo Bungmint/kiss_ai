@@ -218,7 +218,8 @@ print(f"Result: {result}")
 **Key Features:**
 
 - **Multi-Agent Architecture**: Orchestrator delegates tasks to executor sub-agents for parallel task handling
-- **Token-Aware Continuation**: Agents signal when 50% of tokens are used, allowing seamless task handoff with context preservation (💡 new idea)
+- **Token-Aware Continuation**: Agents signal when 50% of tokens are used, providing structured summaries with "Work Done" and "Work to Do Next" sections for seamless handoff (💡 new idea)
+- **Cost-Saving Guidance**: Orchestrator avoids unnecessary sub-agent delegation when it can handle work directly
 - **Retry with Context**: Failed tasks automatically retry with previous summary appended to the prompt
 - **Configurable Trials**: Set high trial counts (e.g., 200+) for truly relentless execution
 - **Docker Support**: Optional isolated execution via Docker containers
@@ -793,7 +794,7 @@ kiss/
 │   │   ├── kiss_agent.py      # KISS agent with native function calling
 │   │   ├── formatter.py       # Output formatting base class
 │   │   ├── simple_formatter.py # Rich-formatted detailed output
-│   │   ├── compact_formatter.py # Compact single-line output formatting
+│   │   ├── compact_formatter.py # Compact output with markdown stripping and AST-based tool parsing
 │   │   ├── config.py          # Configuration
 │   │   ├── config_builder.py  # Dynamic config builder with CLI support
 │   │   ├── kiss_error.py      # Custom error class
@@ -855,6 +856,7 @@ kiss/
 │   │   ├── test_evolver_progress_callback.py # Tests for AgentEvolver progress callbacks
 │   │   ├── test_token_callback.py         # Tests for async token streaming callback
 │   │   ├── test_coding_agent_token_callback.py # Tests for token callback in coding agents
+│   │   ├── test_compact_formatter.py        # Tests for CompactFormatter
 │   │   ├── test_search_web.py
 │   │   └── test_useful_tools.py
 │   ├── py.typed          # PEP 561 marker for type checking

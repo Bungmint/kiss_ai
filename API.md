@@ -305,6 +305,8 @@ Execute a sub-task using a dedicated executor agent (using `subtasker_model_name
 ### Key Features
 
 - **Multi-Agent Architecture**: Orchestrator (using `orchestrator_model_name`) delegates to executor agents (using `subtasker_model_name`)
+- **Token-Aware Continuation**: Agents signal when 50% of tokens are used, providing a structured summary with "Work Done" and "Work to Do Next" sections for seamless task handoff
+- **Cost-Saving Guidance**: Orchestrator is instructed to avoid unnecessary `perform_subtask()` calls when it can handle work directly, reducing cost
 - **Relentless Retries**: Continues attempting tasks through multiple continuation attempts until success
 - **Efficient Orchestration**: Manages execution to stay within configured step limits through smart delegation
 - **Bash Command Parsing**: Automatically extracts readable/writable paths from commands using `parse_bash_command_paths()`
@@ -1936,9 +1938,12 @@ This function analyzes bash commands to intelligently determine which directorie
 - Common read commands: cat, grep, find, ls, python, gcc, rsync, etc.
 - Common write commands: touch, mkdir, rm, mv, cp, rsync, etc.
 - Output redirection: >, >>, &>, 2>, etc.
+- Input redirection: \<, \<<, \<<\<
+- Heredoc stripping: heredoc body text (between `<< DELIM` and `DELIM`) is stripped before parsing so that heredoc content is not misinterpreted as command arguments
 - Pipe chains with multiple commands
 - Flags and arguments parsing
 - Special commands like tee (reads stdin and writes to file)
+- Path cleaning: trailing punctuation characters (e.g., `)`, `'`, `"`, `;`, `}`, `]`) are stripped from paths before safety checks
 
 **Parameters:**
 
@@ -2326,7 +2331,14 @@ ______________________________________________________________________
 
 ## CompactFormatter
 
-Compact formatter implementation that shows truncated, single-line messages for more concise output. This formatter is used by default in `RelentlessCodingAgent` and `KISSCodingAgent` for cleaner logs during multi-agent orchestration. All output methods respect the `DEFAULT_CONFIG.agent.verbose` setting.
+Compact formatter that parses model message content into structured parts (thought, tool action, usage info) and renders them concisely. This formatter is used by default in `RelentlessCodingAgent` and `KISSCodingAgent` for cleaner logs during multi-agent orchestration. All output methods respect the `DEFAULT_CONFIG.agent.verbose` setting.
+
+**Key internal features:**
+
+- **Markdown stripping**: Thought text is converted from markdown to plain text using `markdown-it-py`, collapsing multiple spaces into one via `_strip_markdown()`.
+- **AST-based tool call parsing**: Tool calls in ```` ```python ```` fenced code blocks are parsed with Python's `ast` module via `_parse_tool_desc()`. If the call has a `description` keyword argument, that string is used as the action label; otherwise a compact `func(key=value, ...)` summary is generated with values truncated to `LINE_LENGTH` (160 characters).
+- **Content splitting**: `_extract_parts()` splits message content into three parts: the thought (text before the tool call code block), the tool action description, and usage information (text matching `#### Usage Information`).
+- **Consolidated `_print()` helper**: Status, error, and warning printing are unified through a single `_print(message, style, stderr)` method that dispatches to the appropriate Rich console or plain stdout/stderr.
 
 ### Constructor
 
@@ -2342,7 +2354,7 @@ CompactFormatter()
 def format_message(self, message: dict[str, Any]) -> str
 ```
 
-Format a single message as a truncated single-line string. Returns empty string if verbose mode is disabled.
+Parse and format a single message. The content is split into three parts: the thought (text before the tool call code block, with markdown stripped), the tool action description (from the `description` parameter of the tool call, or a generated summary), and usage information. Returns empty string if verbose mode is disabled.
 
 **Parameters:**
 
@@ -2350,7 +2362,7 @@ Format a single message as a truncated single-line string. Returns empty string 
 
 **Returns:**
 
-- `str`: Truncated message in format `[role]: content...` (max 100 chars), or empty string if verbose is False.
+- `str`: Multi-line formatted output with `[role]: thought...`, `[action]:description`, and usage info. Returns `[role]: (empty)` if content is empty, or empty string if verbose is False.
 
 #### `format_messages()`
 
@@ -2358,7 +2370,7 @@ Format a single message as a truncated single-line string. Returns empty string 
 def format_messages(self, messages: list[dict[str, Any]]) -> str
 ```
 
-Format a list of messages as truncated single-line strings. Returns empty string if verbose mode is disabled.
+Format a list of messages by applying `format_message()` to each. Returns empty string if verbose mode is disabled.
 
 **Parameters:**
 
@@ -2366,7 +2378,7 @@ Format a list of messages as truncated single-line strings. Returns empty string
 
 **Returns:**
 
-- `str`: Formatted messages string with each message on its own line, or empty string if verbose is False.
+- `str`: Formatted messages string with each message's output joined by newlines, or empty string if verbose is False.
 
 #### `print_message()`
 
@@ -2374,7 +2386,7 @@ Format a list of messages as truncated single-line strings. Returns empty string
 def print_message(self, message: dict[str, Any]) -> None
 ```
 
-Print a single message as a truncated single line. No output if verbose mode is disabled.
+Print a single formatted message. No output if verbose mode is disabled.
 
 **Parameters:**
 
@@ -2386,7 +2398,7 @@ Print a single message as a truncated single line. No output if verbose mode is 
 def print_messages(self, messages: list[dict[str, Any]]) -> None
 ```
 
-Print a list of messages as truncated single lines. No output if verbose mode is disabled.
+Print a list of formatted messages. No output if verbose mode is disabled.
 
 **Parameters:**
 

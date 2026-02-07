@@ -267,7 +267,8 @@ class TestCompactFormatterSpecific:
         formatter = CompactFormatter()
         message = {"role": "user", "content": "line1\nline2"}
         result = formatter.format_message(message)
-        assert "\\n" in result
+        assert "line1" in result and "line2" in result
+        assert "line1\nline2" not in result
 
     def test_unknown_role(self, verbose_config):
         config_module.DEFAULT_CONFIG.agent.verbose = True
