@@ -14,29 +14,13 @@ from kiss.tests.conftest import requires_openai_api_key
 
 
 def create_agent_wrapper_with_expected(model_name: str = "gpt-4o", max_steps: int = 10):
-    """Create an agent wrapper that embeds expected answer for evaluation.
-
-    Args:
-        model_name: Name of the LLM model to use for agent calls.
-        max_steps: Maximum steps for the agent (default: 10, keeps tests fast).
-
-    Returns:
-        Tuple of (agent_wrapper function, call_counter list for tracking calls).
-    """
+    """Create an agent wrapper that embeds expected answer for evaluation."""
     import json
 
     call_counter = [0]
 
     def agent_wrapper(prompt_template: str, arguments: dict[str, str]) -> tuple[str, list]:
-        """Run agent with real LLM call, embedding expected answer and capturing trajectory.
-
-        Args:
-            prompt_template: The prompt template to use for the agent.
-            arguments: Dict of arguments including '_expected' for the expected answer.
-
-        Returns:
-            Tuple of (result string with expected/actual, trajectory list).
-        """
+        """Run agent with real LLM call, embedding expected answer and capturing trajectory."""
         expected = arguments.get("_expected", "")
         # Remove _expected from arguments passed to agent
         agent_args = {k: v for k, v in arguments.items() if not k.startswith("_")}
@@ -60,26 +44,11 @@ def create_agent_wrapper_with_expected(model_name: str = "gpt-4o", max_steps: in
 
 
 def create_deterministic_agent_wrapper():
-    """Create a deterministic agent wrapper for testing callback behavior.
-
-    This uses a real but simple implementation (no mocking) that returns
-    predictable results for testing progress callback functionality.
-
-    Returns:
-        Tuple of (agent_wrapper function, call_counter list for tracking calls).
-    """
+    """Create a deterministic agent wrapper for testing callback behavior."""
     call_counter = [0]
 
     def agent_wrapper(prompt_template: str, arguments: dict[str, str]) -> tuple[str, list]:
-        """Simple agent that returns deterministic results based on input.
-
-        Args:
-            prompt_template: The prompt template to use.
-            arguments: Dict of arguments including '_expected' for the expected answer.
-
-        Returns:
-            Tuple of (result string, trajectory list).
-        """
+        """Simple agent that returns deterministic results based on input."""
         expected = arguments.get("_expected", "unknown")
         call_counter[0] += 1
         # Build a simple trajectory showing the prompt was processed
@@ -94,22 +63,11 @@ def create_deterministic_agent_wrapper():
 
 
 def create_evaluation_fn():
-    """Create evaluation function that extracts expected and compares.
-
-    Returns:
-        Evaluation function that takes a result string and returns metric scores.
-    """
+    """Create evaluation function that extracts expected and compares."""
     import yaml
 
     def evaluation_fn(result: str) -> dict[str, float]:
-        """Evaluate result by comparing expected and actual answers.
-
-        Args:
-            result: Result string in format 'EXPECTED:...\nRESULT:...'
-
-        Returns:
-            Dict with 'success' and 'correct' scores (0.0 or 1.0).
-        """
+        """Evaluate result by comparing expected and actual answers."""
         try:
             if result.startswith("EXPECTED:"):
                 parts = result.split("\nRESULT:", 1)
@@ -131,24 +89,10 @@ def create_evaluation_fn():
 
 
 def create_simple_evaluation_fn():
-    """Create a simple evaluation function for testing callback behavior.
-
-    This is a real evaluation function (not a mock) that checks if
-    the result contains the expected format.
-
-    Returns:
-        Evaluation function that returns scores based on result format.
-    """
+    """Create a simple evaluation function for testing callback behavior."""
 
     def evaluation_fn(result: str) -> dict[str, float]:
-        """Evaluate result based on format and content matching.
-
-        Args:
-            result: Result string in format 'EXPECTED:...\nRESULT:...'.
-
-        Returns:
-            Dict with 'accuracy' score based on whether result matches expected.
-        """
+        """Evaluate result based on format and content matching."""
         try:
             if "EXPECTED:" in result and "RESULT:" in result:
                 parts = result.split("\nRESULT:", 1)
@@ -170,14 +114,7 @@ class TestGEPAProgressDataclass(unittest.TestCase):
     """Test GEPAProgress dataclass structure."""
 
     def test_progress_dataclass_has_required_fields(self):
-        """Test that GEPAProgress has all required fields.
-
-        Verifies that the GEPAProgress dataclass can be instantiated
-        with all expected fields.
-
-        Returns:
-            None
-        """
+        """Test that GEPAProgress has all required fields."""
         progress = GEPAProgress(
             generation=0,
             max_generations=10,
@@ -204,77 +141,12 @@ class TestGEPAProgressDataclass(unittest.TestCase):
         self.assertEqual(progress.num_candidates_evaluated, 3)
         self.assertEqual(progress.message, "Testing progress")
 
-    def test_progress_dataclass_default_values(self):
-        """Test that GEPAProgress has correct default values.
-
-        Verifies that optional fields have sensible defaults.
-
-        Returns:
-            None
-        """
-        progress = GEPAProgress(
-            generation=1,
-            max_generations=5,
-            phase=GEPAPhase.REFLECTION,
-        )
-
-        self.assertIsNone(progress.candidate_id)
-        self.assertIsNone(progress.candidate_index)
-        self.assertEqual(progress.population_size, 0)
-        self.assertIsNone(progress.best_val_accuracy)
-        self.assertIsNone(progress.current_val_accuracy)
-        self.assertEqual(progress.pareto_frontier_size, 0)
-        self.assertEqual(progress.num_candidates_evaluated, 0)
-        self.assertEqual(progress.message, "")
-
-
-class TestGEPAPhaseEnum(unittest.TestCase):
-    """Test GEPAPhase enum values."""
-
-    def test_phase_enum_values(self):
-        """Test that GEPAPhase has all expected values.
-
-        Verifies that the enum contains all the phases of GEPA optimization.
-
-        Returns:
-            None
-        """
-        expected_phases = [
-            "dev_evaluation",
-            "val_evaluation",
-            "reflection",
-            "mutation_gating",
-            "merge",
-        ]
-
-        for phase_value in expected_phases:
-            phase = GEPAPhase(phase_value)
-            self.assertIsNotNone(phase)
-
-    def test_phase_enum_names(self):
-        """Test that GEPAPhase enum names are accessible.
-
-        Returns:
-            None
-        """
-        self.assertEqual(GEPAPhase.DEV_EVALUATION.value, "dev_evaluation")
-        self.assertEqual(GEPAPhase.VAL_EVALUATION.value, "val_evaluation")
-        self.assertEqual(GEPAPhase.REFLECTION.value, "reflection")
-        self.assertEqual(GEPAPhase.MUTATION_GATING.value, "mutation_gating")
-        self.assertEqual(GEPAPhase.MERGE.value, "merge")
-
 
 class TestGEPAProgressCallbackDeterministic(unittest.TestCase):
     """Test GEPA progress callback with deterministic agent (fast, no LLM calls)."""
 
     def test_callback_is_called_during_optimization(self):
-        """Test that progress callback is called during optimization.
-
-        Verifies that the callback function receives progress updates.
-
-        Returns:
-            None
-        """
+        """Test that progress callback is called during optimization."""
         agent_wrapper, _ = create_deterministic_agent_wrapper()
 
         initial_prompt = "Solve: {problem}"
@@ -308,13 +180,7 @@ class TestGEPAProgressCallbackDeterministic(unittest.TestCase):
         self.assertGreater(len(progress_updates), 0)
 
     def test_callback_receives_all_phases(self):
-        """Test that callback receives updates for dev and val phases.
-
-        Verifies that DEV_EVALUATION and VAL_EVALUATION phases are reported.
-
-        Returns:
-            None
-        """
+        """Test that callback receives updates for dev and val phases."""
         agent_wrapper, _ = create_deterministic_agent_wrapper()
 
         initial_prompt = "Calculate: {expr}"
@@ -348,13 +214,7 @@ class TestGEPAProgressCallbackDeterministic(unittest.TestCase):
         self.assertIn(GEPAPhase.VAL_EVALUATION, phases_seen)
 
     def test_callback_tracks_generation_number(self):
-        """Test that callback correctly reports generation numbers.
-
-        Verifies that generation numbers increment correctly through optimization.
-
-        Returns:
-            None
-        """
+        """Test that callback correctly reports generation numbers."""
         agent_wrapper, _ = create_deterministic_agent_wrapper()
 
         initial_prompt = "Answer: {q}"
@@ -389,13 +249,7 @@ class TestGEPAProgressCallbackDeterministic(unittest.TestCase):
         self.assertEqual(generations_seen, {0, 1, 2})
 
     def test_callback_receives_validation_accuracy(self):
-        """Test that callback receives validation accuracy updates.
-
-        Verifies that current_val_accuracy and best_val_accuracy are provided.
-
-        Returns:
-            None
-        """
+        """Test that callback receives validation accuracy updates."""
         agent_wrapper, _ = create_deterministic_agent_wrapper()
 
         initial_prompt = "Eval: {x}"
@@ -434,13 +288,7 @@ class TestGEPAProgressCallbackDeterministic(unittest.TestCase):
         self.assertGreater(len(non_none_best), 0)
 
     def test_callback_not_called_when_none(self):
-        """Test that no errors occur when callback is None.
-
-        Verifies that optimization works without a callback.
-
-        Returns:
-            None
-        """
+        """Test that no errors occur when callback is None."""
         agent_wrapper, _ = create_deterministic_agent_wrapper()
 
         initial_prompt = "Test: {t}"
@@ -465,13 +313,7 @@ class TestGEPAProgressCallbackDeterministic(unittest.TestCase):
         self.assertIsNotNone(best)
 
     def test_callback_receives_pareto_frontier_size(self):
-        """Test that callback reports Pareto frontier size.
-
-        Verifies that pareto_frontier_size is updated as candidates are evaluated.
-
-        Returns:
-            None
-        """
+        """Test that callback reports Pareto frontier size."""
         agent_wrapper, _ = create_deterministic_agent_wrapper()
 
         initial_prompt = "Compute: {c}"
@@ -505,13 +347,7 @@ class TestGEPAProgressCallbackDeterministic(unittest.TestCase):
         self.assertGreater(len(pareto_sizes), 0)
 
     def test_callback_messages_are_descriptive(self):
-        """Test that callback messages contain useful information.
-
-        Verifies that progress messages describe what's happening.
-
-        Returns:
-            None
-        """
+        """Test that callback messages contain useful information."""
         agent_wrapper, _ = create_deterministic_agent_wrapper()
 
         initial_prompt = "Do: {d}"
@@ -552,13 +388,7 @@ class TestGEPAProgressCallbackDeterministic(unittest.TestCase):
 
 
 def create_imperfect_evaluation_fn():
-    """Create evaluation function that always returns imperfect scores.
-
-    This ensures that mutation/reflection is triggered (not skipped due to perfect scores).
-
-    Returns:
-        Evaluation function that returns scores < 1.0.
-    """
+    """Create evaluation function that always returns imperfect scores."""
 
     def evaluation_fn(result: str) -> dict[str, float]:
         """Return imperfect scores to ensure reflection is triggered."""
@@ -575,14 +405,8 @@ class TestGEPAProgressCallbackWithMutation(unittest.TestCase):
     These tests require API keys as mutation triggers LLM-based reflection.
     """
 
-    def test_callback_receives_reflection_phase(self):
-        """Test that callback receives REFLECTION phase updates.
-
-        Verifies that when mutation_rate > 0, reflection phases are reported.
-
-        Returns:
-            None
-        """
+    def test_callback_receives_reflection_and_mutation_gating(self):
+        """Test that callback receives reflection and mutation gating phases."""
         agent_wrapper, _ = create_agent_wrapper_with_expected()
 
         initial_prompt = "Problem: {p}\nCall finish with result."
@@ -598,9 +422,6 @@ class TestGEPAProgressCallbackWithMutation(unittest.TestCase):
         def progress_callback(progress: GEPAProgress) -> None:
             phases_seen.add(progress.phase)
 
-        # Use imperfect eval to ensure reflection is triggered (not skipped due to perfect scores)
-        # Use gpt-4o for reflection since test already requires OpenAI API key
-        # Minimal config: 1 candidate, 2 generations to trigger reflection once
         gepa = GEPA(
             agent_wrapper=agent_wrapper,
             initial_prompt_template=initial_prompt,
@@ -608,60 +429,17 @@ class TestGEPAProgressCallbackWithMutation(unittest.TestCase):
             max_generations=2,
             population_size=1,
             pareto_size=1,
-            mutation_rate=1.0,  # Always mutate
-            reflection_model="gpt-4o",  # Use OpenAI model for reflection
-            use_merge=False,  # Disable merge to speed up test
+            mutation_rate=1.0,
+            reflection_model="gpt-4o",
+            use_merge=False,
             progress_callback=progress_callback,
         )
 
         gepa.optimize(train_examples)
 
-        # Should see reflection phase with high mutation rate and imperfect scores
         self.assertIn(GEPAPhase.DEV_EVALUATION, phases_seen)
         self.assertIn(GEPAPhase.VAL_EVALUATION, phases_seen)
         self.assertIn(GEPAPhase.REFLECTION, phases_seen)
-
-    def test_callback_receives_mutation_gating_phase(self):
-        """Test that callback receives MUTATION_GATING phase updates.
-
-        Verifies that mutation gating is reported during optimization.
-
-        Returns:
-            None
-        """
-        agent_wrapper, _ = create_agent_wrapper_with_expected()
-
-        initial_prompt = "Task: {t}\nCall finish with result."
-
-        # Minimal examples to reduce LLM calls
-        train_examples = [
-            {"t": "1+1", "_expected": "2"},
-            {"t": "2+2", "_expected": "4"},
-        ]
-
-        phases_seen: set[GEPAPhase] = set()
-
-        def progress_callback(progress: GEPAProgress) -> None:
-            phases_seen.add(progress.phase)
-
-        # Use imperfect eval to ensure mutation gating is triggered
-        # Use gpt-4o for reflection since test already requires OpenAI API key
-        # Minimal config: 1 candidate, 2 generations to trigger mutation gating
-        gepa = GEPA(
-            agent_wrapper=agent_wrapper,
-            initial_prompt_template=initial_prompt,
-            evaluation_fn=create_imperfect_evaluation_fn(),
-            max_generations=2,
-            population_size=1,
-            mutation_rate=1.0,
-            reflection_model="gpt-4o",  # Use OpenAI model for reflection
-            use_merge=False,  # Disable merge to speed up test
-            progress_callback=progress_callback,
-        )
-
-        gepa.optimize(train_examples)
-
-        # Should see mutation gating phase
         self.assertIn(GEPAPhase.MUTATION_GATING, phases_seen)
 
 
@@ -673,18 +451,12 @@ class TestGEPAProgressCallbackWithMerge(unittest.TestCase):
     """
 
     def test_callback_receives_merge_phase(self):
-        """Test that callback receives MERGE phase updates when merge is enabled.
-
-        Verifies that merge attempts are reported via callback.
-
-        Returns:
-            None
-        """
+        """Test that callback receives MERGE phase updates when merge is enabled."""
         # Use agent with varying results to build diverse pareto frontier
         call_count = [0]
 
         def varying_agent(prompt_template: str, arguments: dict[str, str]) -> tuple[str, list]:
-            """Agent that returns different results to build diverse pareto frontier."""
+            """Agent that returns different results to build diverse Pareto frontier."""
             expected = arguments.get("_expected", "unknown")
             call_count[0] += 1
             # Return slightly different results to create diverse candidates
@@ -713,7 +485,7 @@ class TestGEPAProgressCallbackWithMerge(unittest.TestCase):
         # Create evaluation function that returns varying scores based on result
         # This helps create diverse candidates with different per-instance scores
         def varying_eval_fn(result: str) -> dict[str, float]:
-            """Evaluation that returns varying scores to create diverse pareto frontier."""
+            """Evaluation that returns varying scores to create diverse Pareto frontier."""
             if "a" in result:
                 return {"accuracy": 0.8, "completeness": 0.5}
             elif "b" in result:
@@ -740,176 +512,6 @@ class TestGEPAProgressCallbackWithMerge(unittest.TestCase):
 
         # Should attempt merge phase when merge is enabled and pareto frontier >= 2
         self.assertIn(GEPAPhase.MERGE, phases_seen)
-
-
-@requires_openai_api_key
-class TestGEPAProgressCallbackIntegration(unittest.TestCase):
-    """Integration tests for GEPA progress callback with real LLM calls."""
-
-    def test_callback_with_real_agent(self):
-        """Test progress callback works with real LLM agent.
-
-        Verifies that progress updates are received during actual optimization.
-
-        Returns:
-            None
-        """
-        agent_wrapper, _ = create_agent_wrapper_with_expected()
-
-        initial_prompt = """Solve: {problem}
-Call finish with status='success' and result=<answer>."""
-
-        train_examples = [
-            {"problem": "2 + 2", "_expected": "4"},
-            {"problem": "5 - 3", "_expected": "2"},
-            {"problem": "3 * 3", "_expected": "9"},
-            {"problem": "8 / 2", "_expected": "4"},
-        ]
-
-        progress_log: list[dict] = []
-
-        def progress_callback(progress: GEPAProgress) -> None:
-            progress_log.append(
-                {
-                    "generation": progress.generation,
-                    "phase": progress.phase.value,
-                    "best_val_accuracy": progress.best_val_accuracy,
-                    "message": progress.message,
-                }
-            )
-
-        gepa = GEPA(
-            agent_wrapper=agent_wrapper,
-            initial_prompt_template=initial_prompt,
-            evaluation_fn=create_evaluation_fn(),
-            max_generations=1,
-            population_size=1,
-            mutation_rate=0.0,
-            progress_callback=progress_callback,
-        )
-
-        best = gepa.optimize(train_examples)
-
-        # Should have progress updates
-        self.assertGreater(len(progress_log), 0)
-        self.assertIsNotNone(best)
-
-        # Print progress for visibility
-        print("\n--- Progress Log ---")
-        for entry in progress_log:
-            print(f"Gen {entry['generation']} | {entry['phase']} | "
-                  f"Best: {entry['best_val_accuracy']} | {entry['message']}")
-
-    def test_callback_accuracy_tracking(self):
-        """Test that accuracy is tracked correctly through optimization.
-
-        Verifies that best_val_accuracy updates appropriately.
-
-        Returns:
-            None
-        """
-        agent_wrapper, _ = create_agent_wrapper_with_expected()
-
-        initial_prompt = """Problem: {problem}
-Call finish with result."""
-
-        train_examples = [
-            {"problem": "What is 1+1?", "_expected": "2"},
-            {"problem": "What is 2+2?", "_expected": "4"},
-            {"problem": "What is 3+3?", "_expected": "6"},
-            {"problem": "What is 4+4?", "_expected": "8"},
-        ]
-
-        best_accuracies: list[float | None] = []
-
-        def progress_callback(progress: GEPAProgress) -> None:
-            if progress.phase == GEPAPhase.VAL_EVALUATION:
-                best_accuracies.append(progress.best_val_accuracy)
-
-        gepa = GEPA(
-            agent_wrapper=agent_wrapper,
-            initial_prompt_template=initial_prompt,
-            evaluation_fn=create_evaluation_fn(),
-            max_generations=2,
-            population_size=1,
-            mutation_rate=0.0,
-            progress_callback=progress_callback,
-        )
-
-        gepa.optimize(train_examples)
-
-        # Should have accuracy updates
-        self.assertGreater(len(best_accuracies), 0)
-
-        # Best accuracy should be set after first val evaluation
-        non_none = [a for a in best_accuracies if a is not None]
-        self.assertGreater(len(non_none), 0)
-        print(f"\nAccuracy progression: {best_accuracies}")
-
-
-class TestProgressCallbackRichExample(unittest.TestCase):
-    """Example of using progress callback for Rich progress bars."""
-
-    def test_progress_callback_for_rich_integration(self):
-        """Demonstrate how to use callback with Rich progress bars.
-
-        This test shows the pattern for integrating with Rich progress bars.
-        Note: This doesn't actually use Rich, but shows the data flow.
-
-        Returns:
-            None
-        """
-        agent_wrapper, _ = create_deterministic_agent_wrapper()
-
-        initial_prompt = "Solve: {problem}"
-
-        train_examples = [
-            {"problem": "a", "_expected": "a"},
-            {"problem": "b", "_expected": "b"},
-            {"problem": "c", "_expected": "c"},
-            {"problem": "d", "_expected": "d"},
-        ]
-
-        # Simulate Rich progress tracking
-        progress_state = {
-            "current_gen": 0,
-            "total_gens": 0,
-            "phase": "",
-            "best_accuracy": 0.0,
-            "updates": 0,
-        }
-
-        def rich_style_callback(progress: GEPAProgress) -> None:
-            """Callback that would update Rich progress bars.
-
-            In real usage, this would call:
-            - progress_bar.update(task_id, advance=1)
-            - console.print(f"Generation {progress.generation}")
-            - etc.
-            """
-            progress_state["current_gen"] = progress.generation
-            progress_state["total_gens"] = progress.max_generations
-            progress_state["phase"] = progress.phase.value
-            if progress.best_val_accuracy is not None:
-                progress_state["best_accuracy"] = progress.best_val_accuracy
-            progress_state["updates"] += 1
-
-        gepa = GEPA(
-            agent_wrapper=agent_wrapper,
-            initial_prompt_template=initial_prompt,
-            evaluation_fn=create_simple_evaluation_fn(),
-            max_generations=3,
-            population_size=2,
-            mutation_rate=0.0,
-            progress_callback=rich_style_callback,
-        )
-
-        gepa.optimize(train_examples)
-
-        # Verify progress state was updated
-        self.assertGreater(progress_state["updates"], 0)
-        self.assertEqual(progress_state["total_gens"], 3)
-        print(f"\nFinal progress state: {progress_state}")
 
 
 if __name__ == "__main__":

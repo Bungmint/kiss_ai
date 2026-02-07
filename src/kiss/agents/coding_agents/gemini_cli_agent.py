@@ -5,6 +5,7 @@
 
 """Gemini CLI Coding Agent using the Google ADK (Agent Development Kit)."""
 
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -317,9 +318,12 @@ class GeminiCliAgent(Base):
 
             # Create the ADK agent with tools
             tools = self._create_tools()
+            safe_name = re.sub(r"[^A-Za-z0-9_]", "_", self.name)
+            if safe_name and safe_name[0].isdigit():
+                safe_name = "_" + safe_name
             agent = Agent(
                 model=model_name,
-                name=self.name,
+                name=safe_name,
                 instruction=CODING_INSTRUCTIONS,
                 description="An expert Python programmer that writes clean, simple, robust code.",
                 tools=tools,

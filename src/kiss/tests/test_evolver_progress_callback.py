@@ -435,126 +435,23 @@ class TestEvolverCallbackIntegration(unittest.TestCase):
         )
         self.assertIsNotNone(best)
 
-    def test_callback_receives_initializing_phase(self):
-        phases_seen: set[EvolverPhase] = set()
-
-        def callback(p: EvolverProgress) -> None:
-            phases_seen.add(p.phase)
-
-        evolver = TestableAgentEvolver()
-        evolver.evolve(
-            task_description="test task",
-            max_generations=1,
-            initial_frontier_size=1,
-            max_frontier_size=2,
-            mutation_probability=1.0,
-            progress_callback=callback,
-        )
-
-        self.assertIn(EvolverPhase.INITIALIZING, phases_seen)
-
-    def test_callback_receives_evaluating_phase(self):
-        phases_seen: set[EvolverPhase] = set()
-
-        def callback(p: EvolverProgress) -> None:
-            phases_seen.add(p.phase)
-
-        evolver = TestableAgentEvolver()
-        evolver.evolve(
-            task_description="test task",
-            max_generations=1,
-            initial_frontier_size=1,
-            max_frontier_size=2,
-            mutation_probability=1.0,
-            progress_callback=callback,
-        )
-
-        self.assertIn(EvolverPhase.EVALUATING, phases_seen)
-
-    def test_callback_receives_pareto_update_phase(self):
-        phases_seen: set[EvolverPhase] = set()
-
-        def callback(p: EvolverProgress) -> None:
-            phases_seen.add(p.phase)
-
-        evolver = TestableAgentEvolver()
-        evolver.evolve(
-            task_description="test task",
-            max_generations=1,
-            initial_frontier_size=1,
-            max_frontier_size=2,
-            mutation_probability=1.0,
-            progress_callback=callback,
-        )
-
-        self.assertIn(EvolverPhase.PARETO_UPDATE, phases_seen)
-
-    def test_callback_receives_mutation_phase(self):
-        phases_seen: set[EvolverPhase] = set()
-
-        def callback(p: EvolverProgress) -> None:
-            phases_seen.add(p.phase)
-
-        evolver = TestableAgentEvolver()
-        evolver.evolve(
-            task_description="test task",
-            max_generations=1,
-            initial_frontier_size=1,
-            max_frontier_size=2,
-            mutation_probability=1.0,
-            progress_callback=callback,
-        )
-
-        self.assertIn(EvolverPhase.MUTATION, phases_seen)
-
-    def test_callback_receives_complete_phase(self):
-        phases_seen: set[EvolverPhase] = set()
-
-        def callback(p: EvolverProgress) -> None:
-            phases_seen.add(p.phase)
-
-        evolver = TestableAgentEvolver()
-        evolver.evolve(
-            task_description="test task",
-            max_generations=1,
-            initial_frontier_size=1,
-            max_frontier_size=2,
-            mutation_probability=1.0,
-            progress_callback=callback,
-        )
-
-        self.assertIn(EvolverPhase.COMPLETE, phases_seen)
-
-    def test_callback_receives_crossover_phase(self):
-        phases_seen: set[EvolverPhase] = set()
-
-        def callback(p: EvolverProgress) -> None:
-            phases_seen.add(p.phase)
-
-        # Need 2+ in frontier for crossover; mutation_probability=0 forces crossover
-        metrics = [
-            {"success": 0, "tokens_used": 100, "execution_time": 1.0},
-            {"success": 0, "tokens_used": 200, "execution_time": 0.5},
-            {"success": 0, "tokens_used": 150, "execution_time": 0.8},
-        ]
-        evolver = TestableAgentEvolver(agent_metrics=metrics)
-        evolver.evolve(
-            task_description="test task",
-            max_generations=1,
-            initial_frontier_size=2,
-            max_frontier_size=4,
-            mutation_probability=0.0,
-            progress_callback=callback,
-        )
-
-        self.assertIn(EvolverPhase.CROSSOVER, phases_seen)
-
     def test_all_phases_seen_across_full_evolution(self):
         phases_seen: set[EvolverPhase] = set()
 
         def callback(p: EvolverProgress) -> None:
             phases_seen.add(p.phase)
 
+        evolver = TestableAgentEvolver()
+        evolver.evolve(
+            task_description="test task",
+            max_generations=1,
+            initial_frontier_size=1,
+            max_frontier_size=2,
+            mutation_probability=1.0,
+            progress_callback=callback,
+        )
+
+        # Need 2+ in frontier for crossover; mutation_probability=0 forces crossover
         metrics = [
             {"success": 0, "tokens_used": 100, "execution_time": 1.0},
             {"success": 0, "tokens_used": 200, "execution_time": 0.5},
@@ -575,6 +472,7 @@ class TestEvolverCallbackIntegration(unittest.TestCase):
             EvolverPhase.INITIALIZING,
             EvolverPhase.EVALUATING,
             EvolverPhase.PARETO_UPDATE,
+            EvolverPhase.MUTATION,
             EvolverPhase.CROSSOVER,
             EvolverPhase.COMPLETE,
         }
@@ -662,34 +560,11 @@ class TestEvolverCallbackIntegration(unittest.TestCase):
         self.assertGreater(len(frontier_sizes), 0)
         self.assertGreaterEqual(frontier_sizes[-1], 1)
 
-    def test_callback_best_score_set_after_first_eval(self):
+    def test_callback_best_score_progression(self):
         best_scores: list[float | None] = []
 
         def callback(p: EvolverProgress) -> None:
             best_scores.append(p.best_score)
-
-        evolver = TestableAgentEvolver()
-        evolver.evolve(
-            task_description="test task",
-            max_generations=1,
-            initial_frontier_size=1,
-            max_frontier_size=2,
-            mutation_probability=1.0,
-            progress_callback=callback,
-        )
-
-        # First callback (INITIALIZING) has no best_score yet
-        self.assertIsNone(best_scores[0])
-        # Later callbacks after evaluation should have best_score
-        non_none = [s for s in best_scores if s is not None]
-        self.assertGreater(len(non_none), 0)
-
-    def test_callback_best_score_decreases_or_stays(self):
-        best_scores: list[float] = []
-
-        def callback(p: EvolverProgress) -> None:
-            if p.best_score is not None:
-                best_scores.append(p.best_score)
 
         # Provide improving metrics
         metrics = [
@@ -707,9 +582,11 @@ class TestEvolverCallbackIntegration(unittest.TestCase):
             progress_callback=callback,
         )
 
-        # best_score should never increase (lower is better)
-        for i in range(1, len(best_scores)):
-            self.assertLessEqual(best_scores[i], best_scores[i - 1])
+        self.assertIsNone(best_scores[0])
+        non_none = [s for s in best_scores if s is not None]
+        self.assertGreater(len(non_none), 0)
+        for i in range(1, len(non_none)):
+            self.assertLessEqual(non_none[i], non_none[i - 1])
 
     def test_callback_variant_id_set_on_eval(self):
         variant_ids: list[int | None] = []
@@ -908,88 +785,78 @@ class TestEvolverCallbackIntegration(unittest.TestCase):
 
         self.assertEqual(len(init_variant_ids), 3)
 
-    def test_callback_order_init_eval_pareto(self):
-        phase_order: list[EvolverPhase] = []
+    def test_callback_phase_ordering(self):
+        def run_and_collect(evolver, generation, **kwargs):
+            phases: list[EvolverPhase] = []
 
-        def callback(p: EvolverProgress) -> None:
-            if p.generation == 0:
-                phase_order.append(p.phase)
+            def callback(p: EvolverProgress) -> None:
+                if p.generation == generation:
+                    phases.append(p.phase)
 
-        evolver = TestableAgentEvolver()
-        evolver.evolve(
-            task_description="test task",
-            max_generations=1,
-            initial_frontier_size=1,
-            max_frontier_size=2,
-            mutation_probability=1.0,
-            progress_callback=callback,
-        )
+            evolver.evolve(
+                task_description="test task",
+                max_generations=1,
+                progress_callback=callback,
+                **kwargs,
+            )
+            return phases
 
-        # Order should be: INITIALIZING, EVALUATING (pre), EVALUATING (post), PARETO_UPDATE
-        self.assertGreaterEqual(len(phase_order), 3)
-        first_init = phase_order.index(EvolverPhase.INITIALIZING)
-        first_eval = phase_order.index(EvolverPhase.EVALUATING)
-        first_pareto = phase_order.index(EvolverPhase.PARETO_UPDATE)
-        self.assertLess(first_init, first_eval)
-        self.assertLess(first_eval, first_pareto)
+        with self.subTest("init"):
+            evolver = TestableAgentEvolver()
+            phase_order = run_and_collect(
+                evolver,
+                generation=0,
+                initial_frontier_size=1,
+                max_frontier_size=2,
+                mutation_probability=1.0,
+            )
+            self.assertGreaterEqual(len(phase_order), 3)
+            first_init = phase_order.index(EvolverPhase.INITIALIZING)
+            first_eval = phase_order.index(EvolverPhase.EVALUATING)
+            first_pareto = phase_order.index(EvolverPhase.PARETO_UPDATE)
+            self.assertLess(first_init, first_eval)
+            self.assertLess(first_eval, first_pareto)
 
-    def test_callback_order_mutation_eval_pareto_in_gen(self):
-        gen1_phases: list[EvolverPhase] = []
+        with self.subTest("mutation"):
+            evolver = TestableAgentEvolver()
+            gen1_phases = run_and_collect(
+                evolver,
+                generation=1,
+                initial_frontier_size=1,
+                max_frontier_size=2,
+                mutation_probability=1.0,
+            )
+            self.assertIn(EvolverPhase.MUTATION, gen1_phases)
+            self.assertIn(EvolverPhase.EVALUATING, gen1_phases)
+            self.assertIn(EvolverPhase.PARETO_UPDATE, gen1_phases)
+            first_mut = gen1_phases.index(EvolverPhase.MUTATION)
+            first_eval = gen1_phases.index(EvolverPhase.EVALUATING)
+            first_pareto = gen1_phases.index(EvolverPhase.PARETO_UPDATE)
+            self.assertLess(first_mut, first_eval)
+            self.assertLess(first_eval, first_pareto)
 
-        def callback(p: EvolverProgress) -> None:
-            if p.generation == 1:
-                gen1_phases.append(p.phase)
-
-        evolver = TestableAgentEvolver()
-        evolver.evolve(
-            task_description="test task",
-            max_generations=1,
-            initial_frontier_size=1,
-            max_frontier_size=2,
-            mutation_probability=1.0,
-            progress_callback=callback,
-        )
-
-        # Gen 1: MUTATION, EVALUATING (pre), EVALUATING (post), PARETO_UPDATE
-        self.assertIn(EvolverPhase.MUTATION, gen1_phases)
-        self.assertIn(EvolverPhase.EVALUATING, gen1_phases)
-        self.assertIn(EvolverPhase.PARETO_UPDATE, gen1_phases)
-        first_mut = gen1_phases.index(EvolverPhase.MUTATION)
-        first_eval = gen1_phases.index(EvolverPhase.EVALUATING)
-        first_pareto = gen1_phases.index(EvolverPhase.PARETO_UPDATE)
-        self.assertLess(first_mut, first_eval)
-        self.assertLess(first_eval, first_pareto)
-
-    def test_callback_order_crossover_eval_pareto_in_gen(self):
-        gen1_phases: list[EvolverPhase] = []
-
-        def callback(p: EvolverProgress) -> None:
-            if p.generation == 1:
-                gen1_phases.append(p.phase)
-
-        metrics = [
-            {"success": 0, "tokens_used": 100, "execution_time": 1.0},
-            {"success": 0, "tokens_used": 200, "execution_time": 0.5},
-            {"success": 0, "tokens_used": 150, "execution_time": 0.8},
-        ]
-        evolver = TestableAgentEvolver(agent_metrics=metrics)
-        evolver.evolve(
-            task_description="test task",
-            max_generations=1,
-            initial_frontier_size=2,
-            max_frontier_size=4,
-            mutation_probability=0.0,
-            progress_callback=callback,
-        )
-
-        self.assertIn(EvolverPhase.CROSSOVER, gen1_phases)
-        self.assertIn(EvolverPhase.EVALUATING, gen1_phases)
-        self.assertIn(EvolverPhase.PARETO_UPDATE, gen1_phases)
-        first_cross = gen1_phases.index(EvolverPhase.CROSSOVER)
-        first_eval = gen1_phases.index(EvolverPhase.EVALUATING)
-        first_pareto = gen1_phases.index(EvolverPhase.PARETO_UPDATE)
-        self.assertLess(first_cross, first_eval)
-        self.assertLess(first_eval, first_pareto)
+        with self.subTest("crossover"):
+            metrics = [
+                {"success": 0, "tokens_used": 100, "execution_time": 1.0},
+                {"success": 0, "tokens_used": 200, "execution_time": 0.5},
+                {"success": 0, "tokens_used": 150, "execution_time": 0.8},
+            ]
+            evolver = TestableAgentEvolver(agent_metrics=metrics)
+            gen1_phases = run_and_collect(
+                evolver,
+                generation=1,
+                initial_frontier_size=2,
+                max_frontier_size=4,
+                mutation_probability=0.0,
+            )
+            self.assertIn(EvolverPhase.CROSSOVER, gen1_phases)
+            self.assertIn(EvolverPhase.EVALUATING, gen1_phases)
+            self.assertIn(EvolverPhase.PARETO_UPDATE, gen1_phases)
+            first_cross = gen1_phases.index(EvolverPhase.CROSSOVER)
+            first_eval = gen1_phases.index(EvolverPhase.EVALUATING)
+            first_pareto = gen1_phases.index(EvolverPhase.PARETO_UPDATE)
+            self.assertLess(first_cross, first_eval)
+            self.assertLess(first_eval, first_pareto)
 
     def test_evolve_returns_valid_variant_with_callback(self):
         progress_updates: list[EvolverProgress] = []
