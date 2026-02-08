@@ -54,7 +54,6 @@ def _run_relentless_coding_agent(tmp_path: Path, token_callback: TokenCallback |
     return agent.run(
         prompt_template="Write a Python function that returns 42. Then finish.",
         work_dir=str(work_dir),
-        orchestrator_model_name="gpt-4.1-mini",
         subtasker_model_name="gpt-4.1-mini",
         max_steps=10,
         max_budget=0.50,
