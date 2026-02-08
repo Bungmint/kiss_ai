@@ -216,15 +216,16 @@ print(f"Result: {result}")
 
 **Key Features:**
 
-- **Single-Agent with Auto-Continuation**: A single agent executes the task across multiple trials, automatically continuing where it left off via a `progress.md` file (💡 new idea)
-- **Progress Tracking**: The agent writes progress to a `progress.md` file and reads it on continuation, ensuring no work is repeated
+- **Single-Agent with Auto-Continuation**: A single agent executes the task across multiple trials, automatically continuing where it left off via structured JSON progress tracking (💡 new idea)
+- **Structured Progress Tracking**: Each trial reports completed and remaining tasks in JSON format (done/next items), which is deduplicated and passed to subsequent trials along with a scan of existing files in the work directory
+- **Adaptive Step Thresholds**: Step limits per trial scale based on trial number and progress, with conservative early trials and more steps for trials showing good progress
 - **Efficiency Rules**: Built-in prompt instructions enforce step minimization, batching, and immediate completion when tests pass
 - **Output Truncation**: Long tool outputs are automatically truncated to keep context manageable
-- **Retry with Context**: Failed trials automatically pass progress summaries to the next trial
+- **Retry with Context**: Failed trials automatically pass structured progress summaries and file listings to the next trial
 - **Configurable Trials**: Set high trial counts (e.g., 200+) for truly relentless execution
 - **Docker Support**: Optional isolated execution via Docker containers
 - **Path Access Control**: Enforces read/write permissions on file system paths
-- **Built-in Tools**: Bash, Read, Edit, and Write tools for file operations
+- **Built-in Tools**: Bash, Read, and Edit tools for file operations
 - **Budget & Token Tracking**: Automatic cost and token usage monitoring across all trials
 
 ## 🎨 Output Formatting

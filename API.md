@@ -159,7 +159,7 @@ ______________________________________________________________________
 
 ## RelentlessCodingAgent
 
-A single-agent coding system with smart auto-continuation for long-running tasks. It uses a single agent that executes the task across multiple trials, automatically continuing where it left off via a `progress.md` file.
+A single-agent coding system with smart auto-continuation for long-running tasks. It uses a single agent that executes the task across multiple trials, automatically continuing where it left off via structured JSON progress tracking (done/next items) and work directory scanning.
 
 The agent continues attempting tasks through multiple trials until success or exhaustion of retry attempts.
 
@@ -224,7 +224,7 @@ Run the single-agent coding system with auto-continuation.
 def perform_task(self) -> str
 ```
 
-Execute the main task using multiple trials with auto-continuation. Each trial runs a KISSAgent with a step limit; on failure, progress is passed to the next trial via `progress.md`.
+Execute the main task using multiple trials with auto-continuation. Each trial runs a KISSAgent with an adaptive step limit; on failure, structured progress (done/next items) and a scan of existing files are passed to the next trial.
 
 **Returns:**
 
@@ -257,15 +257,16 @@ Execute the main task using multiple trials with auto-continuation. Each trial r
 
 ### Key Features
 
-- **Single-Agent with Auto-Continuation**: A single agent executes the task across multiple trials, automatically continuing where it left off via a `progress.md` file
-- **Progress Tracking**: The agent writes progress to `progress.md` and reads it on continuation, ensuring no work is repeated
+- **Single-Agent with Auto-Continuation**: A single agent executes the task across multiple trials, automatically continuing where it left off via structured JSON progress tracking (done/next items)
+- **Structured Progress Tracking**: Each trial reports completed and remaining tasks in JSON format, which is deduplicated, validated, and passed to subsequent trials along with a scan of existing files in the work directory
+- **Adaptive Step Thresholds**: Step limits per trial scale based on trial number and progress, with conservative early trials and more steps for trials showing good progress
 - **Efficiency Rules**: Built-in prompt instructions enforce step minimization, batching, and immediate completion when tests pass
 - **Output Truncation**: Long tool outputs are automatically truncated to keep context manageable
 - **Relentless Retries**: Continues attempting tasks through multiple continuation trials until success
 - **Bash Command Parsing**: Automatically extracts readable/writable paths from commands using `parse_bash_command_paths()`
 - **Path Access Control**: Enforces read/write permissions on file system paths before command execution
 - **Docker Support**: Optional Docker container execution for bash commands via the `docker_image` parameter. When enabled, all bash commands run inside an isolated Docker container.
-- **Built-in Tools**: Each trial agent has access to `finish()`, `Bash` (or Docker bash when `docker_image` is set), `Read`, `Edit`, and `Write`
+- **Built-in Tools**: Each trial agent has access to `finish()`, `Bash` (or Docker bash when `docker_image` is set), `Read`, and `Edit`
 
 ### Example
 

@@ -29,17 +29,33 @@ TASK_PROMPT = """# Task
 
 {coding_instructions}
 
-# Plan
-1. Identify core components needed
-2. Implement in order: setup → core logic → validation
-3. Test (batch all related tests in ONE Bash call)
-4. Call finish()
+# Working Directory
+All files MUST be created in: {work_dir}
+Use relative paths from this directory. Do NOT use /tmp, ~, or any other location.
 
 # Rules
-- BATCH: Combine related commands in ONE Bash() call (e.g., run all tests together, create+write files together)
+- BATCH: Combine related commands in ONE Bash() call
 - SUCCESS: Call finish(success=True, summary="done") when complete
-- CONTINUATION: At step {step_threshold} call finish(success=False, summary={{"done":["x"],"next":["y"]}})
-- NO duplicates of prior work{previous_progress}"""
+- At step {step_threshold}: finish(success=False,
+  summary={{"done":["task A", "task B"], "next":["task C"]}})
+  IMPORTANT: Use specific, actionable items in "done" and "next"
+  (e.g., "created db.sh with set/get/delete", not "started work")
+{previous_progress}"""
+
+CONTINUATION_PROMPT = """# CONTINUATION - Pick up where the previous trial left off
+DO NOT recreate files that already exist. Build on existing work efficiently.
+
+{existing_files}
+
+{progress_text}
+
+# Continuation Strategy:
+1. FIRST: Quickly verify existing state (ls key files, check if tests pass)
+2. Identify what still needs to be done from "Remaining Tasks"
+3. Continue implementation or fix any issues found
+4. Report progress in structured format at checkpoint
+
+EFFICIENCY: Don't redo completed work. Focus on remaining tasks."""
 
 
 def finish(success: bool, summary: str) -> str:
@@ -60,7 +76,6 @@ class RelentlessCodingAgent(Base):
 
     def _reset(
         self,
-        orchestrator_model_name: str | None,
         subtasker_model_name: str | None,
         trials: int | None,
         max_steps: int | None,
@@ -116,53 +131,95 @@ class RelentlessCodingAgent(Base):
         return self.docker_manager.run_bash_command(command, description)
 
     def _parse_progress(self, summary: str) -> tuple[list[str], list[str]]:
-        """Parse structured progress from summary string."""
+        """Parse structured progress from summary string with validation."""
         try:
             progress = json.loads(summary)
             done = progress.get("done", [])
             next_items = progress.get("next", [])
+            # Validate and clean items
             if isinstance(done, list) and isinstance(next_items, list):
+                # Deduplicate while preserving order
+                done = list(dict.fromkeys(str(d)[:200] for d in done if d))
+                next_items = list(dict.fromkeys(str(n)[:200] for n in next_items if n))
                 return done, next_items
-        except (json.JSONDecodeError, AttributeError):
+        except (json.JSONDecodeError, AttributeError, TypeError):
             pass
         return [], []
 
+    def _scan_work_dir(self) -> str:
+        try:
+            files = []
+            for p in sorted(Path(self.work_dir).rglob("*")):
+                if p.is_file():
+                    rel = p.relative_to(self.work_dir)
+                    size = p.stat().st_size
+                    files.append(f"  {rel} ({size}B)")
+            if files:
+                return "## Existing Files\n" + "\n".join(files[:50])
+        except Exception:
+            pass
+        return ""
+
     def _format_progress(self, done_items: list[str], next_items: list[str]) -> str:
-        """Format progress for agent prompt."""
         if not done_items:
             return ""
         progress = "## Completed Work\n"
-        for item in done_items[-10:]:  # Keep last 10 items for context
+        for item in done_items[-10:]:
             progress += f"- {item}\n"
         if next_items:
             progress += "\n## Remaining Tasks\n"
-            for item in next_items[:5]:  # Show next 5 tasks
+            for item in next_items[:5]:
                 progress += f"- {item}\n"
         return progress
 
     def _calculate_step_threshold(self, trial: int, done_count: int) -> int:
-        """Calculate adaptive step threshold based on progress."""
+        """Calculate adaptive step threshold based on progress and trial number."""
         base = self.max_steps - 3
-        # Early trials: be more conservative
+
+        # For 10K+ steps: use exponential scaling with progress tracking
         if trial == 0:
+            # First trial: conservative to establish baseline
             return max(6, base // 2)
-        # Later trials: allow more steps if making good progress
-        if done_count > trial * 3:
-            return max(8, int(base * 0.8))
-        return max(7, int(base * 0.6))
+        elif trial < 3:
+            # Early trials: moderate step count, focus on establishing workflow
+            return max(8, int(base * 0.65))
+        elif done_count > trial * 2:
+            # Good progress: allow more steps per trial
+            return max(10, int(base * 0.85))
+        elif done_count > trial:
+            # Steady progress: moderate steps
+            return max(9, int(base * 0.75))
+        else:
+            # Slow progress: reduce steps to force more frequent checkpoints
+            return max(7, int(base * 0.55))
+
+    def _build_continuation_section(
+        self, done_items: list[str], next_items: list[str]
+    ) -> str:
+        existing_files = self._scan_work_dir()
+        progress_text = self._format_progress(done_items, next_items)
+        return "\n\n" + CONTINUATION_PROMPT.format(
+            existing_files=existing_files,
+            progress_text=progress_text,
+        )
 
     def perform_task(self) -> str:
         self.formatter.print_status(f"Executing task: {self.task_description}")
         bash_tool = self._docker_bash if self.docker_manager else self.useful_tools.Bash
-        
+
         done_items: list[str] = []
         next_items: list[str] = []
 
         for trial in range(self.trials):
             step_threshold = self._calculate_step_threshold(trial, len(done_items))
-            progress_text = self._format_progress(done_items, next_items)
-            progress_section = f"\n\n# Previous Progress\n{progress_text}" if progress_text else ""
-            
+
+            if trial == 0:
+                progress_section = ""
+            else:
+                progress_section = self._build_continuation_section(
+                    done_items, next_items
+                )
+
             executor = KISSAgent(f"{self.name} Trial-{trial}")
             try:
                 result = executor.run(
@@ -173,6 +230,7 @@ class RelentlessCodingAgent(Base):
                         "coding_instructions": CODING_INSTRUCTIONS,
                         "previous_progress": progress_section,
                         "step_threshold": str(step_threshold),
+                        "work_dir": self.work_dir,
                     },
                     tools=[
                         finish,
@@ -186,51 +244,48 @@ class RelentlessCodingAgent(Base):
                     token_callback=self.token_callback,
                 )
             except KISSError:
-                # Extract minimal context on error
                 last_msgs = executor.messages[-2:] if hasattr(executor, "messages") else []
                 context = " ".join(
-                    str(m.get("content", ""))[:100] 
-                    for m in last_msgs 
+                    str(m.get("content", ""))[:100]
+                    for m in last_msgs
                     if isinstance(m, dict)
                 )[:200]
                 result = yaml.dump(
-                    {"success": False, "summary": json.dumps({"done": done_items, "next": [f"Continue: {context}"]})},
+                    {
+                        "success": False,
+                        "summary": json.dumps(
+                            {"done": done_items, "next": [f"Continue: {context}"]}
+                        ),
+                    },
                     sort_keys=False,
                 )
-            
+
             self.budget_used += executor.budget_used  # type: ignore
             self.total_tokens_used += executor.total_tokens_used  # type: ignore
 
             ret = yaml.safe_load(result)
             payload = ret if isinstance(ret, dict) else {}
-            
+
             if payload.get("success", False):
                 return result
-            
-            # Parse structured progress
+
             summary = payload.get("summary", "")
             trial_done, trial_next = self._parse_progress(summary)
-            
+
             if trial_done:
-                # Merge new done items, avoiding duplicates
                 for item in trial_done:
                     if item not in done_items:
                         done_items.append(item)
                 next_items = trial_next
-            else:
-                # Fallback: use unstructured summary
-                if summary and summary not in done_items:
-                    done_items.append(summary[:100])
-            
-            continue
-            
+            elif summary and summary not in done_items:
+                done_items.append(summary[:100])
+
         raise KISSError(f"Task failed after {self.trials} trials")
 
     def run(
         self,
         prompt_template: str,
         arguments: dict[str, str] | None = None,
-        orchestrator_model_name: str | None = None,
         subtasker_model_name: str | None = None,
         trials: int | None = None,
         max_steps: int | None = None,
@@ -248,7 +303,6 @@ class RelentlessCodingAgent(Base):
         Args:
             prompt_template: The prompt template for the task.
             arguments: The arguments for the task.
-            orchestrator_model_name: Unused, kept for API compatibility.
             subtasker_model_name: The name of the model to use.
             trials: The number of continuation trials for long tasks.
             max_steps: The maximum number of steps per trial.
@@ -264,7 +318,6 @@ class RelentlessCodingAgent(Base):
             The result of the task.
         """
         self._reset(
-            orchestrator_model_name,
             subtasker_model_name,
             trials,
             max_steps,
@@ -316,6 +369,7 @@ def main() -> None:
  *   No external database tools (no sqlite3, no python).
  *   Standard Linux utilities only (sed, awk, grep, flock/mkdir).
  *   Safe: Operate entirely within a `./my_db` directory.
+ *   No README or docs.
     """
 
     work_dir = tempfile.mkdtemp()
