@@ -813,6 +813,7 @@ kiss/
 │   │   │   ├── kiss_coding_agent.py       # Multi-agent coding system with orchestration
 │   │   │   ├── relentless_coding_agent.py # Single-agent system with smart auto-continuation
 │   │   │   ├── claude_coding_agent.py     # Claude Coding Agent using Claude Agent SDK
+│   │   │   ├── optimize_agent.py          # Pareto frontier agent optimizer
 │   │   │   ├── print_to_console.py        # Console output formatting for Claude Coding Agent
 │   │   │   ├── print_to_browser.py        # Browser SSE streaming for Claude Coding Agent
 │   │   │   ├── gemini_cli_agent.py        # Gemini CLI Agent using Google ADK

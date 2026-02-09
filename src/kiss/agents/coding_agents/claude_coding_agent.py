@@ -111,9 +111,15 @@ class ClaudeCodingAgent(Base):
         return PermissionResultAllow(behavior="allow")
 
     def _update_token_usage(self, message: Any) -> None:
-        if hasattr(message, "usage") and message.usage:
-            self.total_tokens_used += getattr(message.usage, "input_tokens", 0)
-            self.total_tokens_used += getattr(message.usage, "output_tokens", 0)
+        usage = getattr(message, "usage", None)
+        if not usage:
+            return
+        if isinstance(usage, dict):
+            self.total_tokens_used += usage.get("input_tokens", 0)
+            self.total_tokens_used += usage.get("output_tokens", 0)
+        else:
+            self.total_tokens_used += getattr(usage, "input_tokens", 0)
+            self.total_tokens_used += getattr(usage, "output_tokens", 0)
 
     def _process_assistant_message(self, message: AssistantMessage, timestamp: int) -> None:
         self.step_count += 1
@@ -155,43 +161,31 @@ class ClaudeCodingAgent(Base):
 
     def run(
         self,
-        model_name: str,
-        prompt_template: str,
+        prompt_template: str = "",
+        model_name: str | None = None,
+        subtasker_model_name: str | None = None,
         arguments: dict[str, str] | None = None,
         max_steps: int | None = None,
         max_budget: float | None = None,
         base_dir: str | None = None,
+        work_dir: str | None = None,
         readable_paths: list[str] | None = None,
         writable_paths: list[str] | None = None,
         token_callback: TokenCallback | None = None,
-    ) -> str | None:
-        """Run the claude coding agent for a given task.
-
-        Args:
-            model_name: The name of the model to use.
-            prompt_template: The prompt template for the task.
-            arguments: The arguments for the task.
-            max_steps: The maximum number of steps to take.
-            max_budget: The maximum budget in USD to spend.
-            base_dir: The base directory relative to which readable and writable
-                paths are resolved if they are not absolute.
-            readable_paths: The paths from which the agent is allowed to read from.
-            writable_paths: The paths to which the agent is allowed to write to.
-            token_callback: Optional async callback invoked with each streamed text token.
-
-        Returns:
-            The result of the task.
-        """
+        formatter: Any = None,
+        trials: int | None = None,
+        max_thinking_tokens: int = 1024,
+    ) -> str:
         cfg = config_module.DEFAULT_CONFIG.agent
+        actual_model = model_name or subtasker_model_name or "claude-sonnet-4-5"
         actual_max_steps = max_steps if max_steps is not None else cfg.max_steps
         actual_max_budget = max_budget if max_budget is not None else cfg.max_agent_budget
         actual_base_dir = (
-            base_dir
-            if base_dir is not None
-            else str(Path(cfg.artifact_dir).resolve() / "claude_workdir")
+            work_dir or base_dir
+            or str(Path(cfg.artifact_dir).resolve() / "claude_workdir")
         )
         self._reset(
-            model_name,
+            actual_model,
             readable_paths,
             writable_paths,
             actual_base_dir,
@@ -206,15 +200,24 @@ class ClaudeCodingAgent(Base):
             if self._use_browser:
                 self._printer.start()
             self._printer.reset()
+            system_prompt = (
+                CODING_INSTRUCTIONS
+                + "\n## Efficiency\n"
+                "- Use Write to create complete files in one step\n"
+                "- Batch related bash commands with &&\n"
+                "- Minimize conversation turns\n"
+            )
             options = ClaudeAgentOptions(
-                model=model_name,
-                system_prompt=CODING_INSTRUCTIONS,
+                model=actual_model,
+                system_prompt=system_prompt,
                 can_use_tool=self.permission_handler,
-                permission_mode="default",
+                permission_mode="bypassPermissions",
                 allowed_tools=BUILTIN_TOOLS,
+                disallowed_tools=["EnterPlanMode"],
                 cwd=str(self.base_dir),
                 include_partial_messages=True,
-                max_thinking_tokens=10000,
+                max_thinking_tokens=max_thinking_tokens,
+                max_budget_usd=actual_max_budget,
             )
 
             async def prompt_stream() -> AsyncGenerator[dict[str, Any]]:
@@ -257,20 +260,61 @@ class ClaudeCodingAgent(Base):
                 self._printer.stop()
             return final_result
 
-        return anyio.run(_run_async)
+        result = anyio.run(_run_async)
+        return result or ""
 
 
 def main() -> None:
-    """Example usage of the ClaudeCodingAgent with browser output."""
-    agent = ClaudeCodingAgent("Example agent", use_browser=True)
-    task_description = """
-    can you write, test, and optimize a fibonacci function in Python that is efficient and correct?
-    """
-    result = agent.run(model_name="claude-sonnet-4-5", prompt_template=task_description)
+    import os
+    import tempfile
 
+    agent = ClaudeCodingAgent("Example agent", use_browser=False)
+    task_description = """
+ **Task:** Create a robust database engine using only Bash scripts.
+
+ **Requirements:**
+ 1.  Create a script named `db.sh` that interacts with a local data folder.
+ 2.  **Basic Operations:** Implement `db.sh set <key> <value>`,
+     `db.sh get <key>`, and `db.sh delete <key>`.
+ 3.  **Atomicity:** Implement transaction support.
+     *   `db.sh begin` starts a session where writes are cached but not visible to others.
+     *   `db.sh commit` atomically applies all cached changes.
+     *   `db.sh rollback` discards pending changes.
+ 4.  **Concurrency:** Ensure that if two different terminal windows run `db.sh`
+     simultaneously, the data is never corrupted (use `mkdir`-based mutex locking).
+ 5.  **Validation:** Write a test script `test_stress.sh` that launches 10
+     concurrent processes to spam the database, verifying no data is lost.
+
+ **Constraints:**
+ *   No external database tools (no sqlite3, no python).
+ *   Standard Linux utilities only (sed, awk, grep, flock/mkdir).
+ *   Safe: Operate entirely within a `./my_db` directory.
+ *   No README or docs.
+    """
+
+    work_dir = tempfile.mkdtemp()
+    old_cwd = os.getcwd()
+    start_time = time.time()
+    try:
+        os.chdir(work_dir)
+        result = agent.run(
+            prompt_template=task_description,
+            model_name="claude-sonnet-4-5",
+            work_dir=work_dir,
+            max_steps=25,
+        )
+    finally:
+        os.chdir(old_cwd)
+    elapsed = time.time() - start_time
+
+    print("\n--- FINAL AGENT REPORT ---")
+    print(f"Success: {bool(result)}")
+    print(f"Time: {elapsed:.1f}s")
+    print(f"Cost: ${agent.budget_used:.4f}")
+    print(f"Total tokens: {agent.total_tokens_used}")
+    print(f"Work directory: {work_dir}")
     if result:
-        print("\n--- FINAL AGENT REPORT ---")
-        print(f"RESULT:\n{result}")
+        print(f"RESULT:\n{result[:500]}")
 
 
 if __name__ == "__main__":

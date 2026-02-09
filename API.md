@@ -389,8 +389,8 @@ Run the multi-agent coding system with orchestration and sub-task delegation.
 - `subtasker_model_name` (str | None): Model for executor agents handling sub-tasks. Default is None (uses config default: "claude-opus-4-6").
 - `refiner_model_name` (str | None): Model for dynamic prompt refinement when tasks fail. Default is None (uses config default: "claude-sonnet-4-5").
 - `trials` (int | None): Number of retry attempts for each task/subtask. Default is None (uses config default: 200).
-- `max_steps` (int | None): Maximum number of steps per agent. Default is None (uses `DEFAULT_CONFIG.agent.max_steps`, which is 100).
-- `max_budget` (float | None): Maximum budget in USD for this run. Default is None (uses `DEFAULT_CONFIG.agent.max_agent_budget`, which is 10.0).
+- `max_steps` (int | None): Maximum number of steps per agent. Default is None (uses `DEFAULT_CONFIG.agent.kiss_coding_agent.max_steps`, which is 200).
+- `max_budget` (float | None): Maximum budget in USD for this run. Default is None (uses `DEFAULT_CONFIG.agent.kiss_coding_agent.max_budget`, which is 100.0).
 - `work_dir` (str | None): The working directory for the agent's operations. Default is None (uses `{artifact_dir}/kiss_workdir`).
 - `base_dir` (str | None): The base directory relative to which readable and writable paths are resolved if they are not absolute. Default is None (uses `{artifact_dir}/kiss_workdir`).
 - `readable_paths` (list[str] | None): The paths from which the agent is allowed to read. If None, no paths are allowed for read access (except work_dir which is always added).
@@ -562,35 +562,45 @@ ClaudeCodingAgent(name: str, use_browser: bool = False)
 ```python
 def run(
     self,
-    model_name: str,
-    prompt_template: str,
+    prompt_template: str = "",
+    model_name: str | None = None,
+    subtasker_model_name: str | None = None,
     arguments: dict[str, str] | None = None,
     max_steps: int | None = None,
     max_budget: float | None = None,
     base_dir: str | None = None,
+    work_dir: str | None = None,
     readable_paths: list[str] | None = None,
     writable_paths: list[str] | None = None,
     token_callback: TokenCallback | None = None,
-) -> str | None
+    formatter: Any = None,
+    trials: int | None = None,
+    max_thinking_tokens: int = 1024,
+) -> str
 ```
 
 Run the Claude coding agent for a given task.
 
 **Parameters:**
 
-- `model_name` (str): The name of the model to use (e.g., "claude-sonnet-4-5").
-- `prompt_template` (str): The prompt template for the task. Can include `{placeholder}` syntax for variable substitution.
+- `prompt_template` (str): The prompt template for the task. Can include `{placeholder}` syntax for variable substitution. Default is "".
+- `model_name` (str | None): The name of the model to use (e.g., "claude-sonnet-4-5"). Default is None (falls back to `subtasker_model_name`, then "claude-sonnet-4-5").
+- `subtasker_model_name` (str | None): Alternative parameter name for the model. Used as fallback if `model_name` is None. Default is None.
 - `arguments` (dict[str, str] | None): Arguments to substitute into the prompt template. Default is None.
 - `max_steps` (int | None): Maximum number of steps. Default is None (uses `DEFAULT_CONFIG.agent.max_steps`).
 - `max_budget` (float | None): Maximum budget in USD for this run. Default is None (uses `DEFAULT_CONFIG.agent.max_agent_budget`).
-- `base_dir` (str | None): The base directory relative to which readable and writable paths are resolved if they are not absolute. Default is None (uses `{artifact_dir}/claude_workdir`).
+- `base_dir` (str | None): The base directory relative to which readable and writable paths are resolved if they are not absolute. Default is None (uses `work_dir` if provided, otherwise `{artifact_dir}/claude_workdir`).
+- `work_dir` (str | None): Alternative parameter name for the working directory. Takes precedence over `base_dir`. Default is None.
 - `readable_paths` (list[str] | None): The paths from which the agent is allowed to read. If None, no paths are allowed for Read/Grep/Glob.
 - `writable_paths` (list[str] | None): The paths to which the agent is allowed to write. If None, no paths are allowed for Write/Edit/MultiEdit.
 - `token_callback` (TokenCallback | None): Optional async callback invoked with streaming text deltas (from `StreamEvent` messages), tool result text, and the final result. When set, the agent streams assistant text and thinking content in real-time as they are generated. Default is None.
+- `formatter` (Any): Unused parameter for interface compatibility with other coding agents. Default is None.
+- `trials` (int | None): Unused parameter for interface compatibility with other coding agents. Default is None.
+- `max_thinking_tokens` (int): Maximum tokens for Claude's extended thinking. Default is 1024.
 
 **Returns:**
 
-- `str | None`: The result of the task, or None if no result.
+- `str`: The result of the task, or an empty string if no result.
 
 #### `get_trajectory()`
 
