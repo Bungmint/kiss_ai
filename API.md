@@ -25,6 +25,7 @@ For a high-level overview and quick start guide, see [README.md](README.md).
 - [UsefulTools](#usefultools) - File operations and bash execution with path-based access control
 - [Utility Functions](#utility-functions) - Helper functions
 - [BrowserPrinter](#browserprinter) - Browser SSE streaming output
+- [ConsolePrinter](#consoleprinter) - Rich terminal output for ClaudeCodingAgent
 - [SimpleFormatter](#simpleformatter) - Rich terminal output formatting
 - [CompactFormatter](#compactformatter) - Compact single-line output formatting
 - [Pre-built Agents](#pre-built-agents) - Ready-to-use agents
@@ -272,7 +273,7 @@ Execute the main task using multiple trials with auto-continuation. Each trial r
 ### Example
 
 ```python
-from kiss.agents.coding_agents import RelentlessCodingAgent
+from kiss.agents.coding_agents.relentless_coding_agent import RelentlessCodingAgent
 
 agent = RelentlessCodingAgent("My Relentless Agent")
 
@@ -300,7 +301,7 @@ print(f"Summary: {result_dict['summary']}")
 ### Example with Docker
 
 ```python
-from kiss.agents.coding_agents import RelentlessCodingAgent
+from kiss.agents.coding_agents.relentless_coding_agent import RelentlessCodingAgent
 
 agent = RelentlessCodingAgent("Docker Relentless Agent")
 
@@ -547,13 +548,12 @@ A coding agent that uses the Claude Agent SDK to generate tested Python programs
 ### Constructor
 
 ```python
-ClaudeCodingAgent(name: str, use_browser: bool = False)
+ClaudeCodingAgent(name: str)
 ```
 
 **Parameters:**
 
 - `name` (str): Name of the agent. Used for identification and artifact naming.
-- `use_browser` (bool): If True, starts a local uvicorn server and opens a browser window for real-time streaming output with a modern dark-themed UI. If False (default), uses `ConsolePrinter` for terminal output.
 
 ### Methods
 
@@ -628,7 +628,7 @@ Returns the agent's conversation trajectory as a JSON string.
 ### Key Features
 
 - **Real-time Streaming**: Uses `include_partial_messages=True` to receive `StreamEvent` messages, enabling live streaming of assistant text, thinking content, and tool call inputs as they are generated.
-- **Extended Thinking**: Supports Claude's extended thinking via `max_thinking_tokens=10000`, allowing the model to reason through complex problems before responding. `ThinkingBlock` content is captured in the trajectory.
+- **Extended Thinking**: Supports Claude's extended thinking via `max_thinking_tokens` (default: 1024), allowing the model to reason through complex problems before responding. `ThinkingBlock` content is captured in the trajectory.
 - **Rich Console Output**: Uses a dedicated `ConsolePrinter` class (`print_to_console.py`) for formatted terminal output with Rich panels for tool calls (syntax-highlighted file content, diffs, commands), thinking block delimiters, streaming text deltas, and result summaries with cost/token stats.
 - **Browser Streaming Output**: When `use_browser=True`, uses `BrowserPrinter` class (`print_to_browser.py`) which starts a local uvicorn/starlette SSE server and opens a browser window for real-time streaming with a modern dark-themed UI featuring scrollable panels for thinking, text, tool calls with syntax highlighting, tool results, and a final result card with stats.
 - **Message Processing**: Handles five message types from the Claude Agent SDK query stream:
@@ -672,10 +672,11 @@ if result:
 from kiss.agents.coding_agents import ClaudeCodingAgent
 
 # Browser window opens automatically with live streaming output
-agent = ClaudeCodingAgent("My Agent", use_browser=True)
+agent = ClaudeCodingAgent("My Agent")
 result = agent.run(
     model_name="claude-sonnet-4-5",
-    prompt_template="Write a fibonacci function with tests"
+    prompt_template="Write a fibonacci function with tests",
+    use_browser=True,
 )
 if result:
     print(f"Result: {result}")
@@ -759,6 +760,18 @@ Send a complete message to the browser. Supports the same duck-typed message det
 - ResultMessage (has `result`): final result with stats
 - UserMessage (has `content`): tool result blocks
 
+#### `print_usage_info()`
+
+```python
+def print_usage_info(self, usage_info: str) -> None
+```
+
+Send usage information (step count, token counts, etc.) to the browser via SSE.
+
+**Parameters:**
+
+- `usage_info` (str): The usage info text to broadcast.
+
 ### Browser UI Features
 
 - **Dark theme** with modern, professional design
@@ -769,6 +782,78 @@ Send a complete message to the browser. Supports the same duck-typed message det
 - **Auto-scroll** with smart detection (pauses when user scrolls up)
 - **Live status indicator** with event count and elapsed time
 - **SSE-based streaming** for instant updates without polling
+
+______________________________________________________________________
+
+## ConsolePrinter
+
+Rich terminal output handler for ClaudeCodingAgent. Provides formatted console output with syntax-highlighted tool calls, thinking block delimiters, streaming text deltas, and result summaries.
+
+### Constructor
+
+```python
+ConsolePrinter(file: Any = None)
+```
+
+**Parameters:**
+
+- `file` (Any): Optional file object for output. Default is None (uses `sys.stdout`).
+
+### Methods
+
+#### `reset()`
+
+```python
+def reset(self) -> None
+```
+
+Reset internal state (block type, tool name, JSON buffer, mid-line flag).
+
+#### `print_stream_event()`
+
+```python
+def print_stream_event(self, event: Any) -> str
+```
+
+Handle a streaming event and print to terminal with Rich formatting. Returns extracted text content for token callbacks. Handles event types: `content_block_start`, `content_block_delta`, `content_block_stop`.
+
+**Parameters:**
+
+- `event`: A StreamEvent (or any object with an `event` dict attribute).
+
+**Returns:**
+
+- `str`: Extracted text content.
+
+#### `print_message()`
+
+```python
+def print_message(
+    self,
+    message: Any,
+    step_count: int = 0,
+    budget_used: float = 0.0,
+    total_tokens_used: int = 0,
+) -> None
+```
+
+Print a complete message to the terminal. Supports duck-typed message detection:
+
+- SystemMessage (has `subtype` and `data`): tool output text
+- ResultMessage (has `result`): final result with stats
+- UserMessage (has `content`): tool result blocks
+
+#### `print_usage_info()`
+
+```python
+def print_usage_info(self, usage_info: str) -> None
+```
+
+Print usage information (step count, token counts, etc.) as a Rich Panel with Markdown rendering.
+
+**Parameters:**
+
+- `usage_info` (str): The usage info text to print.
 
 ______________________________________________________________________
 

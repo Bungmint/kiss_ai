@@ -53,6 +53,7 @@ _HTML_PAGE = r"""<!DOCTYPE html>
 <link rel="stylesheet"
   href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -155,12 +156,13 @@ main{flex:1;overflow-y:auto;padding:20px 28px;scroll-behavior:smooth}
 }
 .usage{
   border:1px solid var(--border);border-radius:6px;margin:8px 0;
-  padding:8px 12px;background:var(--surface);
-  font-size:11px;color:var(--dim);line-height:1.6;
+  padding:6px 12px;background:var(--surface);
+  font-size:12px;color:var(--dim);line-height:1.5;
+  word-break:break-word;
 }
-.usage strong{color:var(--accent);font-size:10px;font-weight:600;
-  text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;
-}
+.usage h4{font-size:13px;color:var(--accent);margin:4px 0}
+.usage ul{margin:2px 0 2px 18px;padding:0}
+.usage li{margin:1px 0}
 footer{
   background:var(--surface);border-top:1px solid var(--border);
   padding:8px 28px;font-size:12px;color:var(--dim);flex-shrink:0;
@@ -188,10 +190,11 @@ code{font-family:'SF Mono','Fira Code',monospace}
 const O=document.getElementById('out'),D=document.getElementById('dot'),
   ST=document.getElementById('stxt'),EC=document.getElementById('evcnt'),
   EL=document.getElementById('elapsed');
-let ec=0,auto=true,thinkEl=null,txtEl=null;
+let ec=0,auto=true,thinkEl=null,txtEl=null,scrollRaf=0;
 const t0=Date.now();
 O.addEventListener('scroll',()=>{auto=O.scrollTop+O.clientHeight>=O.scrollHeight-60});
-function sb(){if(auto)O.scrollTop=O.scrollHeight}
+function sb(){if(!scrollRaf){scrollRaf=requestAnimationFrame(()=>{
+if(auto)O.scrollTop=O.scrollHeight;scrollRaf=0})}}
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 setInterval(()=>{
   const s=Math.floor((Date.now()-t0)/1000),m=Math.floor(s/60);
@@ -231,7 +234,7 @@ src.onmessage=function(e){
       }
       thinkEl=null;break;
     case'text_delta':
-      if(!txtEl){txtEl=document.createElement('div');txtEl.className='ev txt';O.appendChild(txtEl)}
+      if(!txtEl){txtEl=document.createElement('div');txtEl.className='txt';O.appendChild(txtEl)}
       txtEl.textContent+=ev.text||'';break;
     case'text_end':txtEl=null;break;
     case'tool_call':{
@@ -274,13 +277,7 @@ src.onmessage=function(e){
       O.appendChild(c);break}
     case'usage_info':{
       const u=document.createElement('div');u.className='ev usage';
-      if(ev.items&&ev.items.length>0){
-        u.innerHTML='<strong>Usage Information</strong><br>'+
-          ev.items.map(i=>'• '+esc(i)).join('<br>');
-      }else{
-        u.textContent=ev.text||'';
-      }
-      O.appendChild(u);break}
+      u.innerHTML=marked.parse(ev.text||'');O.appendChild(u);break}
     case'done':
       D.classList.add('done');ST.textContent='Completed';src.close();break;
   }
@@ -521,9 +518,7 @@ class BrowserPrinter:
         )
 
     def print_usage_info(self, usage_info: str) -> None:
-        lines = [line.strip() for line in usage_info.strip().split('\n') if line.strip()]
-        items = [line.lstrip('- ') for line in lines if line.startswith('- ')]
-        self._broadcast({"type": "usage_info", "items": items})
+        self._broadcast({"type": "usage_info", "text": usage_info.strip()})
 
     def _print_tool_results(self, message: Any) -> None:
         for block in message.content:

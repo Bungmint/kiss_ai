@@ -32,7 +32,7 @@ from kiss.agents.coding_agents.print_to_console import ConsolePrinter
 from kiss.core import config as config_module
 from kiss.core.base import CODING_INSTRUCTIONS, Base
 from kiss.core.kiss_error import KISSError
-from kiss.core.models.model_info import get_max_context_length
+from kiss.core.models.model_info import calculate_cost, get_max_context_length
 from kiss.core.utils import is_subpath, resolve_path
 
 BUILTIN_TOOLS = [
@@ -106,103 +106,79 @@ class ClaudeCodingAgent(Base):
             return self._check_path_permission(path_str, self.writable_paths)
         return PermissionResultAllow(behavior="allow")
 
-    def _update_token_usage(self, message: Any) -> None:
-        """Update token usage from message usage attribute."""
-        usage = getattr(message, "usage", None)
-        if not usage:
-            return
-        if isinstance(usage, dict):
-            input_tokens = usage.get("input_tokens", 0)
-            output_tokens = usage.get("output_tokens", 0)
-        else:
-            input_tokens = getattr(usage, "input_tokens", 0)
-            output_tokens = getattr(usage, "output_tokens", 0)
-
-        self.input_tokens_used += input_tokens
-        self.output_tokens_used += output_tokens
+    def _update_token_usage_from_stream(self, event: StreamEvent) -> None:
+        evt = event.event
+        evt_type = evt.get("type", "")
+        if evt_type == "message_start":
+            usage = evt.get("message", {}).get("usage", {})
+            self.input_tokens_used += usage.get("input_tokens", 0)
+        elif evt_type == "message_delta":
+            usage = evt.get("usage", {})
+            self.output_tokens_used += usage.get("output_tokens", 0)
         self.total_tokens_used = self.input_tokens_used + self.output_tokens_used
 
-    def _update_token_usage_from_stream_event(self, event: StreamEvent) -> None:
-        """Extract and update token usage from stream events."""
-        if not hasattr(event, "event"):
-            return
-
-        event_data = event.event
-        if not isinstance(event_data, dict):
-            return
-
-        # Check for usage in message_delta events (output tokens)
-        if event_data.get("type") == "message_delta":
-            usage = event_data.get("usage", {})
-            if usage:
-                output_tokens = usage.get("output_tokens", 0)
-                self.output_tokens_used += output_tokens
-                self.total_tokens_used += output_tokens
-
-        # Check for usage in message_start events (input tokens)
-        elif event_data.get("type") == "message_start":
-            message = event_data.get("message", {})
-            usage = message.get("usage", {})
-            if usage:
-                input_tokens = usage.get("input_tokens", 0)
-                self.input_tokens_used += input_tokens
-                self.total_tokens_used += input_tokens
-
-    def _get_usage_info_string(self) -> str:
-        return (
-            "#### Usage Information\n"
-            f"- Token usage: {self.total_tokens_used}/{self.max_tokens}\n"
-            f"- Agent budget: ${self.budget_used:.4f} / ${self.max_budget:.2f}\n"
-            f"- Global budget: ${Base.global_budget_used:.4f} / "
-            f"${config_module.DEFAULT_CONFIG.agent.global_max_budget:.2f}\n"
-            f"- Step: {self.step_count}/{self.max_steps}\n"
-        )
-
-    def _check_limits(self) -> None:
-        """Check if any resource limits have been exceeded and raise KISSError if so."""
-        if self.total_tokens_used > self.max_tokens:
-            raise KISSError(
-                f"Token limit exceeded: {self.total_tokens_used}/{self.max_tokens} tokens used."
-            )
-
-        if self.budget_used > self.max_budget:
-            raise KISSError(
-                f"Agent budget limit exceeded: ${self.budget_used:.4f}/${self.max_budget:.2f} used."
-            )
-
-        global_max_budget = config_module.DEFAULT_CONFIG.agent.global_max_budget
-        if Base.global_budget_used > global_max_budget:
-            raise KISSError(
-                f"Global budget limit exceeded: "
-                f"${Base.global_budget_used:.4f}/${global_max_budget:.2f} used."
-            )
-
-    def _process_assistant_message(self, message: AssistantMessage, timestamp: int) -> bool:
-        from kiss.core.models.model_info import calculate_cost
-
-        self.step_count += 1
-        self._update_token_usage(message)
-
-        # Calculate cost for this step based on tokens used since last step
-        step_input_tokens = self.input_tokens_used - self.last_step_input_tokens
-        step_output_tokens = self.output_tokens_used - self.last_step_output_tokens
-
-        if step_input_tokens > 0 or step_output_tokens > 0:
-            step_cost = calculate_cost(
-                self.model_name, step_input_tokens, step_output_tokens
-            )
+    def _update_step_cost(self) -> None:
+        step_input = self.input_tokens_used - self.last_step_input_tokens
+        step_output = self.output_tokens_used - self.last_step_output_tokens
+        self.last_step_input_tokens = self.input_tokens_used
+        self.last_step_output_tokens = self.output_tokens_used
+        if step_input > 0 or step_output > 0:
+            step_cost = calculate_cost(self.model_name, step_input, step_output)
             self.budget_used += step_cost
             Base.global_budget_used += step_cost
 
-        # Update last step token counts for next iteration
-        self.last_step_input_tokens = self.input_tokens_used
-        self.last_step_output_tokens = self.output_tokens_used
+    def _check_limits(self) -> None:
+        if self.step_count > self.max_steps:
+            raise KISSError(
+                f"Step limit exceeded: {self.step_count}/{self.max_steps}"
+            )
+        if self.total_tokens_used > self.max_tokens:
+            raise KISSError(
+                f"Token limit exceeded: {self.total_tokens_used}/{self.max_tokens}"
+            )
+        if self.budget_used > self.max_budget:
+            raise KISSError(
+                f"Agent budget exceeded: ${self.budget_used:.4f}/${self.max_budget:.2f}"
+            )
+        global_max = config_module.DEFAULT_CONFIG.agent.global_max_budget
+        if Base.global_budget_used > global_max:
+            raise KISSError(
+                f"Global budget exceeded: ${Base.global_budget_used:.4f}/${global_max:.2f}"
+            )
+
+    def _get_usage_info_string(self) -> str:
+        step_info = f"[Step {self.step_count}/{self.max_steps}]"
+        token_info = f"[Token usage: {self.total_tokens_used}/{self.max_tokens}]"
+        budget_info = f"[Agent budget usage: ${self.budget_used:.4f}/${self.max_budget:.2f}]"
+        global_budget_info = (
+            f"[Global budget usage: ${Base.global_budget_used:.4f}/"
+            f"${config_module.DEFAULT_CONFIG.agent.global_max_budget:.2f}]"
+        )
+        return (
+            "\n\n#### Usage Information\n"
+            f"  - {token_info}\n"
+            f"  - {budget_info}\n"
+            f"  - {global_budget_info}\n"
+            f"  - {step_info}\n"
+        )
+
+    def _finalize_prev_model_message(self) -> None:
+        self._update_step_cost()
+        usage_info = self._get_usage_info_string()
+        for msg in reversed(self.messages):
+            if msg["role"] == "model":
+                msg["content"] += usage_info
+                return
+
+    def _process_assistant_message(self, message: AssistantMessage, timestamp: int) -> None:
+        if self.step_count > 0:
+            self._finalize_prev_model_message()
+        self.step_count += 1
+        self._check_limits()
 
         thought, tool_call = "", ""
-        has_tool_calls = False
         for block in message.content:
             if isinstance(block, ToolUseBlock):
-                has_tool_calls = True
                 args_str = ", ".join(f"{k}={repr(v)}" for k, v in block.input.items())
                 tool_call += f"```python\n{block.name}({args_str})\n```\n"
             elif isinstance(block, TextBlock):
@@ -210,9 +186,7 @@ class ClaudeCodingAgent(Base):
             elif isinstance(block, ThinkingBlock):
                 thought += block.thinking
 
-        message_content = thought + tool_call + "\n\n" + self._get_usage_info_string()
-        self._add_message("model", message_content, timestamp)
-        return has_tool_calls
+        self._add_message("model", thought + tool_call, timestamp)
 
     def _process_user_message(self, message: UserMessage, timestamp: int) -> str:
         result = ""
@@ -226,22 +200,21 @@ class ClaudeCodingAgent(Base):
         return result
 
     def _process_result_message(self, message: ResultMessage, timestamp: int) -> str | None:
-        self._update_token_usage(message)
+        self._finalize_prev_model_message()
 
-        # If SDK provides total_cost_usd, use it to correct any rounding differences
-        # from our incremental calculations
+        usage = getattr(message, "usage", None)
+        if isinstance(usage, dict):
+            self.total_tokens_used = (
+                usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+            )
         if hasattr(message, "total_cost_usd") and message.total_cost_usd:
-            sdk_total_cost = message.total_cost_usd
-            cost_difference = sdk_total_cost - self.budget_used
+            cost_diff = message.total_cost_usd - self.budget_used
+            self.budget_used = message.total_cost_usd
+            Base.global_budget_used += cost_diff
 
-            # Apply the correction
-            self.budget_used = sdk_total_cost
-            Base.global_budget_used += cost_difference
-
-        final_result = message.result
-        result_text = final_result or ""
-        message_content = result_text + "\n\n" + self._get_usage_info_string()
-        self._add_message("model", message_content, timestamp)
+        final_result = message.result or ""
+        usage_info = self._get_usage_info_string()
+        self._add_message("model", final_result + "\n" + usage_info, timestamp)
         return final_result
 
     def run(
@@ -314,53 +287,40 @@ class ClaudeCodingAgent(Base):
 
             timestamp = int(time.time())
             final_result: str | None = None
-            max_steps_reached = False
+            usage_printed = False
 
-            async for message in query(prompt=prompt_stream(), options=options):
-                if isinstance(message, StreamEvent):
-                    self._update_token_usage_from_stream_event(message)
-                    self._printer.print_stream_event(message)
-                elif isinstance(message, SystemMessage):
-                    self._printer.print_message(message)
-                elif isinstance(message, AssistantMessage):
-                    if not max_steps_reached:
-                        has_tool_calls = self._process_assistant_message(message, timestamp)
-                        if has_tool_calls:
-                            self._printer.print_usage_info(self._get_usage_info_string())
+            try:
+                async for message in query(prompt=prompt_stream(), options=options):
+                    if isinstance(message, StreamEvent):
+                        self._update_token_usage_from_stream(message)
+                        self._printer.print_stream_event(message)
+                    elif isinstance(message, SystemMessage):
+                        self._printer.print_message(message)
+                    elif isinstance(message, AssistantMessage):
+                        self._process_assistant_message(message, timestamp)
+                        usage_printed = False
                         timestamp = int(time.time())
-                        if self.step_count >= self.max_steps:
-                            max_steps_reached = True
-                            self._save()
-                            raise KISSError(
-                                f"Maximum steps ({self.max_steps}) exceeded. "
-                                f"Agent stopped at step {self.step_count}."
+                    elif isinstance(message, UserMessage):
+                        if not usage_printed:
+                            self._printer.print_usage_info(
+                                self._get_usage_info_string()
                             )
-                        try:
-                            self._check_limits()
-                        except KISSError:
-                            self._save()
-                            raise
-                elif isinstance(message, UserMessage):
-                    if not max_steps_reached:
+                            usage_printed = True
                         self._printer.print_message(message)
                         self._process_user_message(message, timestamp)
                         timestamp = int(time.time())
-                elif isinstance(message, ResultMessage):
-                    final_result = self._process_result_message(message, timestamp)
-                    self._printer.print_message(
-                        message,
-                        step_count=self.step_count,
-                        budget_used=self.budget_used,
-                        total_tokens_used=self.total_tokens_used,
-                    )
-                    timestamp = int(time.time())
-                    try:
-                        self._check_limits()
-                    except KISSError:
-                        self._save()
-                        raise
-
-            self._save()
+                    elif isinstance(message, ResultMessage):
+                        final_result = self._process_result_message(message, timestamp)
+                        self._printer.print_usage_info(self._get_usage_info_string())
+                        self._printer.print_message(
+                            message,
+                            step_count=self.step_count,
+                            budget_used=self.budget_used,
+                            total_tokens_used=self.total_tokens_used,
+                        )
+                        timestamp = int(time.time())
+            finally:
+                self._save()
             if self._use_browser:
                 self._printer.stop()
             return final_result
@@ -406,8 +366,8 @@ def main() -> None:
             prompt_template=task_description,
             model_name="claude-sonnet-4-5",
             work_dir=work_dir,
-            max_steps=50,
-            use_browser=True,
+            max_steps=25,
+            use_browser=False,
         )
     finally:
         os.chdir(old_cwd)

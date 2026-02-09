@@ -543,10 +543,11 @@ The Claude Coding Agent supports real-time browser streaming. When `use_browser=
 ```python
 from kiss.agents.coding_agents import ClaudeCodingAgent
 
-agent = ClaudeCodingAgent(name="My Agent", use_browser=True)
+agent = ClaudeCodingAgent(name="My Agent")
 result = agent.run(
     model_name="claude-sonnet-4-5",
-    prompt_template="Write a fibonacci function with tests"
+    prompt_template="Write a fibonacci function with tests",
+    use_browser=True,
 )
 ```
 
@@ -926,7 +927,7 @@ print(f"KISS version: {__version__}")
 To update the version, simply edit `src/kiss/_version.py`:
 
 ```python
-__version__ = "0.1.9"  # Update to new version
+__version__ = "0.2.0"  # Update to new version
 ```
 
 ## ⚙️ Configuration

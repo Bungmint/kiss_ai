@@ -810,76 +810,124 @@ class TestServerLifecycle(unittest.TestCase):
         assert any(e["type"] == "done" for e in events)
 
 
+class TestPrintUsageInfo(unittest.TestCase):
+    def test_broadcasts_usage_info_event(self):
+        p = BrowserPrinter()
+        q = _subscribe(p)
+        p.print_usage_info("#### Usage\n  - [Step 1/10]\n")
+        events = _drain(q)
+        assert len(events) == 1
+        assert events[0]["type"] == "usage_info"
+        assert "Step 1/10" in events[0]["text"]
+
+    def test_strips_whitespace(self):
+        p = BrowserPrinter()
+        q = _subscribe(p)
+        p.print_usage_info("  \n#### Usage\n  - info\n  ")
+        events = _drain(q)
+        assert events[0]["text"] == "#### Usage\n  - info"
+
+    def test_empty_string(self):
+        p = BrowserPrinter()
+        q = _subscribe(p)
+        p.print_usage_info("")
+        events = _drain(q)
+        assert len(events) == 1
+        assert events[0]["text"] == ""
+
+
 class TestBrowserPrinterEndToEnd(unittest.TestCase):
+    def _stream(self, p, evt_dict):
+        p.print_stream_event(SimpleNamespace(event=evt_dict))
+
     def test_full_agent_simulation(self):
+        """Simulates the real agent flow matching claude_coding_agent.py:
+        Step 1: stream events -> AssistantMessage -> usage_info (once) ->
+                tool_result -> tool_result
+        Step 2: stream events -> AssistantMessage -> usage_info (once) ->
+                tool_result
+        ResultMessage: usage_info -> result
+        Each step gets exactly one usage_info between model output and tool results."""
         p = BrowserPrinter()
         q = _subscribe(p)
 
-        p.print_stream_event(
-            SimpleNamespace(
-                event={
-                    "type": "content_block_start",
-                    "content_block": {"type": "thinking"},
-                }
-            )
-        )
-        p.print_stream_event(
-            SimpleNamespace(
-                event={
-                    "type": "content_block_delta",
-                    "delta": {"type": "thinking_delta", "thinking": "Planning..."},
-                }
-            )
-        )
-        p.print_stream_event(SimpleNamespace(event={"type": "content_block_stop"}))
+        # --- Step 1: assistant turn with 2 tool calls ---
+        # Stream events (thinking + text + 2 tool_use)
+        self._stream(p, {"type": "content_block_start", "content_block": {"type": "thinking"}})
+        self._stream(p, {
+            "type": "content_block_delta",
+            "delta": {"type": "thinking_delta", "thinking": "Planning..."},
+        })
+        self._stream(p, {"type": "content_block_stop"})
 
-        p.print_stream_event(
-            SimpleNamespace(
-                event={
-                    "type": "content_block_start",
-                    "content_block": {"type": "text"},
-                }
-            )
-        )
-        p.print_stream_event(
-            SimpleNamespace(
-                event={
-                    "type": "content_block_delta",
-                    "delta": {"type": "text_delta", "text": "I'll write a file."},
-                }
-            )
-        )
-        p.print_stream_event(SimpleNamespace(event={"type": "content_block_stop"}))
+        self._stream(p, {"type": "content_block_start", "content_block": {"type": "text"}})
+        self._stream(p, {
+            "type": "content_block_delta",
+            "delta": {"type": "text_delta", "text": "I'll write two files."},
+        })
+        self._stream(p, {"type": "content_block_stop"})
 
-        p.print_stream_event(
-            SimpleNamespace(
-                event={
-                    "type": "content_block_start",
-                    "content_block": {"type": "tool_use", "name": "Write"},
-                }
-            )
-        )
-        p.print_stream_event(
-            SimpleNamespace(
-                event={
-                    "type": "content_block_delta",
-                    "delta": {
-                        "type": "input_json_delta",
-                        "partial_json": '{"path": "test.py", "content": "print(1)"}',
-                    },
-                }
-            )
-        )
-        p.print_stream_event(SimpleNamespace(event={"type": "content_block_stop"}))
+        self._stream(p, {
+            "type": "content_block_start",
+            "content_block": {"type": "tool_use", "name": "Write"},
+        })
+        self._stream(p, {
+            "type": "content_block_delta",
+            "delta": {
+                "type": "input_json_delta",
+                "partial_json": '{"path": "a.py", "content": "x"}',
+            },
+        })
+        self._stream(p, {"type": "content_block_stop"})
 
-        tool_block = SimpleNamespace(is_error=False, content="File written")
-        p.print_message(SimpleNamespace(content=[tool_block]))
+        self._stream(p, {
+            "type": "content_block_start",
+            "content_block": {"type": "tool_use", "name": "Write"},
+        })
+        self._stream(p, {
+            "type": "content_block_delta",
+            "delta": {
+                "type": "input_json_delta",
+                "partial_json": '{"path": "b.py", "content": "y"}',
+            },
+        })
+        self._stream(p, {"type": "content_block_stop"})
 
+        # AssistantMessage processed (not printed)
+        # Usage info printed once for this step, before the first tool result
+        p.print_usage_info("#### Usage Information\n  - [Step 1/10]\n  - [Tokens: 100/200000]\n")
+
+        # Tool results (UserMessages) — no additional usage_info
+        p.print_message(SimpleNamespace(
+            content=[SimpleNamespace(is_error=False, content="File a.py written")],
+        ))
+        p.print_message(SimpleNamespace(
+            content=[SimpleNamespace(is_error=False, content="File b.py written")],
+        ))
+
+        # --- Step 2: assistant turn with 1 tool call ---
+        self._stream(p, {
+            "type": "content_block_start",
+            "content_block": {"type": "tool_use", "name": "Bash"},
+        })
+        self._stream(p, {
+            "type": "content_block_delta",
+            "delta": {
+                "type": "input_json_delta",
+                "partial_json": '{"command": "python a.py"}',
+            },
+        })
+        self._stream(p, {"type": "content_block_stop"})
+
+        p.print_usage_info("#### Usage Information\n  - [Step 2/10]\n  - [Tokens: 200/200000]\n")
+
+        p.print_message(SimpleNamespace(content=[SimpleNamespace(is_error=False, content="OK")]))
+
+        # --- Result ---
+        p.print_usage_info("#### Usage Information\n  - [Step 2/10]\n  - [Tokens: 300/200000]\n")
         p.print_message(
             SimpleNamespace(result="Task complete"),
-            step_count=3,
-            budget_used=0.05,
-            total_tokens_used=2000,
+            step_count=2, budget_used=0.05, total_tokens_used=300,
         )
 
         events = _drain(q)
@@ -891,15 +939,34 @@ class TestBrowserPrinterEndToEnd(unittest.TestCase):
         assert "text_end" in types
         assert "tool_call" in types
         assert "tool_result" in types
+        assert "usage_info" in types
         assert "result" in types
 
-        tool_call_event = next(e for e in events if e["type"] == "tool_call")
-        assert tool_call_event["name"] == "Write"
-        assert tool_call_event["path"] == "test.py"
+        # Exactly one usage_info per step + one for result = 3 total
+        usage_events = [e for e in events if e["type"] == "usage_info"]
+        assert len(usage_events) == 3
+        assert "Step 1/10" in usage_events[0]["text"]
+        assert "Step 2/10" in usage_events[1]["text"]
+        assert "Step 2/10" in usage_events[2]["text"]
+
+        # Each usage_info appears between a tool_call and a tool_result
+        for i, ev in enumerate(events):
+            if ev["type"] == "usage_info" and i + 1 < len(events):
+                next_type = events[i + 1]["type"]
+                assert next_type in ("tool_result", "result"), (
+                    f"usage_info at index {i} followed by "
+                    f"{next_type}, expected tool_result or result"
+                )
+
+        tool_calls = [e for e in events if e["type"] == "tool_call"]
+        assert len(tool_calls) == 3
+        assert tool_calls[0]["path"] == "a.py"
+        assert tool_calls[1]["path"] == "b.py"
+        assert tool_calls[2]["name"] == "Bash"
 
         result_event = next(e for e in events if e["type"] == "result")
         assert result_event["text"] == "Task complete"
-        assert result_event["step_count"] == 3
+        assert result_event["step_count"] == 2
         assert result_event["cost"] == "$0.0500"
 
     def test_events_are_valid_json(self):
@@ -916,6 +983,7 @@ class TestBrowserPrinterEndToEnd(unittest.TestCase):
         )
         p._format_tool_call("Read", {"path": "file with spaces.py"})
         p._print_tool_result("Line1\nLine2\tTab", is_error=False)
+        p.print_usage_info("#### Usage\n  - [Step 1/5]\n")
 
         events = _drain(q)
         for event in events:

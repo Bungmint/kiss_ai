@@ -1,4 +1,4 @@
-i## Code Style Guidelines
+## Code Style Guidelines
 
 - Write simple, readable code with minimal indirection
 - Avoid unnecessary object attributes and local variables
