@@ -14,11 +14,12 @@ import urllib.request
 from types import SimpleNamespace
 
 from kiss.agents.coding_agents.print_to_browser import (
-    _LANG_MAP,
-    _MAX_RESULT_LEN,
     BrowserPrinter,
     _find_free_port,
 )
+from kiss.agents.coding_agents.printer_common import LANG_MAP as _LANG_MAP
+from kiss.agents.coding_agents.printer_common import MAX_RESULT_LEN as _MAX_RESULT_LEN
+from kiss.agents.coding_agents.printer_common import lang_for_path
 
 
 def _subscribe(printer: BrowserPrinter) -> queue.Queue:
@@ -51,23 +52,23 @@ class TestFindFreePort(unittest.TestCase):
 
 class TestLangForPath(unittest.TestCase):
     def test_python(self):
-        assert BrowserPrinter._lang_for_path("foo.py") == "python"
+        assert lang_for_path("foo.py") == "python"
 
     def test_javascript(self):
-        assert BrowserPrinter._lang_for_path("bar.js") == "javascript"
+        assert lang_for_path("bar.js") == "javascript"
 
     def test_typescript(self):
-        assert BrowserPrinter._lang_for_path("/a/b/c.ts") == "typescript"
+        assert lang_for_path("/a/b/c.ts") == "typescript"
 
     def test_unknown_extension(self):
-        assert BrowserPrinter._lang_for_path("file.xyz") == "xyz"
+        assert lang_for_path("file.xyz") == "xyz"
 
     def test_no_extension(self):
-        assert BrowserPrinter._lang_for_path("Makefile") == "text"
+        assert lang_for_path("Makefile") == "text"
 
     def test_all_lang_map_entries(self):
         for ext, lang in _LANG_MAP.items():
-            assert BrowserPrinter._lang_for_path(f"file.{ext}") == lang
+            assert lang_for_path(f"file.{ext}") == lang
 
 
 class TestBrowserPrinterInit(unittest.TestCase):

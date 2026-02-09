@@ -26,7 +26,9 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent
 IMPROVE_PROMPT = """You are optimizing an AI agent to minimize: {metrics_description}
 
 ## Agent Source
-Read and optimize: {work_dir}/{program_path}
+The agent code is under: {work_dir}/
+The main entry point is: {work_dir}/{program_path}
+You may read and modify any file under {work_dir}/.
 
 ## KISS Framework Reference
 - {kiss_folder}/API.md
@@ -43,17 +45,16 @@ Read and optimize: {work_dir}/{program_path}
 {improvement_history}
 
 ## Rules
-1. Read {work_dir}/{program_path} first
+1. Read all files under {work_dir}/ to understand the agent
 2. Make targeted improvements to reduce the metrics
-3. Write improved code back to {work_dir}/{program_path}
+3. You may modify any file under {work_dir}/
 4. PRESERVE: class name, __init__ signature, run() method signature, streaming mechanism
 5. Do NOT change the agent's interface or streaming mechanism
 6. The agent MUST still work correctly on ALL tasks above
-7. Do NOT create new files
-8. Do NOT use: caching, multiprocessing, async/await, docker
-9. Do NOT set max_thinking_tokens below 1024
-10. Do NOT remove required imports or break module structure
-11. Verify the file imports cleanly:
+7. Do NOT use: caching, multiprocessing, async/await, docker
+8. Do NOT set max_thinking_tokens below 1024
+9. Do NOT remove required imports or break module structure
+10. Verify the file imports cleanly:
     python3 -c "import importlib.util; \
     spec=importlib.util.spec_from_file_location('t','{work_dir}/{program_path}'); \
     m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m); print('OK')"
@@ -365,16 +366,11 @@ def improve_variant(
     metrics_description: str,
     current_metrics: str,
     improvement_history: str,
-    original_folder: str,
     fmt: CompactFormatter,
 ) -> bool:
-    Path(target_folder).mkdir(parents=True, exist_ok=True)
-    dst = Path(target_folder) / program_path
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(str(Path(source_folder) / program_path), str(dst))
+    shutil.copytree(source_folder, target_folder, dirs_exist_ok=True)
 
     resolved_target = str(Path(target_folder).resolve())
-    resolved_original = str(Path(original_folder).resolve())
 
     task_descriptions = "\n".join(
         f"### Task {i + 1}\n{t.strip()}" for i, t in enumerate(tasks)
@@ -396,7 +392,7 @@ def improve_variant(
             model_name="claude-sonnet-4-5",
             max_steps=IMPROVE_MAX_STEPS,
             work_dir=resolved_target,
-            readable_paths=[resolved_target, str(PROJECT_ROOT), resolved_original],
+            readable_paths=[resolved_target, str(PROJECT_ROOT)],
             writable_paths=[resolved_target],
             use_browser=False,
         )
@@ -445,7 +441,6 @@ def optimize(
     folder: str,
     metrics_description: str,
     program_path: str,
-    output_path: str,
     max_generations: int = 3,
     initial_frontier_size: int = 2,
     max_frontier_size: int = 4,
@@ -476,12 +471,9 @@ def optimize(
         variant_counter += 1
         vid = variant_counter
         vdir = str(work_dir / f"variant_{vid}")
-        Path(vdir).mkdir(parents=True, exist_ok=True)
 
         if vid == 1:
-            dst = Path(vdir) / program_path
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(str(Path(folder) / program_path), str(dst))
+            shutil.copytree(folder, vdir)
             fmt.print_status(f"Variant {vid}: baseline")
         else:
             baseline_metrics = frontier[0].metrics if frontier else {}
@@ -499,7 +491,6 @@ def optimize(
                 metrics_description,
                 _format_metrics(baseline_metrics) if baseline_metrics else "",
                 failure_notes or "",
-                folder,
                 fmt,
             )
 
@@ -553,7 +544,6 @@ def optimize(
                 metrics_description,
                 _format_metrics(parent.metrics),
                 history,
-                folder,
                 fmt,
             )
             if not ok:
@@ -584,7 +574,6 @@ def optimize(
                 metrics_description,
                 _format_metrics(primary.metrics),
                 history,
-                folder,
                 fmt,
             )
             if not ok:
@@ -616,8 +605,8 @@ def optimize(
         fmt.print_status(f"  variant {v.id}: {_format_metrics(v.metrics)}")
     fmt.print_status(f"Best: variant {best.id}, score={best.score():.2f}")
 
-    shutil.copy2(str(Path(best.folder_path) / program_path), output_path)
-    fmt.print_status(f"Saved to: {output_path}")
+    shutil.copytree(best.folder_path, folder, dirs_exist_ok=True)
+    fmt.print_status(f"Best variant copied back to: {folder}")
 
     shutil.rmtree(work_dir, ignore_errors=True)
     return best
@@ -626,7 +615,6 @@ def optimize(
 def main() -> None:
     folder = str(Path(__file__).parent)
     program_path = "claude_coding_agent.py"
-    output_path = str(Path(__file__).parent / "claude_coding_agent_optimized.py")
 
     best = optimize(
         tasks=TASKS,
@@ -638,7 +626,6 @@ def main() -> None:
             "tokens_used (fourth)"
         ),
         program_path=program_path,
-        output_path=output_path,
         max_generations=2,
         initial_frontier_size=2,
         max_frontier_size=3,
@@ -649,7 +636,7 @@ def main() -> None:
     print(f"\nBest variant: {best.id}")
     print(f"Metrics: {_format_metrics(best.metrics)}")
     print(f"Score: {best.score():.2f}")
-    print(f"Output: {output_path}")
+    print(f"Modified files in: {folder}")
 
 
 if __name__ == "__main__":

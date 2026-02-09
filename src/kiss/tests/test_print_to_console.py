@@ -9,83 +9,82 @@ import io
 import unittest
 from types import SimpleNamespace
 
-from kiss.agents.coding_agents.print_to_console import (
-    _LANG_MAP,
-    _MAX_RESULT_LEN,
-    ConsolePrinter,
-)
+from kiss.agents.coding_agents.print_to_console import ConsolePrinter
+from kiss.agents.coding_agents.printer_common import LANG_MAP as _LANG_MAP
+from kiss.agents.coding_agents.printer_common import MAX_RESULT_LEN as _MAX_RESULT_LEN
+from kiss.agents.coding_agents.printer_common import lang_for_path
 
 
 class TestLangForPath(unittest.TestCase):
     def test_python(self):
-        assert ConsolePrinter._lang_for_path("foo.py") == "python"
+        assert lang_for_path("foo.py") == "python"
 
     def test_javascript(self):
-        assert ConsolePrinter._lang_for_path("bar.js") == "javascript"
+        assert lang_for_path("bar.js") == "javascript"
 
     def test_typescript(self):
-        assert ConsolePrinter._lang_for_path("/a/b/c.ts") == "typescript"
+        assert lang_for_path("/a/b/c.ts") == "typescript"
 
     def test_bash_sh(self):
-        assert ConsolePrinter._lang_for_path("script.sh") == "bash"
+        assert lang_for_path("script.sh") == "bash"
 
     def test_bash_bash(self):
-        assert ConsolePrinter._lang_for_path("script.bash") == "bash"
+        assert lang_for_path("script.bash") == "bash"
 
     def test_ruby(self):
-        assert ConsolePrinter._lang_for_path("app.rb") == "ruby"
+        assert lang_for_path("app.rb") == "ruby"
 
     def test_rust(self):
-        assert ConsolePrinter._lang_for_path("main.rs") == "rust"
+        assert lang_for_path("main.rs") == "rust"
 
     def test_go(self):
-        assert ConsolePrinter._lang_for_path("main.go") == "go"
+        assert lang_for_path("main.go") == "go"
 
     def test_java(self):
-        assert ConsolePrinter._lang_for_path("App.java") == "java"
+        assert lang_for_path("App.java") == "java"
 
     def test_c(self):
-        assert ConsolePrinter._lang_for_path("main.c") == "c"
+        assert lang_for_path("main.c") == "c"
 
     def test_cpp(self):
-        assert ConsolePrinter._lang_for_path("main.cpp") == "cpp"
+        assert lang_for_path("main.cpp") == "cpp"
 
     def test_header(self):
-        assert ConsolePrinter._lang_for_path("util.h") == "c"
+        assert lang_for_path("util.h") == "c"
 
     def test_json(self):
-        assert ConsolePrinter._lang_for_path("data.json") == "json"
+        assert lang_for_path("data.json") == "json"
 
     def test_yaml(self):
-        assert ConsolePrinter._lang_for_path("config.yaml") == "yaml"
+        assert lang_for_path("config.yaml") == "yaml"
 
     def test_yml(self):
-        assert ConsolePrinter._lang_for_path("config.yml") == "yaml"
+        assert lang_for_path("config.yml") == "yaml"
 
     def test_toml(self):
-        assert ConsolePrinter._lang_for_path("pyproject.toml") == "toml"
+        assert lang_for_path("pyproject.toml") == "toml"
 
     def test_html(self):
-        assert ConsolePrinter._lang_for_path("index.html") == "html"
+        assert lang_for_path("index.html") == "html"
 
     def test_css(self):
-        assert ConsolePrinter._lang_for_path("style.css") == "css"
+        assert lang_for_path("style.css") == "css"
 
     def test_sql(self):
-        assert ConsolePrinter._lang_for_path("query.sql") == "sql"
+        assert lang_for_path("query.sql") == "sql"
 
     def test_markdown(self):
-        assert ConsolePrinter._lang_for_path("README.md") == "markdown"
+        assert lang_for_path("README.md") == "markdown"
 
     def test_unknown_extension_returns_ext(self):
-        assert ConsolePrinter._lang_for_path("file.xyz") == "xyz"
+        assert lang_for_path("file.xyz") == "xyz"
 
     def test_no_extension_returns_text(self):
-        assert ConsolePrinter._lang_for_path("Makefile") == "text"
+        assert lang_for_path("Makefile") == "text"
 
     def test_all_lang_map_entries(self):
         for ext, lang in _LANG_MAP.items():
-            assert ConsolePrinter._lang_for_path(f"file.{ext}") == lang
+            assert lang_for_path(f"file.{ext}") == lang
 
 
 class TestConsolePrinterInit(unittest.TestCase):

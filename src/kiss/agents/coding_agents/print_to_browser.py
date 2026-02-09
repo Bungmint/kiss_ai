@@ -8,34 +8,13 @@ import threading
 import time
 import webbrowser
 from collections.abc import AsyncGenerator
-from pathlib import Path
 from typing import Any
 
-_LANG_MAP = {
-    "py": "python",
-    "js": "javascript",
-    "ts": "typescript",
-    "sh": "bash",
-    "bash": "bash",
-    "zsh": "bash",
-    "rb": "ruby",
-    "rs": "rust",
-    "go": "go",
-    "java": "java",
-    "c": "c",
-    "cpp": "cpp",
-    "h": "c",
-    "json": "json",
-    "yaml": "yaml",
-    "yml": "yaml",
-    "toml": "toml",
-    "xml": "xml",
-    "html": "html",
-    "css": "css",
-    "sql": "sql",
-    "md": "markdown",
-}
-_MAX_RESULT_LEN = 3000
+from kiss.agents.coding_agents.printer_common import (
+    extract_extras,
+    extract_path_and_lang,
+    truncate_result,
+)
 
 
 def _find_free_port() -> int:
@@ -290,23 +269,6 @@ src.onerror=function(){D.classList.add('done');ST.textContent='Disconnected'};
 
 
 class BrowserPrinter:
-    """Handles all browser output for Claude Coding Agent via SSE.
-
-    API:
-        start(open_browser=True) -> None:
-            Start the uvicorn server and optionally open browser.
-
-        stop() -> None:
-            Send done event and stop server.
-
-        print_stream_event(event) -> str:
-            Handle a streaming event and send to browser.
-            Returns extracted text content for token callbacks.
-
-        print_message(message, **context) -> None:
-            Send a complete message to browser.
-    """
-
     def __init__(self) -> None:
         self._clients: list[queue.Queue[dict[str, Any]]] = []
         self._clients_lock = threading.Lock()
@@ -384,26 +346,17 @@ class BrowserPrinter:
             for cq in self._clients:
                 cq.put(event)
 
-    @staticmethod
-    def _lang_for_path(path: str) -> str:
-        ext = Path(path).suffix.lstrip(".")
-        return _LANG_MAP.get(ext, ext or "text")
-
     def _format_tool_call(self, name: str, tool_input: dict[str, Any]) -> None:
-        file_path = str(tool_input.get("file_path") or tool_input.get("path") or "")
-        lang = self._lang_for_path(file_path) if file_path else "text"
+        file_path, lang = extract_path_and_lang(tool_input)
         event: dict[str, Any] = {"type": "tool_call", "name": name}
         if file_path:
             event["path"] = file_path
             event["lang"] = lang
-        desc = tool_input.get("description")
-        if desc:
+        if desc := tool_input.get("description"):
             event["description"] = str(desc)
-        command = tool_input.get("command")
-        if command:
+        if command := tool_input.get("command"):
             event["command"] = str(command)
-        content = tool_input.get("content")
-        if content:
+        if content := tool_input.get("content"):
             event["content"] = str(content)
         old_string = tool_input.get("old_string")
         new_string = tool_input.get("new_string")
@@ -411,32 +364,17 @@ class BrowserPrinter:
             event["old_string"] = str(old_string)
         if new_string is not None:
             event["new_string"] = str(new_string)
-        skip = {
-            "file_path",
-            "path",
-            "content",
-            "command",
-            "old_string",
-            "new_string",
-            "description",
-        }
-        extras: dict[str, str] = {}
-        for k, v in tool_input.items():
-            if k not in skip:
-                val = str(v)
-                if len(val) > 200:
-                    val = val[:200] + "..."
-                extras[k] = val
+        extras = extract_extras(tool_input)
         if extras:
             event["extras"] = extras
         self._broadcast(event)
 
     def _print_tool_result(self, content: str, is_error: bool) -> None:
-        display = content
-        if len(display) > _MAX_RESULT_LEN:
-            half = _MAX_RESULT_LEN // 2
-            display = display[:half] + "\n... (truncated) ...\n" + display[-half:]
-        self._broadcast({"type": "tool_result", "content": display, "is_error": is_error})
+        self._broadcast({
+            "type": "tool_result",
+            "content": truncate_result(content),
+            "is_error": is_error,
+        })
 
     def print_stream_event(self, event: Any) -> str:
         evt = event.event
@@ -504,18 +442,15 @@ class BrowserPrinter:
                 self._broadcast({"type": "system_output", "text": text})
 
     def _print_result(
-        self, message: Any, step_count: int, budget_used: float, total_tokens_used: int
+        self, message: Any, step_count: int, budget_used: float, total_tokens_used: int,
     ) -> None:
-        cost_str = f"${budget_used:.4f}" if budget_used else "N/A"
-        self._broadcast(
-            {
-                "type": "result",
-                "text": message.result or "(no result)",
-                "step_count": step_count,
-                "total_tokens": total_tokens_used,
-                "cost": cost_str,
-            }
-        )
+        self._broadcast({
+            "type": "result",
+            "text": message.result or "(no result)",
+            "step_count": step_count,
+            "total_tokens": total_tokens_used,
+            "cost": f"${budget_used:.4f}" if budget_used else "N/A",
+        })
 
     def print_usage_info(self, usage_info: str) -> None:
         self._broadcast({"type": "usage_info", "text": usage_info.strip()})

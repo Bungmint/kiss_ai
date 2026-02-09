@@ -1,8 +1,3 @@
-# Author: Koushik Sen (ksen@berkeley.edu)
-# Contributors:
-# Koushik Sen (ksen@berkeley.edu)
-# add your name here
-
 """Claude Coding Agent using the Claude Agent SDK."""
 
 import time
@@ -36,15 +31,8 @@ from kiss.core.models.model_info import calculate_cost, get_max_context_length
 from kiss.core.utils import is_subpath, resolve_path
 
 BUILTIN_TOOLS = [
-    "Read",
-    "Write",
-    "Edit",
-    "MultiEdit",
-    "Glob",
-    "Grep",
-    "Bash",
-    "WebSearch",
-    "WebFetch",
+    "Read", "Write", "Edit", "MultiEdit",
+    "Glob", "Grep", "Bash", "WebSearch", "WebFetch",
 ]
 
 READ_TOOLS = {"Read", "Grep", "Glob"}
@@ -52,8 +40,6 @@ WRITE_TOOLS = {"Write", "Edit", "MultiEdit"}
 
 
 class ClaudeCodingAgent(Base):
-    """Claude Coding Agent using the Claude Agent SDK."""
-
     def __init__(self, name: str) -> None:
         super().__init__(name)
 
@@ -66,14 +52,15 @@ class ClaudeCodingAgent(Base):
         max_steps: int,
         max_budget: float,
     ) -> None:
+        self.model_name = model_name or config_module.DEFAULT_CONFIG.agent.model_name
         self._init_run_state(model_name, BUILTIN_TOOLS)
         self.base_dir = str(Path(base_dir).resolve())
         self.readable_paths = [resolve_path(p, base_dir) for p in readable_paths or []]
         self.writable_paths = [resolve_path(p, base_dir) for p in writable_paths or []]
         self.max_tokens = get_max_context_length(model_name)
         self.is_agentic = True
-        self.max_steps = max_steps
-        self.max_budget = max_budget
+        self.max_steps = max_steps or config_module.DEFAULT_CONFIG.agent.max_steps
+        self.max_budget = max_budget or config_module.DEFAULT_CONFIG.agent.max_agent_budget
         self.budget_used: float = 0.0
         self.total_tokens_used: int = 0
         self.input_tokens_used: int = 0
@@ -99,7 +86,6 @@ class ClaudeCodingAgent(Base):
         path_str = tool_input.get("file_path") or tool_input.get("path")
         if not path_str:
             return PermissionResultAllow(behavior="allow")
-
         if tool_name in READ_TOOLS:
             return self._check_path_permission(path_str, self.readable_paths)
         if tool_name in WRITE_TOOLS:
@@ -110,11 +96,9 @@ class ClaudeCodingAgent(Base):
         evt = event.event
         evt_type = evt.get("type", "")
         if evt_type == "message_start":
-            usage = evt.get("message", {}).get("usage", {})
-            self.input_tokens_used += usage.get("input_tokens", 0)
+            self.input_tokens_used += evt.get("message", {}).get("usage", {}).get("input_tokens", 0)
         elif evt_type == "message_delta":
-            usage = evt.get("usage", {})
-            self.output_tokens_used += usage.get("output_tokens", 0)
+            self.output_tokens_used += evt.get("usage", {}).get("output_tokens", 0)
         self.total_tokens_used = self.input_tokens_used + self.output_tokens_used
 
     def _update_step_cost(self) -> None:
@@ -129,13 +113,9 @@ class ClaudeCodingAgent(Base):
 
     def _check_limits(self) -> None:
         if self.step_count > self.max_steps:
-            raise KISSError(
-                f"Step limit exceeded: {self.step_count}/{self.max_steps}"
-            )
+            raise KISSError(f"Step limit exceeded: {self.step_count}/{self.max_steps}")
         if self.total_tokens_used > self.max_tokens:
-            raise KISSError(
-                f"Token limit exceeded: {self.total_tokens_used}/{self.max_tokens}"
-            )
+            raise KISSError(f"Token limit exceeded: {self.total_tokens_used}/{self.max_tokens}")
         if self.budget_used > self.max_budget:
             raise KISSError(
                 f"Agent budget exceeded: ${self.budget_used:.4f}/${self.max_budget:.2f}"
@@ -147,19 +127,13 @@ class ClaudeCodingAgent(Base):
             )
 
     def _get_usage_info_string(self) -> str:
-        step_info = f"[Step {self.step_count}/{self.max_steps}]"
-        token_info = f"[Token usage: {self.total_tokens_used}/{self.max_tokens}]"
-        budget_info = f"[Agent budget usage: ${self.budget_used:.4f}/${self.max_budget:.2f}]"
-        global_budget_info = (
-            f"[Global budget usage: ${Base.global_budget_used:.4f}/"
-            f"${config_module.DEFAULT_CONFIG.agent.global_max_budget:.2f}]"
-        )
+        global_max = config_module.DEFAULT_CONFIG.agent.global_max_budget
         return (
             "\n\n#### Usage Information\n"
-            f"  - {token_info}\n"
-            f"  - {budget_info}\n"
-            f"  - {global_budget_info}\n"
-            f"  - {step_info}\n"
+            f"  - [Token usage: {self.total_tokens_used}/{self.max_tokens}]\n"
+            f"  - [Agent budget usage: ${self.budget_used:.4f}/${self.max_budget:.2f}]\n"
+            f"  - [Global budget usage: ${Base.global_budget_used:.4f}/${global_max:.2f}]\n"
+            f"  - [Step {self.step_count}/{self.max_steps}]\n"
         )
 
     def _finalize_prev_model_message(self) -> None:
@@ -195,7 +169,6 @@ class ClaudeCodingAgent(Base):
                 content = block.content if isinstance(block.content, str) else str(block.content)
                 status = "Tool Call Failed" if block.is_error else "Tool Call Succeeded"
                 result += f"{status}\n{content}\n"
-
         self._add_message("user", result, timestamp)
         return result
 
@@ -204,17 +177,14 @@ class ClaudeCodingAgent(Base):
 
         usage = getattr(message, "usage", None)
         if isinstance(usage, dict):
-            self.total_tokens_used = (
-                usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
-            )
+            self.total_tokens_used = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
         if hasattr(message, "total_cost_usd") and message.total_cost_usd:
             cost_diff = message.total_cost_usd - self.budget_used
             self.budget_used = message.total_cost_usd
             Base.global_budget_used += cost_diff
 
         final_result = message.result or ""
-        usage_info = self._get_usage_info_string()
-        self._add_message("model", final_result + "\n" + usage_info, timestamp)
+        self._add_message("model", final_result + "\n" + self._get_usage_info_string(), timestamp)
         return final_result
 
     def run(
@@ -231,36 +201,26 @@ class ClaudeCodingAgent(Base):
         use_browser: bool = True,
         max_thinking_tokens: int = 1024,
     ) -> str:
-        self._use_browser = use_browser
         if use_browser:
             from kiss.agents.coding_agents.print_to_browser import BrowserPrinter
-
-            self._printer: Any = BrowserPrinter()
+            printer: Any = BrowserPrinter()
         else:
-            self._printer = ConsolePrinter()
-
+            printer = ConsolePrinter()
 
         cfg = config_module.DEFAULT_CONFIG.agent
-        actual_model = model_name or "claude-sonnet-4-5"
-        actual_max_steps = max_steps if max_steps is not None else cfg.max_steps
-        actual_max_budget = max_budget if max_budget is not None else cfg.max_agent_budget
         work_dir = work_dir or str(Path(cfg.artifact_dir).resolve() / "claude_workdir")
         Path(work_dir).mkdir(parents=True, exist_ok=True)
         self._reset(
-            actual_model,
-            readable_paths,
-            writable_paths,
-            base_dir or ".",
-            actual_max_steps,
-            actual_max_budget,
+            model_name, readable_paths, writable_paths,
+            base_dir or ".", max_steps, max_budget,
         )
         self.prompt_template = prompt_template
         self.arguments = arguments or {}
 
         async def _run_async() -> str | None:
-            if self._use_browser:
-                self._printer.start()
-            self._printer.reset()
+            if use_browser:
+                printer.start()
+            printer.reset()
             system_prompt = (
                 CODING_INSTRUCTIONS
                 + "\n## Efficiency\n"
@@ -269,16 +229,14 @@ class ClaudeCodingAgent(Base):
                 "- Minimize conversation turns\n"
             )
             options = ClaudeAgentOptions(
-                model=actual_model,
+                model=model_name,
                 system_prompt=system_prompt,
                 can_use_tool=self.permission_handler,
-                # permission_mode="bypassPermissions",
                 allowed_tools=BUILTIN_TOOLS,
-                disallowed_tools=["EnterPlanMode"],
                 cwd=work_dir,
                 include_partial_messages=True,
                 max_thinking_tokens=max_thinking_tokens,
-                max_budget_usd=actual_max_budget,
+                max_budget_usd=max_budget,
             )
 
             async def prompt_stream() -> AsyncGenerator[dict[str, Any]]:
@@ -293,26 +251,24 @@ class ClaudeCodingAgent(Base):
                 async for message in query(prompt=prompt_stream(), options=options):
                     if isinstance(message, StreamEvent):
                         self._update_token_usage_from_stream(message)
-                        self._printer.print_stream_event(message)
+                        printer.print_stream_event(message)
                     elif isinstance(message, SystemMessage):
-                        self._printer.print_message(message)
+                        printer.print_message(message)
                     elif isinstance(message, AssistantMessage):
                         self._process_assistant_message(message, timestamp)
                         usage_printed = False
                         timestamp = int(time.time())
                     elif isinstance(message, UserMessage):
                         if not usage_printed:
-                            self._printer.print_usage_info(
-                                self._get_usage_info_string()
-                            )
+                            printer.print_usage_info(self._get_usage_info_string())
                             usage_printed = True
-                        self._printer.print_message(message)
+                        printer.print_message(message)
                         self._process_user_message(message, timestamp)
                         timestamp = int(time.time())
                     elif isinstance(message, ResultMessage):
                         final_result = self._process_result_message(message, timestamp)
-                        self._printer.print_usage_info(self._get_usage_info_string())
-                        self._printer.print_message(
+                        printer.print_usage_info(self._get_usage_info_string())
+                        printer.print_message(
                             message,
                             step_count=self.step_count,
                             budget_used=self.budget_used,
@@ -321,12 +277,11 @@ class ClaudeCodingAgent(Base):
                         timestamp = int(time.time())
             finally:
                 self._save()
-            if self._use_browser:
-                self._printer.stop()
+            if use_browser:
+                printer.stop()
             return final_result
 
-        result = anyio.run(_run_async)
-        return result or ""
+        return anyio.run(_run_async) or ""
 
 
 def main() -> None:
@@ -380,7 +335,7 @@ def main() -> None:
     print(f"Total tokens: {agent.total_tokens_used}")
     print(f"Work directory: {work_dir}")
     if result:
-        print(f"RESULT:\n{result[:500]}")
+        print(f"RESULT:\n{result}")
 
 
 if __name__ == "__main__":
