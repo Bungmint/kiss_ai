@@ -386,7 +386,7 @@ Run the multi-agent coding system with orchestration and sub-task delegation.
 
 - `prompt_template` (str): The prompt template for the task. Can include `{placeholder}` syntax for variable substitution.
 - `arguments` (dict[str, str] | None): Arguments to substitute into the prompt template. Default is None.
-- `orchestrator_model_name` (str | None): Model for the main orchestrator agent. Default is None (uses config default: "claude-sonnet-4-5").
+- `orchestrator_model_name` (str | None): Model for the main orchestrator agent. Default is None (uses config default: "claude-opus-4-6").
 - `subtasker_model_name` (str | None): Model for executor agents handling sub-tasks. Default is None (uses config default: "claude-opus-4-6").
 - `refiner_model_name` (str | None): Model for dynamic prompt refinement when tasks fail. Default is None (uses config default: "claude-sonnet-4-5").
 - `trials` (int | None): Number of retry attempts for each task/subtask. Default is None (uses config default: 200).
@@ -2765,7 +2765,7 @@ DEFAULT_CONFIG.agent.use_web = True
 
 #### `agent.kiss_coding_agent`
 
-- `orchestrator_model_name` (str): Model for main orchestration (default: "claude-sonnet-4-5")
+- `orchestrator_model_name` (str): Model for main orchestration (default: "claude-opus-4-6")
 - `subtasker_model_name` (str): Model for subtask generation and execution (default: "claude-opus-4-6")
 - `refiner_model_name` (str): Model for dynamic prompt refinement on failures (default: "claude-sonnet-4-5")
 - `max_steps` (int): Maximum steps for the KISS Coding Agent (default: 200)

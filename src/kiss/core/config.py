@@ -97,7 +97,7 @@ class RelentlessCodingAgentConfig(BaseModel):
 
 class KISSCodingAgentConfig(BaseModel):
     orchestrator_model_name: str = Field(
-        default="claude-sonnet-4-5",
+        default="claude-opus-4-6",
         description="LLM model to use for KISS Coding Agent",
     )
     subtasker_model_name: str = Field(

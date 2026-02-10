@@ -487,9 +487,9 @@ result = agent.run(
         Write, test, and optimize a fibonacci function in Python
         that is efficient and correct.
     """,
-    orchestrator_model_name="claude-sonnet-4-5",  # Model for orchestration and execution
-    subtasker_model_name="claude-opus-4-5",  # Model for subtask generation and execution
-    refiner_model_name="claude-haiku-4-5",  # Model for prompt refinement on failures
+    orchestrator_model_name="claude-opus-4-6",  # Model for orchestration and execution
+    subtasker_model_name="claude-opus-4-6",  # Model for subtask generation and execution
+    refiner_model_name="claude-sonnet-4-5",  # Model for prompt refinement on failures
     readable_paths=["src/"],  # Allowed read paths (relative to base_dir)
     writable_paths=["output/"],  # Allowed write paths (relative to base_dir)
     base_dir=".",  # Base working directory (project root)
@@ -949,7 +949,7 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
   - `max_steps`: Maximum steps per trial (default: 200)
   - `max_budget`: Maximum budget in USD (default: 200.0)
 - **KISS Coding Agent Settings**: Modify `DEFAULT_CONFIG.agent.kiss_coding_agent`:
-  - `orchestrator_model_name`: Model for orchestration and execution (default: "claude-sonnet-4-5")
+  - `orchestrator_model_name`: Model for orchestration and execution (default: "claude-opus-4-6")
   - `subtasker_model_name`: Model for subtask generation and execution (default: "claude-opus-4-6")
   - `refiner_model_name`: Model for prompt refinement on failures (default: "claude-sonnet-4-5")
   - `trials`: Number of retry attempts per task/subtask (default: 200)

@@ -318,7 +318,7 @@ class TestConfigClasses:
         assert relentless.max_steps == 200
 
         kiss = KISSCodingAgentConfig()
-        assert kiss.orchestrator_model_name == "claude-sonnet-4-5"
+        assert kiss.orchestrator_model_name == "claude-opus-4-6"
         assert kiss.refiner_model_name == "claude-sonnet-4-5"
 
         config = Config()

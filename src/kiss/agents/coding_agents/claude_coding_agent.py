@@ -45,19 +45,19 @@ class ClaudeCodingAgent(Base):
 
     def _reset(
         self,
-        model_name: str,
+        model_name: str | None,
         readable_paths: list[str] | None,
         writable_paths: list[str] | None,
         base_dir: str,
-        max_steps: int,
-        max_budget: float,
+        max_steps: int | None,
+        max_budget: float | None,
     ) -> None:
         self.model_name = model_name or config_module.DEFAULT_CONFIG.agent.model_name
-        self._init_run_state(model_name, BUILTIN_TOOLS)
+        self._init_run_state(self.model_name, BUILTIN_TOOLS)
         self.base_dir = str(Path(base_dir).resolve())
         self.readable_paths = [resolve_path(p, base_dir) for p in readable_paths or []]
         self.writable_paths = [resolve_path(p, base_dir) for p in writable_paths or []]
-        self.max_tokens = get_max_context_length(model_name)
+        self.max_tokens = get_max_context_length(self.model_name)
         self.is_agentic = True
         self.max_steps = max_steps or config_module.DEFAULT_CONFIG.agent.max_steps
         self.max_budget = max_budget or config_module.DEFAULT_CONFIG.agent.max_agent_budget
@@ -319,9 +319,9 @@ def main() -> None:
         os.chdir(work_dir)
         result = agent.run(
             prompt_template=task_description,
-            model_name="claude-sonnet-4-5",
+            model_name="claude-opus-4-6",
             work_dir=work_dir,
-            max_steps=25,
+            max_steps=100,
             use_browser=False,
         )
     finally:
