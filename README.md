@@ -95,7 +95,7 @@ This launches an agent that uses a `simple_calculator` tool to solve three math 
 - **Terminal** — using `ConsolePrinter` from `kiss.core.print_to_console` for rich-formatted output (tool call panels, result rules, final result panel)
 - **Browser** — using `BrowserPrinter` from `kiss.core.print_to_browser` for a live dark-themed web UI with scrollable panels, syntax highlighting, and tool call cards
 
-The demo uses the built-in `Printer` system. When `verbose=True` (the default), `KISSAgent` automatically creates a `BrowserPrinter` + `ConsolePrinter` via `MultiPrinter` for real-time streaming to both the terminal and a live browser UI. You can also pass a custom `printer` parameter:
+The demo uses the built-in `Printer` system. When `verbose=True` (the default), `KISSAgent` automatically creates a `MultiPrinter` based on config flags: `print_to_browser` (default: True) adds a `BrowserPrinter`, `print_to_console` (default: True) adds a `ConsolePrinter`, for real-time streaming to both the terminal and a live browser UI. You can also pass a custom `printer` parameter:
 
 ```python
 from kiss.core.print_to_browser import BrowserPrinter
@@ -977,6 +977,8 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
   - `max_agent_budget`: Maximum budget per agent run in USD (default: 10.0)
   - `global_max_budget`: Maximum total budget across all agents in USD (default: 200.0)
   - `use_web`: Automatically add web browsing and search tool if enabled (default: True)
+  - `print_to_console`: Enable ConsolePrinter for Rich terminal output (default: True)
+  - `print_to_browser`: Enable BrowserPrinter for live browser UI output (default: True)
   - `artifact_dir`: Directory for agent artifacts (default: auto-generated with timestamp)
 - **Relentless Coding Agent Settings**: Modify `DEFAULT_CONFIG.coding_agent.relentless_coding_agent` in `src/kiss/agents/coding_agents/config.py`:
   - `model_name`: Model for task execution (default: "claude-opus-4-6")

@@ -77,7 +77,7 @@ Runs the agent's main ReAct loop to solve the task.
 - `max_steps` (int | None): Maximum number of ReAct loop iterations. Default is None (uses `DEFAULT_CONFIG.agent.max_steps`, which is 100).
 - `max_budget` (float | None): Maximum budget in USD for this agent run. Default is None (uses `DEFAULT_CONFIG.agent.max_agent_budget`, which is 10.0).
 - `model_config` (dict[str, Any] | None): Optional model configuration to pass to the model. Default is None.
-- `printer` (Printer | None): Optional printer for output formatting and streaming. When `verbose=True` (default) and no printer is provided, a `MultiPrinter` with `BrowserPrinter` and `ConsolePrinter` is created automatically. The printer's `token_callback` is used for real-time token streaming. Default is None.
+- `printer` (Printer | None): Optional printer for output formatting and streaming. When `verbose=True` (default) and no printer is provided, a `MultiPrinter` is created automatically based on config flags: `print_to_browser` (default: True) adds a `BrowserPrinter`, `print_to_console` (default: True) adds a `ConsolePrinter`. The printer's `token_callback` is used for real-time token streaming. Default is None.
 
 **Returns:**
 
@@ -558,8 +558,8 @@ def run(
     arguments: dict[str, str] | None = None,
     max_steps: int | None = None,
     max_budget: float | None = None,
-    base_dir: str | None = None,
     work_dir: str | None = None,
+    base_dir: str | None = None,
     readable_paths: list[str] | None = None,
     writable_paths: list[str] | None = None,
     use_browser: bool = True,
@@ -576,8 +576,8 @@ Run the Claude coding agent for a given task.
 - `arguments` (dict[str, str] | None): Arguments to substitute into the prompt template. Default is None.
 - `max_steps` (int | None): Maximum number of steps. Default is None (uses `DEFAULT_CONFIG.agent.max_steps`).
 - `max_budget` (float | None): Maximum budget in USD for this run. Default is None (uses `DEFAULT_CONFIG.agent.max_agent_budget`).
-- `base_dir` (str | None): The base directory relative to which readable and writable paths are resolved if they are not absolute. Default is None.
 - `work_dir` (str | None): The working directory for the agent's operations. Default is None (uses `{artifact_dir}/claude_workdir`).
+- `base_dir` (str | None): The base directory relative to which readable and writable paths are resolved if they are not absolute. Default is None.
 - `readable_paths` (list[str] | None): The paths from which the agent is allowed to read. If None, no paths are allowed for Read/Grep/Glob.
 - `writable_paths` (list[str] | None): The paths to which the agent is allowed to write. If None, no paths are allowed for Write/Edit/MultiEdit.
 - `use_browser` (bool): If True, starts a local uvicorn server and opens a browser window for real-time streaming output. If False, uses `ConsolePrinter` for terminal output. Default is True.
@@ -752,51 +752,31 @@ def reset(self) -> None
 
 Reset internal state (block type, tool name, JSON buffer).
 
-#### `print_stream_event()`
+#### `print()`
 
 ```python
-def print_stream_event(self, event: Any) -> str
+def print(self, content: Any, type: str = "text", **kwargs: Any) -> str
 ```
 
-Handle a streaming event and send to browser via SSE. Returns extracted text content for token callbacks. Handles the same event types as `ConsolePrinter`: `content_block_start`, `content_block_delta`, `content_block_stop`.
+Unified output method that handles all content types and sends to browser via SSE.
 
 **Parameters:**
 
-- `event`: A StreamEvent (or any object with an `event` dict attribute).
+- `content` (Any): The content to display.
+- `type` (str): The content type. Supported types:
+  - `"text"`: General text output
+  - `"prompt"`: Agent prompt display
+  - `"stream_event"`: Streaming event from Claude Agent SDK (handles `content_block_start`, `content_block_delta`, `content_block_stop`)
+  - `"message"`: Complete message (SystemMessage, ResultMessage, UserMessage)
+  - `"usage_info"`: Usage information (step count, token counts, etc.)
+  - `"tool_call"`: Tool call display (pass `tool_input` dict in kwargs)
+  - `"tool_result"`: Tool result display (pass `is_error` bool in kwargs)
+  - `"result"`: Final result display (pass `step_count`, `total_tokens`, `cost` in kwargs)
+- `**kwargs`: Additional keyword arguments specific to the content type.
 
 **Returns:**
 
-- `str`: Extracted text content.
-
-#### `print_message()`
-
-```python
-def print_message(
-    self,
-    message: Any,
-    step_count: int = 0,
-    budget_used: float = 0.0,
-    total_tokens_used: int = 0,
-) -> None
-```
-
-Send a complete message to the browser. Supports the same duck-typed message detection as `ConsolePrinter`:
-
-- SystemMessage (has `subtype` and `data`): tool output text
-- ResultMessage (has `result`): final result with stats
-- UserMessage (has `content`): tool result blocks
-
-#### `print_usage_info()`
-
-```python
-def print_usage_info(self, usage_info: str) -> None
-```
-
-Send usage information (step count, token counts, etc.) to the browser via SSE.
-
-**Parameters:**
-
-- `usage_info` (str): The usage info text to broadcast.
+- `str`: Extracted text content (for `stream_event` type), empty string otherwise.
 
 ### Browser UI Features
 
@@ -837,51 +817,31 @@ def reset(self) -> None
 
 Reset internal state (block type, tool name, JSON buffer, mid-line flag).
 
-#### `print_stream_event()`
+#### `print()`
 
 ```python
-def print_stream_event(self, event: Any) -> str
+def print(self, content: Any, type: str = "text", **kwargs: Any) -> str
 ```
 
-Handle a streaming event and print to terminal with Rich formatting. Returns extracted text content for token callbacks. Handles event types: `content_block_start`, `content_block_delta`, `content_block_stop`.
+Unified output method that handles all content types and prints to terminal with Rich formatting.
 
 **Parameters:**
 
-- `event`: A StreamEvent (or any object with an `event` dict attribute).
+- `content` (Any): The content to display.
+- `type` (str): The content type. Supported types:
+  - `"text"`: General text output
+  - `"prompt"`: Agent prompt display (Rich Panel)
+  - `"stream_event"`: Streaming event from Claude Agent SDK (handles `content_block_start`, `content_block_delta`, `content_block_stop`)
+  - `"message"`: Complete message (SystemMessage, ResultMessage, UserMessage)
+  - `"usage_info"`: Usage information as a Rich Panel
+  - `"tool_call"`: Tool call display with syntax highlighting (pass `tool_input` dict in kwargs)
+  - `"tool_result"`: Tool result display (pass `is_error` bool in kwargs)
+  - `"result"`: Final result display as a Rich Panel with stats (pass `step_count`, `total_tokens`, `cost` in kwargs)
+- `**kwargs`: Additional keyword arguments specific to the content type.
 
 **Returns:**
 
-- `str`: Extracted text content.
-
-#### `print_message()`
-
-```python
-def print_message(
-    self,
-    message: Any,
-    step_count: int = 0,
-    budget_used: float = 0.0,
-    total_tokens_used: int = 0,
-) -> None
-```
-
-Print a complete message to the terminal. Supports duck-typed message detection:
-
-- SystemMessage (has `subtype` and `data`): tool output text
-- ResultMessage (has `result`): final result with stats
-- UserMessage (has `content`): tool result blocks
-
-#### `print_usage_info()`
-
-```python
-def print_usage_info(self, usage_info: str) -> None
-```
-
-Print usage information (step count, token counts, etc.) as a Rich Panel with Markdown rendering.
-
-**Parameters:**
-
-- `usage_info` (str): The usage info text to print.
+- `str`: Extracted text content (for `stream_event` type), empty string otherwise.
 
 ______________________________________________________________________
 
@@ -2426,7 +2386,6 @@ Read a file from the project root using Python package conventions.
 
 - `str`: The file's contents.
 
-
 ______________________________________________________________________
 
 ## Token Streaming via Printer
@@ -2443,7 +2402,7 @@ When no printer is provided and `verbose=False`, all providers fall back to thei
 
 ### KISSAgent Integration
 
-When `verbose=True` (default), `KISSAgent` automatically creates a `MultiPrinter` with `BrowserPrinter` + `ConsolePrinter`. You can also pass a custom printer. The printer receives:
+When `verbose=True` (default), `KISSAgent` automatically creates a `MultiPrinter` based on config flags: `print_to_browser` (default: True) adds a `BrowserPrinter`, `print_to_console` (default: True) adds a `ConsolePrinter`. You can also pass a custom printer. The printer receives:
 
 1. **Model response tokens** as they are generated.
 1. **Tool execution output** after each tool call completes.
@@ -2491,6 +2450,8 @@ DEFAULT_CONFIG.agent.max_agent_budget = 10.0
 DEFAULT_CONFIG.agent.global_max_budget = 200.0
 DEFAULT_CONFIG.agent.verbose = True
 DEFAULT_CONFIG.agent.use_web = True
+DEFAULT_CONFIG.agent.print_to_console = True
+DEFAULT_CONFIG.agent.print_to_browser = True
 ```
 
 ### Configuration Sections
@@ -2511,6 +2472,8 @@ DEFAULT_CONFIG.agent.use_web = True
 - `verbose` (bool): Enable verbose output (default: True)
 - `use_web` (bool): Enable web search tool (default: True)
 - `debug` (bool): Enable debug mode (default: False)
+- `print_to_console` (bool): Enable ConsolePrinter for Rich terminal output (default: True)
+- `print_to_browser` (bool): Enable BrowserPrinter for live browser UI output (default: True)
 - `artifact_dir` (str): Directory for agent artifacts (default: auto-generated with timestamp)
 
 #### `coding_agent.relentless_coding_agent`

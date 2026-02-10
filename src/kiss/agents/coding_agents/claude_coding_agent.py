@@ -52,7 +52,7 @@ class ClaudeCodingAgent(Base):
         max_steps: int | None,
         max_budget: float | None,
     ) -> None:
-        self.model_name = model_name or config_module.DEFAULT_CONFIG.agent.model_name
+        self.model_name = model_name or "claude-sonnet-4-5"
         self.function_map = list(BUILTIN_TOOLS)
         self.messages: list[dict[str, Any]] = []
         self.step_count = 0
@@ -132,11 +132,10 @@ class ClaudeCodingAgent(Base):
     def _get_usage_info_string(self) -> str:
         global_max = config_module.DEFAULT_CONFIG.agent.global_max_budget
         return (
-            "\n\n#### Usage Information\n"
-            f"  - [Token usage: {self.total_tokens_used}/{self.max_tokens}]\n"
-            f"  - [Agent budget usage: ${self.budget_used:.4f}/${self.max_budget:.2f}]\n"
-            f"  - [Global budget usage: ${Base.global_budget_used:.4f}/${global_max:.2f}]\n"
-            f"  - [Step {self.step_count}/{self.max_steps}]\n"
+            f"\nTokens: {self.total_tokens_used}/{self.max_tokens}  "
+            f"Budget: ${self.budget_used:.4f}/${self.max_budget:.2f}  "
+            f"Global Budget: ${Base.global_budget_used:.4f}/${global_max:.2f}  "
+            f"Steps: {self.step_count}/{self.max_steps}\n"
         )
 
     def _finalize_prev_model_message(self) -> None:

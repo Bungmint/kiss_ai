@@ -16,10 +16,10 @@ from kiss.core import config as config_module
 from kiss.core.base import Base
 from kiss.core.kiss_error import KISSError
 from kiss.core.models.model_info import calculate_cost, get_max_context_length, model
-from kiss.core.useful_tools import fetch_url, search_web
-from kiss.core.printer import MultiPrinter
 from kiss.core.print_to_browser import BrowserPrinter
 from kiss.core.print_to_console import ConsolePrinter
+from kiss.core.printer import MultiPrinter
+from kiss.core.useful_tools import fetch_url, search_web
 
 if TYPE_CHECKING:
     from kiss.core.printer import Printer
@@ -45,13 +45,22 @@ class KISSAgent(Base):
         model_config: dict[str, Any] | None,
         printer: Printer | None = None,
     ) -> None:
-        self.printer = printer if config_module.DEFAULT_CONFIG.agent.verbose else None
-        if config_module.DEFAULT_CONFIG.agent.verbose and self.printer is None:
-            browser_printer = BrowserPrinter()
-            browser_printer.start()
-            console_printer = ConsolePrinter()
-            self.printer = MultiPrinter([browser_printer, console_printer])
+        self.printer: Printer | None = None
+        if config_module.DEFAULT_CONFIG.agent.verbose:
+            if printer:
+                self.printer = printer
+            else:
+                printers: list[Printer] = []
+                if config_module.DEFAULT_CONFIG.agent.print_to_browser:
+                    bp = BrowserPrinter()
+                    bp.start()
+                    printers.append(bp)
+                if config_module.DEFAULT_CONFIG.agent.print_to_console:
+                    printers.append(ConsolePrinter())
+                if printers:
+                    self.printer = MultiPrinter(printers)
         token_callback = self.printer.token_callback if self.printer else None
+
         self.model = model(model_name, model_config=model_config, token_callback=token_callback)
         self.is_agentic = is_agentic
         self.max_steps = (
@@ -87,8 +96,7 @@ class KISSAgent(Base):
         self._add_message("user", full_prompt)
         self.model.initialize(full_prompt)
         if self.printer:
-            self.printer.print(f"{full_prompt}\n")
-        
+            self.printer.print(full_prompt, type="prompt")
 
     def run(
         self,
@@ -147,8 +155,7 @@ class KISSAgent(Base):
                 for p in getattr(self.printer, "printers", []):
                     if isinstance(p, BrowserPrinter):
                         p.stop()
-            if hasattr(self, "run_start_timestamp"):
-                self._save()
+            self._save()
 
     def _setup_tools(self, tools: list[Callable[..., Any]] | None) -> None:
         """Setup tools for agentic mode.
@@ -185,7 +192,7 @@ class KISSAgent(Base):
         self._update_tokens_and_budget_from_response(response)
         usage_info_str = self._get_usage_info_string()
         self._add_message(
-            "model", response_text + "\n" + usage_info_str + "\n", start_timestamp
+            "model", response_text + "\n```text\n" + usage_info_str + "\n```\n", start_timestamp
         )
         if response_text and self.printer:
             self.printer.print(response_text, type="result",
@@ -236,7 +243,7 @@ class KISSAgent(Base):
 
         if len(function_calls) != 1:
             self._add_message(
-                "model", response_text + "\n" + usage_info, start_timestamp
+                "model", response_text + "\n```text\n" + usage_info + "\n```\n", start_timestamp
             )
             if function_calls:
                 error_msg = (
@@ -288,7 +295,7 @@ class KISSAgent(Base):
         if self.printer:
             self.printer.print(function_response, type="tool_result")
 
-        model_content = response_text + "\n" + call_repr + "\n" + usage_info
+        model_content = response_text + "\n" + call_repr + "\n```text\n" + usage_info + "\n```\n"
         self._add_message("model", model_content, start_timestamp)
         self._add_message("user", function_response, tool_call_timestamp)
 
@@ -349,29 +356,18 @@ class KISSAgent(Base):
             print(f"Error updating tokens and budget from response: {e} {traceback.format_exc()}")
 
     def _get_usage_info_string(self) -> str:
-        """Returns the token usage and budget information string.
-
-        Returns:
-            str: A formatted markdown string with usage information.
-        """
-        step_info = f"[Step {self.step_count}/{self.max_steps}]"
+        """Returns a compact single-line usage information string."""
         try:
             max_tokens = get_max_context_length(self.model.model_name)
-            token_info = f"[Token usage: {self.total_tokens_used}/{max_tokens}]"
-            budget_info = f"[Agent budget usage: ${self.budget_used:.4f}/${self.max_budget:.2f}]"
-            global_budget_info = (
-                f"[Global budget usage: ${Base.global_budget_used:.4f}/"
-                f"${config_module.DEFAULT_CONFIG.agent.global_max_budget:.2f}]"
-            )
+            global_max = config_module.DEFAULT_CONFIG.agent.global_max_budget
             return (
-                "#### Usage Information\n"
-                f"  - {token_info}\n"
-                f"  - {budget_info}\n"
-                f"  - {global_budget_info}\n"
-                f"  - {step_info}\n"
+                f"Steps: {self.step_count}/{self.max_steps}, "
+                f"Tokens: {self.total_tokens_used}/{max_tokens}, "
+                f"Budget: ${self.budget_used:.4f}/${self.max_budget:.2f}, "
+                f"Global Budget: ${Base.global_budget_used:.4f}/${global_max:.2f}"
             )
         except Exception:
-            return f"#### Usage Information\n  - {step_info}\n"
+            return f"Steps: {self.step_count}/{self.max_steps}"
 
     def finish(self, result: str) -> str:
         """

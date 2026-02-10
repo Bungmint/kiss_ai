@@ -33,7 +33,6 @@ _HTML_PAGE = r"""<!DOCTYPE html>
 <link rel="stylesheet"
   href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -130,19 +129,30 @@ main{flex:1;overflow-y:auto;padding:20px 28px;scroll-behavior:smooth}
   padding:16px 20px;font-size:14px;max-height:400px;overflow-y:auto;
   white-space:pre-wrap;word-break:break-word;line-height:1.7;
 }
+.prompt{
+  border:1px solid var(--cyan);border-radius:8px;margin:10px 0;
+  overflow:hidden;background:var(--surface);
+}
+.prompt-h{
+  padding:8px 16px;background:rgba(121,192,255,.08);
+  font-size:12px;font-weight:600;color:var(--cyan);
+  text-transform:uppercase;letter-spacing:.04em;
+}
+.prompt-body{
+  padding:12px 16px;font-size:14px;white-space:pre-wrap;
+  word-break:break-word;line-height:1.6;max-height:400px;overflow-y:auto;
+}
 .sys{
   font-size:13px;color:var(--dim);font-family:'SF Mono','Fira Code',monospace;
   white-space:pre-wrap;word-break:break-word;padding:2px 0;
 }
 .usage{
-  border:1px solid var(--border);border-radius:6px;margin:8px 0;
-  padding:6px 12px;background:var(--surface);
-  font-size:12px;color:var(--dim);line-height:1.5;
-  word-break:break-word;
+  border:1px solid var(--border);border-radius:4px;margin:6px 0;
+  padding:4px 12px;background:var(--surface);
+  font-size:11px;color:var(--dim);font-style:italic;
+  font-family:'SF Mono','Fira Code',monospace;
+  white-space:nowrap;overflow-x:auto;
 }
-.usage h4{font-size:13px;color:var(--accent);margin:4px 0}
-.usage ul{margin:2px 0 2px 18px;padding:0}
-.usage li{margin:1px 0}
 footer{
   background:var(--surface);border-top:1px solid var(--border);
   padding:8px 28px;font-size:12px;color:var(--dim);flex-shrink:0;
@@ -255,9 +265,14 @@ src.onmessage=function(e){
         +'Cost: <b>'+(ev.cost||'N/A')+'</b>'
         +'</div></div><div class="rc-body">'+esc(ev.text||'(no result)')+'</div>';
       O.appendChild(c);break}
+    case'prompt':{
+      const p=document.createElement('div');p.className='ev prompt';
+      p.innerHTML='<div class="prompt-h">Prompt</div>'
+        +'<div class="prompt-body">'+esc(ev.text||'')+'</div>';
+      O.appendChild(p);break}
     case'usage_info':{
       const u=document.createElement('div');u.className='ev usage';
-      u.innerHTML=marked.parse(ev.text||'');O.appendChild(u);break}
+      u.textContent=ev.text||'';O.appendChild(u);break}
     case'done':
       D.classList.add('done');ST.textContent='Completed';src.close();break;
   }
@@ -360,6 +375,9 @@ class BrowserPrinter(Printer):
             text = buf.getvalue()
             if text.strip():
                 self._broadcast({"type": "text_delta", "text": text})
+            return ""
+        if type == "prompt":
+            self._broadcast({"type": "prompt", "text": str(content)})
             return ""
         if type == "stream_event":
             return self._handle_stream_event(content)

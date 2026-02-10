@@ -80,6 +80,14 @@ class Base:
     agent_counter: ClassVar[int] = 1
     global_budget_used: ClassVar[float] = 0.0
 
+    model_name: str
+    messages: list[dict[str, Any]]
+    function_map: Any
+    run_start_timestamp: int
+    budget_used: float
+    total_tokens_used: int
+    step_count: int
+
     def __init__(self, name: str) -> None:
         """Initialize a Base agent instance.
 

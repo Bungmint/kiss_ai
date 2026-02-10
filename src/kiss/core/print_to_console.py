@@ -5,7 +5,6 @@ import sys
 from typing import Any
 
 from rich.console import Console, Group
-from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.text import Text
@@ -49,6 +48,17 @@ class ConsolePrinter(Printer):
             self._flush_newline()
             self._console.print(content, **kwargs)
             return ""
+        if type == "prompt":
+            self._flush_newline()
+            self._console.print(
+                Panel(
+                    str(content),
+                    title="[bold]Prompt[/bold]",
+                    border_style="cyan",
+                    padding=(1, 2),
+                )
+            )
+            return ""
         if type == "stream_event":
             return self._handle_stream_event(content)
         if type == "message":
@@ -57,7 +67,12 @@ class ConsolePrinter(Printer):
         if type == "usage_info":
             self._flush_newline()
             self._console.print(
-                Panel(Markdown(str(content).strip()), border_style="dim", padding=(0, 1))
+                Panel(
+                    Text(str(content).strip(), style="dim italic"),
+                    border_style="dim",
+                    padding=(0, 1),
+                    expand=True,
+                )
             )
             return ""
         if type == "tool_call":

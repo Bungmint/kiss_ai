@@ -30,8 +30,8 @@ class TestBaseClass:
 
         agent = Base("test")
         agent.model_name = "unknown-model-xyz"
-        agent.function_map: list[str] = []
-        agent.messages: list[dict] = []
+        agent.function_map = []
+        agent.messages = []
         agent.step_count = 0
         agent.total_tokens_used = 0
         agent.budget_used = 0.0
