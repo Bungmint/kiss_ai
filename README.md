@@ -873,14 +873,10 @@ kiss/
 │   │   ├── test_kiss_agent_agentic.py
 │   │   ├── test_kiss_agent_non_agentic.py
 │   │   ├── test_kissevolve_bubblesort.py
-│   │   ├── test_gepa_squad.py
 │   │   ├── test_gepa_hotpotqa.py
-│   │   ├── test_gepa_integration.py
 │   │   ├── test_gepa_progress_callback.py # Tests for GEPA progress callbacks
 │   │   ├── test_docker_manager.py
-│   │   ├── test_model_config.py
 │   │   ├── test_model_implementations.py  # Integration tests for model implementations
-│   │   ├── test_a_model.py
 │   │   ├── run_all_models_test.py # Comprehensive tests for all models
 │   │   ├── test_multiprocess.py
 │   │   ├── test_internal.py
@@ -890,7 +886,6 @@ kiss/
 │   │   ├── test_claude_coding_agent.py    # Tests for Claude Coding Agent
 │   │   ├── test_gemini_cli_agent.py       # Tests for Gemini CLI Agent
 │   │   ├── test_openai_codex_agent.py     # Tests for OpenAI Codex Agent
-│   │   ├── test_agent_evolver.py          # Tests for Agent Evolver
 │   │   ├── test_evolver_progress_callback.py # Tests for AgentEvolver progress callbacks
 │   │   ├── test_token_callback.py         # Tests for async token streaming callback
 │   │   ├── test_coding_agent_token_callback.py # Tests for token callback in coding agents
@@ -1020,7 +1015,6 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
 - `uv run pytest src/kiss/tests/test_kiss_agent_agentic.py -v` - Run agentic agent tests
 - `uv run pytest src/kiss/tests/test_kiss_agent_non_agentic.py -v` - Run non-agentic agent tests
 - `uv run pytest src/kiss/tests/test_multiprocess.py -v` - Run multiprocessing tests
-- `uv run python -m unittest src.kiss.tests.test_gepa_squad -v` - Run GEPA Squad tests (unittest)
 - `uv run python -m unittest src.kiss.tests.test_docker_manager -v` - Run docker manager tests (unittest)
 - `uv run python -m unittest discover -s src/kiss/tests -v` - Run all tests using unittest
 
