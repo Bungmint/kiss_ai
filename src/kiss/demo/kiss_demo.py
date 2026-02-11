@@ -31,7 +31,6 @@ def main() -> None:
         model_name="claude-sonnet-4-5",
         prompt_template=prompt,
         tools=[simple_calculator],
-        is_agentic=True,
         max_steps=20,
         max_budget=1.0,
     )

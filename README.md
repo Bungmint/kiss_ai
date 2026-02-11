@@ -88,32 +88,45 @@ Run the built-in demo to see a KISSAgent solve arithmetic problems with real-tim
 uv run python -m kiss.demo.kiss_demo
 ```
 
-This launches an agent that uses a `simple_calculator` tool to solve three math problems step by step. Output is streamed in real-time via the `Printer` system to:
-
-- **Terminal** — using `ConsolePrinter` from `kiss.core.print_to_console` for rich-formatted output (tool call panels, result rules, final result panel)
-- **Browser** — using `BrowserPrinter` from `kiss.core.print_to_browser` for a live dark-themed web UI with scrollable panels, syntax highlighting, and tool call cards
-
-The demo uses the built-in `Printer` system. When `verbose=True` (the default), `KISSAgent` automatically creates a `MultiPrinter` based on config flags: `print_to_browser` (default: False) adds a `BrowserPrinter`, `print_to_console` (default: True) adds a `ConsolePrinter`, for real-time streaming to both the terminal and a live browser UI. You can also pass a custom `printer` parameter:
+This launches an agent that uses a `simple_calculator` tool to solve three math problems step by step:
 
 ```python
-from kiss.core.print_to_browser import BrowserPrinter
-from kiss.core.print_to_console import ConsolePrinter
-from kiss.core.printer import MultiPrinter
 from kiss.core.kiss_agent import KISSAgent
 
-browser_printer = BrowserPrinter()
-browser_printer.start()
-console_printer = ConsolePrinter()
-printer = MultiPrinter([browser_printer, console_printer])
+
+def simple_calculator(expression: str) -> str:
+    """Evaluate a simple arithmetic expression.
+
+    Args:
+        expression: The arithmetic expression to evaluate (e.g., '2+2', '10*5', '(3+4)*2')
+
+    Returns:
+        The result of the expression as a string.
+    """
+    compiled = compile(expression, "<string>", "eval")
+    return str(eval(compiled, {"__builtins__": {}}, {}))
+
 
 agent = KISSAgent("Arithmetic Demo Agent")
-result = agent.run(
+prompt = (
+    "You are a helpful math assistant. Use the simple_calculator tool to solve the "
+    "following problems step by step. You MUST think loud.:\n"
+    "1. What is 127 * 843?\n"
+    "2. What is (1234 + 5678) / 2?\n"
+    "3. What is 2**10 - 1?\n"
+    "Report each result clearly, then call finish with a summary of all three answers."
+)
+
+agent.run(
     model_name="claude-sonnet-4-5",
-    prompt_template="Calculate 127 * 843, (1234 + 5678) / 2, and 2**10 - 1",
+    prompt_template=prompt,
     tools=[simple_calculator],
-    printer=printer,
+    max_steps=20,
+    max_budget=1.0,
 )
 ```
+
+Output is streamed in real-time via the `Printer` system to:
 
 See [`src/kiss/demo/kiss_demo.py`](src/kiss/demo/kiss_demo.py) for the full working example.
 
