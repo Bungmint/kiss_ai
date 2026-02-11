@@ -140,8 +140,8 @@ class RelentlessCodingAgent(Base):
             # Validate and clean items
             if isinstance(done, list) and isinstance(next_items, list):
                 # Deduplicate while preserving order
-                done = list(dict.fromkeys(str(d)[:200] for d in done if d))
-                next_items = list(dict.fromkeys(str(n)[:200] for n in next_items if n))
+                done = list(dict.fromkeys(str(d) for d in done if d))
+                next_items = list(dict.fromkeys(str(n) for n in next_items if n))
                 return done, next_items
         except (json.JSONDecodeError, AttributeError, TypeError):
             pass
@@ -156,7 +156,7 @@ class RelentlessCodingAgent(Base):
                     size = p.stat().st_size
                     files.append(f"  {rel} ({size}B)")
             if files:
-                return "## Existing Files\n" + "\n".join(files[:50])
+                return "## Existing Files\n" + "\n".join(files)
         except Exception:
             pass
         return ""
@@ -169,7 +169,7 @@ class RelentlessCodingAgent(Base):
             progress += f"- {item}\n"
         if next_items:
             progress += "\n## Remaining Tasks\n"
-            for item in next_items[:5]:
+            for item in next_items:
                 progress += f"- {item}\n"
         return progress
 
@@ -246,10 +246,10 @@ class RelentlessCodingAgent(Base):
             except Exception as e:
                 last_msgs = executor.messages[-2:] if hasattr(executor, "messages") else []
                 context = " ".join(
-                    str(m.get("content", ""))[:100]
+                    str(m.get("content", ""))
                     for m in last_msgs
                     if isinstance(m, dict)
-                )[:200]
+                )
                 result = yaml.dump(
                     {
                         "success": False,
@@ -278,7 +278,7 @@ class RelentlessCodingAgent(Base):
                         done_items.append(item)
                 next_items = trial_next
             elif summary and summary not in done_items:
-                done_items.append(summary[:100])
+                done_items.append(summary)
 
         raise KISSError(f"Task failed after {self.trials} trials")
 

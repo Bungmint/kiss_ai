@@ -91,45 +91,6 @@ uv run python -m kiss.demo.kiss_demo
 
 This launches an agent that uses a `simple_calculator` tool to solve three math problems step by step:
 
-```python
-from kiss.core.kiss_agent import KISSAgent
-
-
-def simple_calculator(expression: str) -> str:
-    """Evaluate a simple arithmetic expression.
-
-    Args:
-        expression: The arithmetic expression to evaluate (e.g., '2+2', '10*5', '(3+4)*2')
-
-    Returns:
-        The result of the expression as a string.
-    """
-    compiled = compile(expression, "<string>", "eval")
-    return str(eval(compiled, {"__builtins__": {}}, {}))
-
-
-agent = KISSAgent("Arithmetic Demo Agent")
-prompt = (
-    "You are a helpful math assistant. Use the simple_calculator tool to solve the "
-    "following problems step by step. You MUST think loud.:\n"
-    "1. What is 127 * 843?\n"
-    "2. What is (1234 + 5678) / 2?\n"
-    "3. What is 2**10 - 1?\n"
-    "Report each result clearly, then call finish with a summary of all three answers."
-)
-
-agent.run(
-    model_name="claude-sonnet-4-5",
-    prompt_template=prompt,
-    tools=[simple_calculator],
-    max_steps=20,
-    max_budget=1.0,
-)
-```
-
-Output is streamed in real-time via the `Printer` system to:
-
-See [`src/kiss/demo/kiss_demo.py`](src/kiss/demo/kiss_demo.py) for the full working example.
 
 ## 📝 Blogs
 
@@ -267,7 +228,7 @@ print(f"Score: {best.score():.2f}")
 
 ## 💪 Using Relentless Coding Agent
 
-For very long running coding tasks, use the `RelentlessCodingAgent`. The agent will work relentlessly to complete your task using a single-agent architecture with smart continuation:
+For very long running coding tasks, use the `RelentlessCodingAgent`. The agent will work relentlessly to complete your task using a single-agent architecture with smart continuation.  This agent has been optimized by the Optimize Agent:
 
 ```python
 from kiss.agents.coding_agents.relentless_coding_agent import RelentlessCodingAgent
