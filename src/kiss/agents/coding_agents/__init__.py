@@ -1,7 +1,6 @@
 """Coding agents for KISS framework."""
 
 import kiss.agents.coding_agents.config  # type: ignore # noqa: F401
-from kiss.agents.coding_agents.kiss_coding_agent import KISSCodingAgent
 from kiss.core.base import CODING_INSTRUCTIONS, Base
 
 try:
@@ -13,5 +12,4 @@ __all__ = [
     "Base",
     "CODING_INSTRUCTIONS",
     "ClaudeCodingAgent",
-    "KISSCodingAgent",
 ]

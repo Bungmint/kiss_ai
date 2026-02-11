@@ -89,18 +89,7 @@ def test_imports() -> bool:
         print(f"✗ Failed to import/create AgentEvolver: {e}")
         tests_failed += 1
 
-    # Test 4: KISSCodingAgent
-    try:
-        from kiss.agents.coding_agents import KISSCodingAgent
-
-        _ = KISSCodingAgent(name="TestCodingAgent")
-        print("✓ KISSCodingAgent created successfully")
-        tests_passed += 1
-    except Exception as e:
-        print(f"✗ Failed to import/create KISSCodingAgent: {e}")
-        tests_failed += 1
-
-    # Test 5: ClaudeCodingAgent
+    # Test 4: ClaudeCodingAgent
     try:
         from kiss.agents.coding_agents import ClaudeCodingAgent
 

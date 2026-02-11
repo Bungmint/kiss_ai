@@ -78,7 +78,7 @@ class RelentlessCodingAgent(Base):
     def _reset(
         self,
         model_name: str | None,
-        trials: int | None,
+        max_sub_sessions: int | None,
         max_steps: int | None,
         max_budget: float | None,
         work_dir: str | None,
@@ -104,7 +104,9 @@ class RelentlessCodingAgent(Base):
         self.writable_paths.append(Path(self.work_dir))
         self.is_agentic = True
 
-        self.trials = trials if trials is not None else cfg.trials
+        self.max_sub_sessions = (
+            max_sub_sessions if max_sub_sessions is not None else cfg.max_sub_sessions
+        )
         self.max_steps = max_steps if max_steps is not None else cfg.max_steps
         self.max_budget = max_budget if max_budget is not None else cfg.max_budget
         self.model_name = (
@@ -182,7 +184,7 @@ class RelentlessCodingAgent(Base):
             # First trial: conservative to establish baseline
             return max(6, base // 2)
         elif trial < 3:
-            # Early trials: moderate step count, focus on establishing workflow
+            # Early sub-sessions: moderate step count, focus on establishing workflow
             return max(8, int(base * 0.65))
         elif done_count > trial * 2:
             # Good progress: allow more steps per trial
@@ -211,7 +213,7 @@ class RelentlessCodingAgent(Base):
         done_items: list[str] = []
         next_items: list[str] = []
 
-        for trial in range(self.trials):
+        for trial in range(self.max_sub_sessions):
             step_threshold = self._calculate_step_threshold(trial, len(done_items))
 
             if trial == 0:
@@ -243,7 +245,7 @@ class RelentlessCodingAgent(Base):
                     max_budget=self.max_budget,
                     printer=self.printer,
                 )
-            except Exception as e:
+            except Exception:
                 last_msgs = executor.messages[-2:] if hasattr(executor, "messages") else []
                 context = " ".join(
                     str(m.get("content", ""))
@@ -280,7 +282,7 @@ class RelentlessCodingAgent(Base):
             elif summary and summary not in done_items:
                 done_items.append(summary)
 
-        raise KISSError(f"Task failed after {self.trials} trials")
+        raise KISSError(f"Task failed after {self.max_sub_sessions} sub-sessions")
 
     def run(
         self,
@@ -294,13 +296,13 @@ class RelentlessCodingAgent(Base):
         readable_paths: list[str] | None = None,
         writable_paths: list[str] | None = None,
         printer: Printer | None = None,
-        trials: int | None = None,
+        max_sub_sessions: int | None = None,
         docker_image: str | None = None,
     ) -> str:
         """Run the coding agent."""
         self._reset(
             model_name,
-            trials,
+            max_sub_sessions,
             max_steps,
             max_budget,
             work_dir,
@@ -330,27 +332,23 @@ def main() -> None:
 
     agent = RelentlessCodingAgent("Example Multi-Agent")
     task_description = """
- **Task:** Create a robust database engine using only Bash scripts.
+**Task:** Build a task scheduler with dependency resolution in Bash.
 
- **Requirements:**
- 1.  Create a script named `db.sh` that interacts with a local data folder.
- 2.  **Basic Operations:** Implement `db.sh set <key> <value>`,
-     `db.sh get <key>`, and `db.sh delete <key>`.
- 3.  **Atomicity:** Implement transaction support.
-     *   `db.sh begin` starts a session where writes are cached but not visible to others.
-     *   `db.sh commit` atomically applies all cached changes.
-     *   `db.sh rollback` discards pending changes.
- 4.  **Concurrency:** Ensure that if two different terminal windows run `db.sh`
-     simultaneously, the data is never corrupted (use `mkdir`-based mutex locking).
- 5.  **Validation:** Write a test script `test_stress.sh` that launches 10
-     concurrent processes to spam the database, verifying no data is lost.
+**Requirements:**
+1. Create `scheduler.sh` with:
+   - `scheduler.sh add <name> <command> [--priority <1-10>] [--depends <t1,t2>]` — enqueue task
+   - `scheduler.sh run` — execute tasks respecting priority and dependencies
+   - `scheduler.sh status` — show task states (pending/running/done/failed)
+   - `scheduler.sh log <name>` — show stdout/stderr of completed task
+2. **Dependencies:** Tasks wait for dependencies. Detect circular dependencies.
+3. **Parallel Execution:** Run up to 3 independent tasks concurrently via background processes.
+4. **Failure Handling:** Failed task blocks dependents; other independent tasks continue.
+5. **Validation:** Write `test_scheduler.sh` that creates a diamond dependency graph \
+(A->B, A->C, B->D, C->D), verifies execution order, tests circular detection and \
+failure propagation.
 
- **Constraints:**
- *   No external database tools (no sqlite3, no python).
- *   Standard Linux utilities only (sed, awk, grep, flock/mkdir).
- *   Safe: Operate entirely within a `./my_db` directory.
- *   No README or docs.
-    """
+**Constraints:** Pure Bash, standard utilities. State in `./scheduler_data/`. No docs.
+"""
 
     work_dir = tempfile.mkdtemp()
     old_cwd = os.getcwd()

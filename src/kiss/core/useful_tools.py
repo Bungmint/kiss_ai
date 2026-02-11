@@ -910,7 +910,10 @@ class UsefulTools:
         """
         return self.Edit(file_path, old_string, new_string, replace_all, timeout_seconds)
 
-    def Bash(self, command: str, description: str, timeout_seconds: float = 30, max_output_chars: int = 50000) -> str:  # noqa: N802
+    def Bash(  # noqa: N802
+        self, command: str, description: str,
+        timeout_seconds: float = 30, max_output_chars: int = 50000,
+    ) -> str:
         """Runs a bash command and returns its output.
 
         Args:

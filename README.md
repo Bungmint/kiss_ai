@@ -28,8 +28,6 @@ KISS stands for ["Keep it Simple, Stupid"](https://en.wikipedia.org/wiki/KISS_pr
 - [Using GEPA for Prompt Optimization](#-using-gepa-for-prompt-optimization)
 - [Using KISSEvolve for Algorithm Discovery](#-using-kissevolve-for-algorithm-discovery)
 - [Using Self-Evolving Multi-Agent](#-using-self-evolving-multi-agent)
-- [Using KISS Coding Agent](#-using-kiss-coding-agent)
-- [Using Claude Coding Agent](#-using-claude-coding-agent)
 - [Using SimpleRAG for Retrieval-Augmented Generation](#-using-simplerag-for-retrieval-augmented-generation)
 - [Multiprocessing](#-multiprocessing)
 - [Docker Manager](#-docker-manager)
@@ -90,7 +88,6 @@ uv run python -m kiss.demo.kiss_demo
 ```
 
 This launches an agent that uses a `simple_calculator` tool to solve three math problems step by step:
-
 
 ## 📝 Blogs
 
@@ -212,23 +209,23 @@ print(f"Score: {best.score():.2f}")
 
 **How It Works:**
 
-1. **Phase 1 — Seed**: Creates a baseline copy and generates initial variants by improving the baseline using a ClaudeCodingAgent
-2. **Phase 2 — Evolve**: Iterates for `max_generations`, applying mutation (improving one variant) or crossover (combining two variants) with probability `mutation_probability`
-3. **Evaluation**: Each variant is evaluated on a sample of tasks, measuring success rate, token usage, execution time, and cost
-4. **Pareto Frontier**: Non-dominated solutions are maintained; dominated variants are pruned via crowding distance
+1. **Phase 1 — Seed**: Creates a baseline copy and generates initial variants by improving the baseline
+1. **Phase 2 — Evolve**: Iterates for `max_generations`, applying mutation (improving one variant) or crossover (combining two variants) with probability `mutation_probability`
+1. **Evaluation**: Each variant is evaluated on a sample of tasks, measuring success rate, token usage, execution time, and cost
+1. **Pareto Frontier**: Non-dominated solutions are maintained; dominated variants are pruned via crowding distance
 
 **Key Features:**
 
 - **Multi-Objective Optimization**: Optimizes for success rate, tokens, time, and cost simultaneously
 - **Pareto Frontier Maintenance**: Tracks all non-dominated solutions with automatic pruning
 - **Evolutionary Operations**: Mutation (single-parent improvement) and crossover (two-parent combination)
-- **Uses ClaudeCodingAgent**: Leverages Claude for making targeted code improvements
+- **LLM-Powered Improvements**: Leverages LLMs for making targeted code improvements
 - **Weighted Scoring**: Configurable score weights for ranking variants (failure_rate × 1M, tokens × 1, time × 1K, cost × 100K)
 - **Built-in Tasks**: Includes 5 complex Bash scripting tasks for evaluation (key-value DB, task scheduler, VCS, log analyzer, build system)
 
 ## 💪 Using Relentless Coding Agent
 
-For very long running coding tasks, use the `RelentlessCodingAgent`. The agent will work relentlessly to complete your task using a single-agent architecture with smart continuation.  This agent has been optimized by the Optimize Agent:
+For very long running coding tasks, use the `RelentlessCodingAgent`. The agent will work relentlessly to complete your task using a single-agent architecture with smart continuation. This agent has been optimized by the Optimize Agent:
 
 ```python
 from kiss.agents.coding_agents.relentless_coding_agent import RelentlessCodingAgent
@@ -243,7 +240,7 @@ result = agent.run(
     model_name="claude-sonnet-4-5",
     work_dir="./workspace",
     max_steps=200,
-    trials=200
+    max_sub_sessions=200
 )
 print(f"Result: {result}")
 ```
@@ -264,24 +261,24 @@ result = agent.run(
     """,
     docker_image="python:3.11-slim",  # Bash commands run in Docker
     max_steps=200,
-    trials=2000
+    max_sub_sessions=2000
 )
 print(f"Result: {result}")
 ```
 
 **Key Features:**
 
-- **Single-Agent with Auto-Continuation**: A single agent executes the task across multiple trials, automatically continuing where it left off via structured JSON progress tracking (💡 new idea)
-- **Structured Progress Tracking**: Each trial reports completed and remaining tasks in JSON format (done/next items), which is deduplicated and passed to subsequent trials along with a scan of existing files in the work directory
-- **Adaptive Step Thresholds**: Step limits per trial scale based on trial number and progress, with conservative early trials and more steps for trials showing good progress
+- **Single-Agent with Auto-Continuation**: A single agent executes the task across multiple sub-sessions, automatically continuing where it left off via structured JSON progress tracking (💡 new idea)
+- **Structured Progress Tracking**: Each sub-session reports completed and remaining tasks in JSON format (done/next items), which is deduplicated and passed to subsequent sub-sessions along with a scan of existing files in the work directory
+- **Adaptive Step Thresholds**: Step limits per sub-session scale based on sub-session number and progress, with conservative early sub-sessions and more steps for sub-sessions showing good progress
 - **Efficiency Rules**: Built-in prompt instructions enforce step minimization, batching, and immediate completion when tests pass
 - **Output Truncation**: Long tool outputs are automatically truncated to keep context manageable
-- **Retry with Context**: Failed trials automatically pass structured progress summaries and file listings to the next trial
-- **Configurable Trials**: Set high trial counts (e.g., 200+) for truly relentless execution
+- **Retry with Context**: Failed sub-sessions automatically pass structured progress summaries and file listings to the next sub-session
+- **Configurable Sub-Sessions**: Set high sub-session counts (e.g., 200+) for truly relentless execution
 - **Docker Support**: Optional isolated execution via Docker containers
 - **Path Access Control**: Enforces read/write permissions on file system paths
 - **Built-in Tools**: Bash, Read, and Edit tools for file operations
-- **Budget & Token Tracking**: Automatic cost and token usage monitoring across all trials
+- **Budget & Token Tracking**: Automatic cost and token usage monitoring across all sub-sessions
 
 ## 🎨 Output Formatting
 
@@ -419,9 +416,6 @@ uv sync --group claude    # Core + Anthropic Claude
 uv sync --group openai    # Core + OpenAI Compatible Models
 uv sync --group gemini    # Core + Google Gemini
 
-# Claude Coding Agent (includes claude-agent-sdk)
-uv sync --group claude-coding-agent
-
 # Docker support (for running agents in isolated containers)
 uv sync --group docker
 
@@ -443,12 +437,11 @@ uv sync --group claude --group dev
 | `claude` | Core + Anthropic | core + anthropic |
 | `openai` | Core + OpenAI | core + openai |
 | `gemini` | Core + Google | core + google-genai |
-| `claude-coding-agent` | Claude Coding Agent | claude + claude-agent-sdk, uvicorn, starlette |
 | `docker` | Docker integration | docker, types-docker |
 | `evals` | Benchmark running | datasets, swebench, orjson, scipy, scikit-learn |
 | `dev` | Development tools | mypy, ruff, pyright, pytest, jupyter, notebook |
 
-> **Optional Dependencies:** All LLM provider SDKs (`openai`, `anthropic`, `google-genai`) are optional. You can import `kiss.core` and `kiss.agents` without installing all of them. When you try to use a model whose SDK is not installed, KISS raises a clear `KISSError` telling you which package to install. Similarly, the coding agents (`ClaudeCodingAgent`) only require their respective SDKs — you won't get import errors for agents whose SDKs you haven't installed.
+> **Optional Dependencies:** All LLM provider SDKs (`openai`, `anthropic`, `google-genai`) are optional. You can import `kiss.core` and `kiss.agents` without installing all of them. When you try to use a model whose SDK is not installed, KISS raises a clear `KISSError` telling you which package to install.
 
 ## 📚 KISSAgent API Reference
 
@@ -526,116 +519,6 @@ print(f"Evolved fitness: {best.fitness:.4f}")
 # Save the best variant
 evolver.save_best(best)
 ```
-
-## 💻 Using KISS Coding Agent
-
-The KISS Coding Agent is a multi-agent system with orchestration and sub-agents using KISSAgent. It efficiently breaks down complex coding tasks into manageable sub-tasks and includes automatic prompt refinement on failures:
-
-```python
-from kiss.agents.coding_agents import KISSCodingAgent
-
-# Create agent with a name
-agent = KISSCodingAgent(name="My Coding Agent")
-
-# Run a coding task with path restrictions
-result = agent.run(
-    prompt_template="""
-        Write, test, and optimize a fibonacci function in Python
-        that is efficient and correct.
-    """,
-    orchestrator_model_name="claude-opus-4-6",  # Model for orchestration and execution
-    subtasker_model_name="claude-opus-4-6",  # Model for subtask generation and execution
-    refiner_model_name="claude-sonnet-4-5",  # Model for prompt refinement on failures
-    readable_paths=["src/"],  # Allowed read paths (relative to base_dir)
-    writable_paths=["output/"],  # Allowed write paths (relative to base_dir)
-    base_dir=".",  # Base working directory (project root)
-    max_steps=100,  # Maximum steps per agent
-    trials=3  # Number of retry attempts
-)
-print(f"Result: {result}")
-```
-
-**Key Features:**
-
-- **Multi-Agent Architecture**: Orchestrator delegates to executor agents for specific sub-tasks
-- **Prompt Refinement**: Automatically refines prompts when tasks fail using trajectory analysis (KISSCodingAgent)
-- **Efficient Orchestration**: Manages execution through smart task delegation
-- **Bash Command Parsing**: Automatically extracts readable/writable directories from bash commands using `parse_bash_command_paths()`
-- **Path Access Control**: Enforces read/write permissions on file system paths before command execution
-- **Docker Support**: Optional Docker container execution via the `docker_image` parameter for isolated bash command execution
-
-## 🧠 Using Claude Coding Agent
-
-> **Requires:** `claude-agent-sdk` and `anthropic` packages. Install with `uv sync --group claude-coding-agent`.
-
-Since everyone loves Claude Code, I thought I will provide API access to Claude Code so that you can use the best coding agent.
-The Claude Coding Agent uses the Claude Agent SDK to generate tested Python programs with file system access controls:
-
-```python
-from kiss.agents.coding_agents import ClaudeCodingAgent
-
-# Create agent with a name
-agent = ClaudeCodingAgent(name="My Coding Agent")
-
-# Run a coding task with path restrictions
-result = agent.run(
-    model_name="claude-sonnet-4-5",
-    prompt_template="""
-        Write, test, and optimize a fibonacci function in Python
-        that is efficient and correct.
-    """,
-    readable_paths=["src/"],  # Allowed read paths (relative to base_dir)
-    writable_paths=["output/"],  # Allowed write paths (relative to base_dir)
-    base_dir="."  # Base working directory (project root)
-)
-if result:
-    print(f"Result: {result}")
-```
-
-**Streaming Output with Printer:**
-
-The Claude Coding Agent supports real-time streaming via the `printer` parameter. Pass a `ConsolePrinter`, `BrowserPrinter`, or `MultiPrinter` to stream output:
-
-```python
-from kiss.agents.coding_agents import ClaudeCodingAgent
-from kiss.core.print_to_browser import BrowserPrinter
-from kiss.core.print_to_console import ConsolePrinter
-from kiss.core.printer import MultiPrinter
-
-browser_printer = BrowserPrinter()
-browser_printer.start()
-printer = MultiPrinter([browser_printer, ConsolePrinter()])
-
-agent = ClaudeCodingAgent(name="My Agent")
-result = agent.run(
-    model_name="claude-sonnet-4-5",
-    prompt_template="Write a fibonacci function with tests",
-    printer=printer,
-)
-```
-
-When running `claude_coding_agent.py` directly:
-
-```bash
-uv run python -m kiss.agents.coding_agents.claude_coding_agent
-```
-
-The browser interface features scrollable panels for thinking blocks, text output, tool calls with syntax highlighting, tool results, and a final result summary with cost/token stats.
-
-**Key Features:**
-
-- **Real-time Streaming**: Uses `include_partial_messages` for live streaming of assistant text, thinking, and tool calls as they happen
-- **Extended Thinking**: Supports Claude's extended thinking with configurable `max_thinking_tokens` for improved reasoning
-- **Printer-based Output**: Accepts a `printer` parameter (`ConsolePrinter`, `BrowserPrinter`, or `MultiPrinter`) for formatted output. When `verbose=True` (default) and no printer is provided, a printer is auto-created based on config flags.
-- **Path Access Control**: Enforces read/write permissions on file system paths
-- **Budget & Token Tracking**: Automatic cost and token usage monitoring
-
-**Built-in Tools Available:**
-
-- `Read`, `Write`, `Edit`, `MultiEdit`: File operations
-- `Glob`, `Grep`: File search and content search
-- `Bash`: Shell command execution
-- `WebSearch`, `WebFetch`: Web access
 
 ## 🔍 Using SimpleRAG for Retrieval-Augmented Generation
 
@@ -828,12 +711,10 @@ kiss/
 │   │   │   ├── config.py           # KISSEvolve configuration
 │   │   │   └── README.md           # KISSEvolve documentation
 │   │   ├── coding_agents/          # Coding agents for software development tasks
-│   │   │   ├── kiss_coding_agent.py       # Multi-agent coding system with orchestration
 │   │   │   ├── relentless_coding_agent.py # Single-agent system with smart auto-continuation
-│   │   │   ├── claude_coding_agent.py     # Claude Coding Agent using Claude Agent SDK
 │   │   │   ├── optimize_agent.py          # Pareto frontier agent optimizer with genetic algorithms
 │   │   │   ├── repo_agent.py              # Repo-level task agent using RelentlessCodingAgent
-│   │   │   └── config.py                  # Coding agent configuration (RelentlessCodingAgent, KISSCodingAgent)
+│   │   │   └── config.py                  # Coding agent configuration (RelentlessCodingAgent)
 │   │   ├── self_evolving_multi_agent/  # Self-evolving multi-agent system
 │   │   │   ├── agent_evolver.py       # Agent evolution logic
 │   │   │   ├── multi_agent.py         # Multi-agent orchestration
@@ -899,7 +780,7 @@ kiss/
 │   │   ├── test_core_branch_coverage.py   # Branch coverage tests for core components
 │   │   ├── test_gemini_model_internals.py # Tests for Gemini model internals
 │   │   ├── test_cli_options.py            # Tests for CLI option parsing
-│   │   ├── test_claude_coding_agent.py    # Tests for Claude Coding Agent
+│   │   ├── test_claude_coding_agent.py    # Tests for coding agents
 │   │   ├── test_evolver_progress_callback.py # Tests for AgentEvolver progress callbacks
 │   │   ├── test_token_callback.py         # Tests for async token streaming callback
 │   │   ├── test_coding_agent_token_callback.py # Tests for token callback in coding agents
@@ -958,15 +839,9 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
   - `artifact_dir`: Directory for agent artifacts (default: auto-generated with timestamp)
 - **Relentless Coding Agent Settings**: Modify `DEFAULT_CONFIG.coding_agent.relentless_coding_agent` in `src/kiss/agents/coding_agents/config.py`:
   - `model_name`: Model for task execution (default: "claude-opus-4-6")
-  - `trials`: Number of continuation attempts (default: 200)
-  - `max_steps`: Maximum steps per trial (default: 200)
+  - `max_sub_sessions`: Maximum number of sub-sessions for auto-continuation (default: 200)
+  - `max_steps`: Maximum steps per sub-session (default: 200)
   - `max_budget`: Maximum budget in USD (default: 200.0)
-- **KISS Coding Agent Settings**: Modify `DEFAULT_CONFIG.coding_agent.kiss_coding_agent` in `src/kiss/agents/coding_agents/config.py`:
-  - `orchestrator_model_name`: Model for orchestration and execution (default: "claude-opus-4-6")
-  - `subtasker_model_name`: Model for subtask generation and execution (default: "claude-opus-4-6")
-  - `refiner_model_name`: Model for prompt refinement on failures (default: "claude-sonnet-4-5")
-  - `trials`: Number of retry attempts per task/subtask (default: 200)
-  - Note: `max_steps` and `max_budget` for KISSCodingAgent fall back to `DEFAULT_CONFIG.agent.max_steps` (100) and `DEFAULT_CONFIG.agent.max_agent_budget` (10.0)
 - **GEPA Settings**: Modify `DEFAULT_CONFIG.gepa` in `src/kiss/agents/gepa/config.py`:
   - `reflection_model`: Model to use for reflection (default: "gemini-3-flash-preview")
   - `max_generations`: Maximum number of evolutionary generations (default: 10)

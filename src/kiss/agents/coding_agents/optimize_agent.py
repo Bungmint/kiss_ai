@@ -114,7 +114,7 @@ You may read and modify any file under {work_dir}/.
 """
 
 TASKS = [
-    """**Task:** Create a robust key-value database engine using only Bash scripts.
+"""**Task:** Create a robust key-value database engine using only Bash scripts.
 
 **Requirements:**
 1. Create `db.sh` operating on `./my_db` directory.
@@ -128,7 +128,8 @@ TASKS = [
 
 **Constraints:** No sqlite3/python. Standard Linux utilities only. \
 Operate within `./my_db`. No docs.""",
-    """**Task:** Build a task scheduler with dependency resolution in Bash.
+
+"""**Task:** Build a task scheduler with dependency resolution in Bash.
 
 **Requirements:**
 1. Create `scheduler.sh` with:
@@ -145,7 +146,7 @@ failure propagation.
 
 **Constraints:** Pure Bash, standard utilities. State in `./scheduler_data/`. No docs.""",
 
-    """**Task:** Implement a file version control system in Bash.
+"""**Task:** Implement a file version control system in Bash.
 
 **Requirements:**
 1. Create `vcs.sh` with:
@@ -163,7 +164,7 @@ log, diff, checkout restore, and status accuracy.
 
 **Constraints:** Pure Bash (diff, sha256sum, cp). Data in `.vcs/`. No docs.""",
 
-    """**Task:** Build a log file analyzer and statistics reporter in Bash.
+"""**Task:** Build a log file analyzer and statistics reporter in Bash.
 
 **Requirements:**
 1. Create `gen_logs.sh` generating `access.log` with 10000 lines:
