@@ -648,7 +648,7 @@ from kiss.agents.coding_agents import OpenAICodexAgent
 agent = OpenAICodexAgent(name="My Coding Agent")
 
 result = agent.run(
-    model_name="gpt-5.3-codex",
+    model_name="gpt-5.2-codex",
     prompt_template="Write a fibonacci function with tests",
     readable_paths=["src/"],
     writable_paths=["output/"],
@@ -1088,7 +1088,7 @@ find . -type f -name "*.pyc" -delete
 
 **Generation Models** (text generation with function calling support):
 
-- **OpenAI**: gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4, gpt-5, gpt-5-mini, gpt-5-nano, gpt-5-pro, gpt-5.1, gpt-5.2, gpt-5.2-pro, gpt-5.3-codex
+- **OpenAI**: gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4, gpt-5, gpt-5-mini, gpt-5-nano, gpt-5-pro, gpt-5.1, gpt-5.2, gpt-5.2-pro
 - **OpenAI (Codex)**: gpt-5-codex, gpt-5.1-codex, gpt-5.1-codex-max, gpt-5.1-codex-mini, gpt-5.2-codex, codex-mini-latest
 - **OpenAI (Reasoning)**: o1, o1-mini, o1-pro, o3, o3-mini, o3-mini-high, o3-pro, o3-deep-research, o4-mini, o4-mini-high, o4-mini-deep-research
 - **OpenAI (Open Source)**: openai/gpt-oss-20b, openai/gpt-oss-120b

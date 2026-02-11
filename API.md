@@ -992,7 +992,7 @@ Run the OpenAI Codex agent for a given task.
 
 **Parameters:**
 
-- `model_name` (str): The name of the model to use. Default is "gpt-5.3-codex".
+- `model_name` (str): The name of the model to use. Default is "gpt-5.2-codex".
 - `prompt_template` (str): The prompt template for the task. Can include `{placeholder}` syntax for variable substitution.
 - `arguments` (dict[str, str] | None): Arguments to substitute into the prompt template. Default is None.
 - `max_steps` (int | None): Maximum number of steps. Default is None (uses `DEFAULT_CONFIG.agent.max_steps`).
@@ -1052,7 +1052,7 @@ from kiss.agents.coding_agents import OpenAICodexAgent
 
 agent = OpenAICodexAgent("My Agent")
 result = agent.run(
-    model_name="gpt-5.3-codex",
+    model_name="gpt-5.2-codex",
     prompt_template="Write a fibonacci function with tests"
 )
 if result:

@@ -654,6 +654,11 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
                             i += 1
                         continue
 
+                    # Skip chmod mode arguments (e.g. +x, u+x, u+rwx,g+rx, 755)
+                    if cmd == "chmod" and re.match(r'^([ugoa]*[+\-=][rwxXstugo]+,?)+$|^\d{3,4}$', token):
+                        i += 1
+                        continue
+
                     # Skip shell operators (safety net for any unsplit separators)
                     if token in ("&&", "||", ";", "&"):
                         i += 1

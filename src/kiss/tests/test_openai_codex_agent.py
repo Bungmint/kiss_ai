@@ -28,7 +28,7 @@ class TestOpenAICodexAgentRun(unittest.TestCase):
     def test_agent_run_simple_task(self):
         agent = OpenAICodexAgent("test-agent")
         result = agent.run(
-            model_name="gpt-5.3-codex",
+            model_name="gpt-5.2-codex",
             prompt_template="Write a simple Python function that adds two numbers.",
             readable_paths=[str(self.project_root / "src")],
             writable_paths=[str(self.output_dir)],

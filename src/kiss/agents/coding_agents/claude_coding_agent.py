@@ -230,6 +230,7 @@ class ClaudeCodingAgent(Base):
                 "- Use Write to create complete files in one step\n"
                 "- Batch related bash commands with &&\n"
                 "- Minimize conversation turns\n"
+                "- DO NOT USE PLAN MODE"
             )
             options = ClaudeAgentOptions(
                 model=model_name,

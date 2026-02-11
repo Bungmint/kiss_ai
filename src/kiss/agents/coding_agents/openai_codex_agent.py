@@ -21,7 +21,7 @@ from kiss.core.utils import is_subpath, resolve_path
 from kiss.core.print_to_console import ConsolePrinter
 from kiss.core.printer import MultiPrinter
 
-DEFAULT_CODEX_MODEL = "gpt-5.3-codex"
+DEFAULT_CODEX_MODEL = "gpt-5.2-codex"
 
 SANDBOX_READ_ONLY = "read-only"
 SANDBOX_WORKSPACE_WRITE = "workspace-write"
@@ -256,7 +256,7 @@ def main() -> None:
 
     try:
         agent = OpenAICodexAgent("Example agent")
-        result = agent.run(model_name="gpt-5.3-codex", prompt_template=task_description, use_browser=True)
+        result = agent.run(prompt_template=task_description, use_browser=True)
     finally:
         os.chdir(old_cwd)
     elapsed = time_mod.time() - start_time

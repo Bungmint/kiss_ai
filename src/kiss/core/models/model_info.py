@@ -123,7 +123,6 @@ MODEL_INFO: dict[str, ModelInfo] = {
     "gpt-5.1-codex-max": _mi(400000, 1.25, 10.00),
     "gpt-5.1-codex-mini": _mi(400000, 0.25, 2.00),
     "gpt-5.2-codex": _mi(400000, 1.75, 14.00),
-    "gpt-5.3-codex": _mi(400000, 1.75, 14.00),  # Latest Codex model (Feb 2026) - 25% faster
     "codex-mini-latest": _mi(200000, 1.50, 6.00),
     # OpenAI o-series reasoning models (Standard tier pricing)
     "o1": _mi(200000, 15.00, 60.00, fc=False),  # SLOW: reasoning model
@@ -501,7 +500,7 @@ MODEL_INFO: dict[str, ModelInfo] = {
     "openrouter/openai/gpt-5-nano": _mi(400000, 0.05, 0.40, fc=False),
     "openrouter/openai/gpt-5.1": _mi(400000, 1.25, 10.00),
     "openrouter/openai/gpt-5.2": _mi(400000, 1.75, 14.00),
-    "openrouter/openai/gpt-5.3-codex": _mi(400000, 1.75, 14.00),
+    "openrouter/openai/gpt-5.2-codex": _mi(400000, 1.75, 14.00),
     "openrouter/openai/codex-mini-latest": _mi(200000, 1.50, 6.00),
     "openrouter/openai/o1": _mi(200000, 15.00, 60.00, fc=False),  # SLOW: reasoning model
     "openrouter/openai/o1-mini": _mi(128000, 1.10, 4.40, fc=False),
