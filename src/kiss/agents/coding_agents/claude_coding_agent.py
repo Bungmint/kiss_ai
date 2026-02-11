@@ -206,9 +206,9 @@ class ClaudeCodingAgent(Base):
     ) -> str:
         if use_browser:
             from kiss.core.print_to_browser import BrowserPrinter
-            browser_printer = BrowserPrinter()
-            browser_printer.start()
-            printer: Any = MultiPrinter([browser_printer, ConsolePrinter()])
+            self.browser_printer = BrowserPrinter()
+            self.browser_printer.start()
+            printer: Any = MultiPrinter([self.browser_printer, ConsolePrinter()])
         else:
             printer = ConsolePrinter()
         self.printer = printer
@@ -285,7 +285,7 @@ class ClaudeCodingAgent(Base):
             finally:
                 self._save()
             if use_browser:
-                printer.stop()
+                self.browser_printer.stop()
             return final_result
 
         return anyio.run(_run_async) or ""

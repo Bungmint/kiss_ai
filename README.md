@@ -95,7 +95,7 @@ This launches an agent that uses a `simple_calculator` tool to solve three math 
 - **Terminal** — using `ConsolePrinter` from `kiss.core.print_to_console` for rich-formatted output (tool call panels, result rules, final result panel)
 - **Browser** — using `BrowserPrinter` from `kiss.core.print_to_browser` for a live dark-themed web UI with scrollable panels, syntax highlighting, and tool call cards
 
-The demo uses the built-in `Printer` system. When `verbose=True` (the default), `KISSAgent` automatically creates a `MultiPrinter` based on config flags: `print_to_browser` (default: True) adds a `BrowserPrinter`, `print_to_console` (default: True) adds a `ConsolePrinter`, for real-time streaming to both the terminal and a live browser UI. You can also pass a custom `printer` parameter:
+The demo uses the built-in `Printer` system. When `verbose=True` (the default), `KISSAgent` automatically creates a `MultiPrinter` based on config flags: `print_to_browser` (default: False) adds a `BrowserPrinter`, `print_to_console` (default: True) adds a `ConsolePrinter`, for real-time streaming to both the terminal and a live browser UI. You can also pass a custom `printer` parameter:
 
 ```python
 from kiss.core.print_to_browser import BrowserPrinter
@@ -585,11 +585,11 @@ agent = ClaudeCodingAgent(name="My Agent")
 result = agent.run(
     model_name="claude-sonnet-4-5",
     prompt_template="Write a fibonacci function with tests",
-    use_browser=True,
+    use_browser=True,  # Defaults to False; set True for browser output
 )
 ```
 
-When running `claude_coding_agent.py` directly, browser output is enabled by default:
+When running `claude_coding_agent.py` directly, browser output is enabled explicitly:
 
 ```bash
 uv run python -m kiss.agents.coding_agents.claude_coding_agent
@@ -978,7 +978,7 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
   - `global_max_budget`: Maximum total budget across all agents in USD (default: 200.0)
   - `use_web`: Automatically add web browsing and search tool if enabled (default: True)
   - `print_to_console`: Enable ConsolePrinter for Rich terminal output (default: True)
-  - `print_to_browser`: Enable BrowserPrinter for live browser UI output (default: True)
+  - `print_to_browser`: Enable BrowserPrinter for live browser UI output (default: False)
   - `artifact_dir`: Directory for agent artifacts (default: auto-generated with timestamp)
 - **Relentless Coding Agent Settings**: Modify `DEFAULT_CONFIG.coding_agent.relentless_coding_agent` in `src/kiss/agents/coding_agents/config.py`:
   - `model_name`: Model for task execution (default: "claude-opus-4-6")
@@ -990,8 +990,7 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
   - `subtasker_model_name`: Model for subtask generation and execution (default: "claude-opus-4-6")
   - `refiner_model_name`: Model for prompt refinement on failures (default: "claude-sonnet-4-5")
   - `trials`: Number of retry attempts per task/subtask (default: 200)
-  - `max_steps`: Maximum steps per agent (default: 200)
-  - `max_budget`: Maximum budget in USD (default: 100.0)
+  - Note: `max_steps` and `max_budget` for KISSCodingAgent fall back to `DEFAULT_CONFIG.agent.max_steps` (100) and `DEFAULT_CONFIG.agent.max_agent_budget` (10.0)
 - **GEPA Settings**: Modify `DEFAULT_CONFIG.gepa` in `src/kiss/agents/gepa/config.py`:
   - `reflection_model`: Model to use for reflection (default: "gemini-3-flash-preview")
   - `max_generations`: Maximum number of evolutionary generations (default: 10)

@@ -162,6 +162,7 @@ class OpenAICodexAgent(Base):
         readable_paths: list[str] | None = None,
         writable_paths: list[str] | None = None,
         use_browser: bool = False,
+        printer: Any = None,
     ) -> str | None:
         cfg = config_module.DEFAULT_CONFIG.agent
         actual_max_steps = max_steps if max_steps is not None else cfg.max_steps
@@ -181,7 +182,9 @@ class OpenAICodexAgent(Base):
         )
         self.prompt_template = prompt_template
         self.arguments = arguments or {}
-        if use_browser:
+        if printer:
+            self.printer = printer
+        elif use_browser:
             from kiss.core.print_to_browser import BrowserPrinter
             browser_printer = BrowserPrinter()
             browser_printer.start()

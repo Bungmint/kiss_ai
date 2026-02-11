@@ -243,7 +243,6 @@ class RelentlessCodingAgent(Base):
                     ],
                     max_steps=self.max_steps,
                     max_budget=self.max_budget,
-
                     printer=self.printer,
                 )
             except KISSError:
@@ -317,9 +316,9 @@ class RelentlessCodingAgent(Base):
         self.task_description = prompt_template.format(**self.arguments)
         if use_browser:
             from kiss.core.print_to_browser import BrowserPrinter
-            browser_printer = BrowserPrinter()
-            browser_printer.start()
-            self.printer = MultiPrinter([browser_printer, ConsolePrinter()])
+            self.browser_printer = BrowserPrinter()
+            self.browser_printer.start()
+            self.printer = MultiPrinter([self.browser_printer, ConsolePrinter()])
         else:
             self.printer = ConsolePrinter()
 

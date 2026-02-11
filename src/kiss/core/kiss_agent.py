@@ -52,9 +52,9 @@ class KISSAgent(Base):
             else:
                 printers: list[Printer] = []
                 if config_module.DEFAULT_CONFIG.agent.print_to_browser:
-                    bp = BrowserPrinter()
-                    bp.start()
-                    printers.append(bp)
+                    self.browser_printer = BrowserPrinter()
+                    self.browser_printer.start()
+                    printers.append(self.browser_printer)
                 if config_module.DEFAULT_CONFIG.agent.print_to_console:
                     printers.append(ConsolePrinter())
                 if printers:
@@ -151,10 +151,9 @@ class KISSAgent(Base):
             return self._run_agentic_loop()
 
         finally:
-            if hasattr(self, "printer") and self.printer:
-                for p in getattr(self.printer, "printers", []):
-                    if isinstance(p, BrowserPrinter):
-                        p.stop()
+            if hasattr(self, "printer"):
+                if hasattr(getattr(self, "printer"), "browser_printer"):
+                    getattr(self, "browser_printer").stop()
             self._save()
 
     def _setup_tools(self, tools: list[Callable[..., Any]] | None) -> None:

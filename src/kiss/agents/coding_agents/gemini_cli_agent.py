@@ -259,6 +259,7 @@ class GeminiCliAgent(Base):
         readable_paths: list[str] | None = None,
         writable_paths: list[str] | None = None,
         use_browser: bool = False,
+        printer: Any = None,
     ) -> str | None:
         """Run the Gemini CLI agent for a given task."""
         cfg = config_module.DEFAULT_CONFIG.agent
@@ -279,7 +280,9 @@ class GeminiCliAgent(Base):
         )
         self.prompt_template = prompt_template
         self.arguments = arguments or {}
-        if use_browser:
+        if printer:
+            self.printer = printer
+        elif use_browser:
             from kiss.core.print_to_browser import BrowserPrinter
             browser_printer = BrowserPrinter()
             browser_printer.start()

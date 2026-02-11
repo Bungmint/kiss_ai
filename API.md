@@ -77,7 +77,7 @@ Runs the agent's main ReAct loop to solve the task.
 - `max_steps` (int | None): Maximum number of ReAct loop iterations. Default is None (uses `DEFAULT_CONFIG.agent.max_steps`, which is 100).
 - `max_budget` (float | None): Maximum budget in USD for this agent run. Default is None (uses `DEFAULT_CONFIG.agent.max_agent_budget`, which is 10.0).
 - `model_config` (dict[str, Any] | None): Optional model configuration to pass to the model. Default is None.
-- `printer` (Printer | None): Optional printer for output formatting and streaming. When `verbose=True` (default) and no printer is provided, a `MultiPrinter` is created automatically based on config flags: `print_to_browser` (default: True) adds a `BrowserPrinter`, `print_to_console` (default: True) adds a `ConsolePrinter`. The printer's `token_callback` is used for real-time token streaming. Default is None.
+- `printer` (Printer | None): Optional printer for output formatting and streaming. When `verbose=True` (default) and no printer is provided, a `MultiPrinter` is created automatically based on config flags: `print_to_browser` (default: False) adds a `BrowserPrinter`, `print_to_console` (default: True) adds a `ConsolePrinter`. The printer's `token_callback` is used for real-time token streaming. Default is None.
 
 **Returns:**
 
@@ -188,9 +188,9 @@ def run(
     base_dir: str | None = None,
     readable_paths: list[str] | None = None,
     writable_paths: list[str] | None = None,
+    use_browser: bool = False,
     trials: int | None = None,
     docker_image: str | None = None,
-    printer: Printer | None = None,
 ) -> str
 ```
 
@@ -207,9 +207,9 @@ Run the single-agent coding system with auto-continuation.
 - `base_dir` (str | None): The base directory relative to which readable and writable paths are resolved if they are not absolute. Default is None (uses `{artifact_dir}/kiss_workdir`).
 - `readable_paths` (list[str] | None): The paths from which the agent is allowed to read. If None, no paths are allowed for read access (except work_dir which is always added).
 - `writable_paths` (list[str] | None): The paths to which the agent is allowed to write. If None, no paths are allowed for write access (except work_dir which is always added).
+- `use_browser` (bool): If True, starts a local browser window for real-time streaming output using `BrowserPrinter` alongside `ConsolePrinter`. If False, uses `ConsolePrinter` only. Default is False.
 - `trials` (int | None): Number of continuation attempts. Default is None (uses config default: 200).
 - `docker_image` (str | None): Optional Docker image name to run bash commands in a container. If provided, all bash commands will run inside the Docker container instead of on the host. Example: "ubuntu:latest", "python:3.11-slim". Default is None (local execution).
-- `printer` (Printer | None): Optional printer for output formatting. Default is None.
 
 **Returns:**
 
@@ -368,8 +368,8 @@ def run(
     base_dir: str | None = None,
     readable_paths: list[str] | None = None,
     writable_paths: list[str] | None = None,
+    use_browser: bool = False,
     docker_image: str | None = None,
-    printer: Printer | None = None,
 ) -> str
 ```
 
@@ -383,14 +383,14 @@ Run the multi-agent coding system with orchestration and sub-task delegation.
 - `subtasker_model_name` (str | None): Model for executor agents handling sub-tasks. Default is None (uses config default: "claude-opus-4-6").
 - `refiner_model_name` (str | None): Model for dynamic prompt refinement when tasks fail. Default is None (uses config default: "claude-sonnet-4-5").
 - `trials` (int | None): Number of retry attempts for each task/subtask. Default is None (uses config default: 200).
-- `max_steps` (int | None): Maximum number of steps per agent. Default is None (uses `DEFAULT_CONFIG.coding_agent.kiss_coding_agent.max_steps`, which is 200).
-- `max_budget` (float | None): Maximum budget in USD for this run. Default is None (uses `DEFAULT_CONFIG.coding_agent.kiss_coding_agent.max_budget`, which is 100.0).
+- `max_steps` (int | None): Maximum number of steps per agent. Default is None (uses `DEFAULT_CONFIG.agent.max_steps`, which is 100).
+- `max_budget` (float | None): Maximum budget in USD for this run. Default is None (uses `DEFAULT_CONFIG.agent.max_agent_budget`, which is 10.0).
 - `work_dir` (str | None): The working directory for the agent's operations. Default is None (uses `{artifact_dir}/kiss_workdir`).
 - `base_dir` (str | None): The base directory relative to which readable and writable paths are resolved if they are not absolute. Default is None (uses `{artifact_dir}/kiss_workdir`).
 - `readable_paths` (list[str] | None): The paths from which the agent is allowed to read. If None, no paths are allowed for read access (except work_dir which is always added).
 - `writable_paths` (list[str] | None): The paths to which the agent is allowed to write. If None, no paths are allowed for write access (except work_dir which is always added).
+- `use_browser` (bool): If True, starts a local browser window for real-time streaming output using `BrowserPrinter` alongside `ConsolePrinter`. If False, uses `ConsolePrinter` only. Default is False.
 - `docker_image` (str | None): Optional Docker image name to run bash commands in a container. If provided, all bash commands executed by sub-agents will run inside the Docker container instead of on the host. Example: "ubuntu:latest", "python:3.11-slim". Default is None (local execution).
-- `printer` (Printer | None): Optional printer for output formatting. Default is None.
 
 **Returns:**
 
@@ -562,7 +562,7 @@ def run(
     base_dir: str | None = None,
     readable_paths: list[str] | None = None,
     writable_paths: list[str] | None = None,
-    use_browser: bool = True,
+    use_browser: bool = False,
     max_thinking_tokens: int = 1024,
 ) -> str
 ```
@@ -580,7 +580,7 @@ Run the Claude coding agent for a given task.
 - `base_dir` (str | None): The base directory relative to which readable and writable paths are resolved if they are not absolute. Default is None.
 - `readable_paths` (list[str] | None): The paths from which the agent is allowed to read. If None, no paths are allowed for Read/Grep/Glob.
 - `writable_paths` (list[str] | None): The paths to which the agent is allowed to write. If None, no paths are allowed for Write/Edit/MultiEdit.
-- `use_browser` (bool): If True, starts a local uvicorn server and opens a browser window for real-time streaming output. If False, uses `ConsolePrinter` for terminal output. Default is True.
+- `use_browser` (bool): If True, starts a local uvicorn server and opens a browser window for real-time streaming output. If False, uses `ConsolePrinter` for terminal output. Default is False.
 - `max_thinking_tokens` (int): Maximum tokens for Claude's extended thinking. Default is 1024.
 
 **Returns:**
@@ -876,7 +876,7 @@ def run(
     base_dir: str | None = None,
     readable_paths: list[str] | None = None,
     writable_paths: list[str] | None = None,
-    printer: Printer | None = None,
+    use_browser: bool = False,
 ) -> str | None
 ```
 
@@ -892,7 +892,7 @@ Run the Gemini CLI agent for a given task.
 - `base_dir` (str | None): The base directory relative to which readable and writable paths are resolved if they are not absolute. Default is None (uses `{artifact_dir}/gemini_workdir`).
 - `readable_paths` (list[str] | None): The paths from which the agent is allowed to read. If None, only base_dir is readable.
 - `writable_paths` (list[str] | None): The paths to which the agent is allowed to write. If None, only base_dir is writable.
-- `printer` (Printer | None): Optional printer for output formatting. Default is None.
+- `use_browser` (bool): If True, starts a local browser window for real-time streaming output using `BrowserPrinter` alongside `ConsolePrinter`. If False, uses `ConsolePrinter` only. Default is False.
 
 **Returns:**
 
@@ -984,7 +984,7 @@ def run(
     base_dir: str | None = None,
     readable_paths: list[str] | None = None,
     writable_paths: list[str] | None = None,
-    printer: Printer | None = None,
+    use_browser: bool = False,
 ) -> str | None
 ```
 
@@ -1000,7 +1000,7 @@ Run the OpenAI Codex agent for a given task.
 - `base_dir` (str | None): The base directory relative to which readable and writable paths are resolved if they are not absolute. Default is None (uses `{artifact_dir}/codex_workdir`).
 - `readable_paths` (list[str] | None): The paths from which the agent is allowed to read. If None, only base_dir is readable.
 - `writable_paths` (list[str] | None): The paths to which the agent is allowed to write. If None, only base_dir is writable.
-- `printer` (Printer | None): Optional printer for output formatting. Default is None.
+- `use_browser` (bool): If True, starts a local browser window for real-time streaming output using `BrowserPrinter` alongside `ConsolePrinter`. If False, uses `ConsolePrinter` only. Default is False.
 
 **Returns:**
 
@@ -2402,20 +2402,20 @@ When no printer is provided and `verbose=False`, all providers fall back to thei
 
 ### KISSAgent Integration
 
-When `verbose=True` (default), `KISSAgent` automatically creates a `MultiPrinter` based on config flags: `print_to_browser` (default: True) adds a `BrowserPrinter`, `print_to_console` (default: True) adds a `ConsolePrinter`. You can also pass a custom printer. The printer receives:
+When `verbose=True` (default), `KISSAgent` automatically creates a `MultiPrinter` based on config flags: `print_to_browser` (default: False) adds a `BrowserPrinter`, `print_to_console` (default: True) adds a `ConsolePrinter`. You can also pass a custom printer. The printer receives:
 
 1. **Model response tokens** as they are generated.
 1. **Tool execution output** after each tool call completes.
 
 ### Coding Agent Integration
 
-All coding agents support the `printer` parameter in their `run()` methods:
+Coding agents support streaming output through different mechanisms:
 
-- **KISSCodingAgent**: The printer is passed through to the underlying `KISSAgent.run()` calls for both orchestrator and executor sub-agents.
-- **RelentlessCodingAgent**: The printer is passed through to the underlying `KISSAgent.run()` calls for each trial.
-- **GeminiCliAgent**: The printer receives text content and tool response text from ADK events.
-- **OpenAICodexAgent**: The printer receives message text and tool output text from the Agents SDK run result.
-- **ClaudeCodingAgent**: Uses its own built-in streaming output via `ConsolePrinter` (terminal) or `BrowserPrinter` (browser UI) controlled by the `use_browser` parameter.
+- **KISSCodingAgent**: Uses the `use_browser` parameter (default: False). When True, creates a `BrowserPrinter` alongside `ConsolePrinter`. The printer is passed through to the underlying `KISSAgent.run()` calls for both orchestrator and executor sub-agents.
+- **RelentlessCodingAgent**: Uses the `use_browser` parameter (default: False). When True, creates a `BrowserPrinter` alongside `ConsolePrinter`. The printer is passed through to the underlying `KISSAgent.run()` calls for each trial.
+- **ClaudeCodingAgent**: Uses the `use_browser` parameter (default: False). When True, creates a `BrowserPrinter` alongside `ConsolePrinter`. When False, uses `ConsolePrinter` only.
+- **GeminiCliAgent**: Uses the `use_browser` parameter (default: False). When True, creates a `BrowserPrinter` alongside `ConsolePrinter`. The printer receives text content and tool response text from ADK events.
+- **OpenAICodexAgent**: Uses the `use_browser` parameter (default: False). When True, creates a `BrowserPrinter` alongside `ConsolePrinter`. The printer receives message text and tool output text from the Agents SDK run result.
 
 ### Example
 
@@ -2451,7 +2451,7 @@ DEFAULT_CONFIG.agent.global_max_budget = 200.0
 DEFAULT_CONFIG.agent.verbose = True
 DEFAULT_CONFIG.agent.use_web = True
 DEFAULT_CONFIG.agent.print_to_console = True
-DEFAULT_CONFIG.agent.print_to_browser = True
+DEFAULT_CONFIG.agent.print_to_browser = False
 ```
 
 ### Configuration Sections
@@ -2473,7 +2473,7 @@ DEFAULT_CONFIG.agent.print_to_browser = True
 - `use_web` (bool): Enable web search tool (default: True)
 - `debug` (bool): Enable debug mode (default: False)
 - `print_to_console` (bool): Enable ConsolePrinter for Rich terminal output (default: True)
-- `print_to_browser` (bool): Enable BrowserPrinter for live browser UI output (default: True)
+- `print_to_browser` (bool): Enable BrowserPrinter for live browser UI output (default: False)
 - `artifact_dir` (str): Directory for agent artifacts (default: auto-generated with timestamp)
 
 #### `coding_agent.relentless_coding_agent`
@@ -2488,8 +2488,8 @@ DEFAULT_CONFIG.agent.print_to_browser = True
 - `orchestrator_model_name` (str): Model for main orchestration (default: "claude-opus-4-6")
 - `subtasker_model_name` (str): Model for subtask generation and execution (default: "claude-opus-4-6")
 - `refiner_model_name` (str): Model for dynamic prompt refinement on failures (default: "claude-sonnet-4-5")
-- `max_steps` (int): Maximum steps for the KISS Coding Agent (default: 200)
-- `max_budget` (float): Maximum budget in USD for the KISS Coding Agent (default: 100.0)
+- `max_steps` (int): Config value for KISS Coding Agent max steps (default: 200). Note: `KISSCodingAgent.run()` falls back to `DEFAULT_CONFIG.agent.max_steps` (100) when `max_steps` is None.
+- `max_budget` (float): Config value for KISS Coding Agent max budget in USD (default: 100.0). Note: `KISSCodingAgent.run()` falls back to `DEFAULT_CONFIG.agent.max_agent_budget` (10.0) when `max_budget` is None.
 - `trials` (int): Retry attempts per task/subtask (default: 200)
 
 #### `docker`
