@@ -92,6 +92,7 @@ This launches an agent that uses a `simple_calculator` tool to solve three math 
 
 - [Meet KISS Agent Framework](https://dev.to/koushik_sen_d549bf321e6fb/meet-the-kiss-agent-framework-2ij6/)
 - [Agent Evolver: The Darwin of AI Agents](https://dev.to/koushik_sen_d549bf321e6fb/agent-evolver-the-darwin-of-ai-agents-4iio)
+- [Repo Optimizer: I Let a KISS AI Agent Optimize Itself Overnight. It Cut Its Own Cost by 98%.](https://dev.to/koushik_sen_d549bf321e6fb/repo-optimizer-i-let-a-kiss-ai-agent-optimize-itself-overnight-it-cut-its-own-cost-by-98-1ddi) 
 
 ## 🤝 Multi-Agent Orchestration
 
@@ -181,16 +182,15 @@ print(f"Result: {result}")
 
 **Key Features:**
 
-- **Single-Agent with Auto-Continuation**: A single agent executes the task across multiple sub-sessions, automatically continuing where it left off via structured JSON progress tracking (💡 new idea)
+- **Single-Agent with Auto-Continuation**: A single agent executes the task across multiple sub-sessions, automatically continuing where it left off via structured JSON progress tracking
 - **Structured Progress Tracking**: Each sub-session reports completed and remaining tasks in JSON format (done/next items), which is deduplicated and passed to subsequent sub-sessions along with a scan of existing files in the work directory
-- **Adaptive Step Thresholds**: Step limits per sub-session scale based on sub-session number and progress, with conservative early sub-sessions and more steps for sub-sessions showing good progress
-- **Efficiency Rules**: Built-in prompt instructions enforce step minimization, batching, and immediate completion when tests pass
-- **Output Truncation**: Long tool outputs are automatically truncated to keep context manageable
+- **Compressed Prompts**: Minimal, high-signal task prompts with critical rules (use Write() for new files, bounded poll loops, immediate finish on success)
+- **Efficiency Rules**: Built-in prompt instructions enforce immediate completion when tests pass, timeout guidance for bash, and bounded loops for background jobs
 - **Retry with Context**: Failed sub-sessions automatically pass structured progress summaries and file listings to the next sub-session
 - **Configurable Sub-Sessions**: Set high sub-session counts (e.g., 200+) for truly relentless execution
 - **Docker Support**: Optional isolated execution via Docker containers
 - **Path Access Control**: Enforces read/write permissions on file system paths
-- **Built-in Tools**: Bash, Read, and Edit tools for file operations
+- **Built-in Tools**: Bash, Read, Edit, and Write tools for file operations
 - **Budget & Token Tracking**: Automatic cost and token usage monitoring across all sub-sessions
 
 ## 🔧 Using Repo Optimizer
@@ -303,7 +303,7 @@ The visualizer provides:
 KISS is a lightweight, yet powerful, multi agent framework that implements a ReAct (Reasoning and Acting) loop for LLM agents. The framework provides:
 
 - **Simple Architecture**: Clean, minimal core that's easy to understand and extend
-- **Relentless Coding Agent**: Single-agent coding system with smart auto-continuation for infinite tasks (💡 new idea)
+- **Relentless Coding Agent**: Single-agent coding system with smart auto-continuation for long-running tasks
 - **Repo Optimizer**: Uses RelentlessCodingAgent to iteratively optimize code in your project for speed and cost (💡 new idea)
 - **GEPA Implementation From Scratch**: Genetic-Pareto prompt optimization for compound AI systems
 - **KISSEvolve Implementation From Scratch**: Evolutionary algorithm discovery framework with LLM-guided mutation and crossover
@@ -656,6 +656,7 @@ kiss/
 │   │   │   └── README.md           # KISSEvolve documentation
 │   │   ├── coding_agents/          # Coding agents for software development tasks
 │   │   │   ├── relentless_coding_agent.py # Single-agent system with smart auto-continuation
+│   │   │   ├── claude_coding_agent.py     # Claude-based coding agent
 │   │   │   ├── repo_optimizer.py          # Iterative code optimizer using RelentlessCodingAgent
 │   │   │   ├── repo_agent.py              # Repo-level task agent using RelentlessCodingAgent
 │   │   │   └── config.py                  # Coding agent configuration (RelentlessCodingAgent)

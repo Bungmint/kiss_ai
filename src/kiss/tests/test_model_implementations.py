@@ -73,6 +73,14 @@ class TestAnthropicModel:
         kwargs = m._build_create_kwargs()
         assert kwargs.get(expected_key) == expected_value
 
+    @pytest.mark.timeout(60)
+    def test_default_max_tokens(self):
+        m = model("claude-haiku-4-5")
+        assert isinstance(m, AnthropicModel)
+        m.initialize("test")
+        kwargs = m._build_create_kwargs()
+        assert kwargs["max_tokens"] == 16384
+
 
 @requires_gemini_api_key
 class TestGeminiModel:

@@ -225,7 +225,7 @@ Run the single-agent coding system with auto-continuation.
 def perform_task(self) -> str
 ```
 
-Execute the main task using multiple sub-sessions with auto-continuation. Each sub-session runs a KISSAgent with an adaptive step limit; on failure, structured progress (done/next items) and a scan of existing files are passed to the next sub-session.
+Execute the main task using multiple sub-sessions with auto-continuation. Each sub-session runs a KISSAgent; on failure, structured progress (done/next items) and a scan of existing files are passed to the next sub-session.
 
 **Returns:**
 
@@ -259,14 +259,13 @@ Execute the main task using multiple sub-sessions with auto-continuation. Each s
 
 - **Single-Agent with Auto-Continuation**: A single agent executes the task across multiple sub-sessions, automatically continuing where it left off via structured JSON progress tracking (done/next items)
 - **Structured Progress Tracking**: Each sub-session reports completed and remaining tasks in JSON format, which is deduplicated, validated, and passed to subsequent sub-sessions along with a scan of existing files in the work directory
-- **Adaptive Step Thresholds**: Step limits per sub-session scale based on sub-session number and progress, with conservative early sub-sessions and more steps for sub-sessions showing good progress
-- **Efficiency Rules**: Built-in prompt instructions enforce step minimization, batching, and immediate completion when tests pass
-- **Output Truncation**: Long tool outputs are automatically truncated to keep context manageable
+- **Compressed Prompts**: Minimal, high-signal task prompts with critical rules (use Write() for new files, bounded poll loops, immediate finish on success)
+- **Efficiency Rules**: Built-in prompt instructions enforce immediate completion when tests pass, timeout guidance for bash, and bounded loops for background jobs
 - **Relentless Retries**: Continues attempting tasks through multiple continuation sub-sessions until success
 - **Bash Command Parsing**: Automatically extracts readable/writable paths from commands using `parse_bash_command_paths()`
 - **Path Access Control**: Enforces read/write permissions on file system paths before command execution
 - **Docker Support**: Optional Docker container execution for bash commands via the `docker_image` parameter. When enabled, all bash commands run inside an isolated Docker container.
-- **Built-in Tools**: Each sub-session agent has access to `finish()`, `Bash` (or Docker bash when `docker_image` is set), `Read`, and `Edit`
+- **Built-in Tools**: Each sub-session agent has access to `finish()`, `Bash` (or Docker bash when `docker_image` is set), `Read`, `Edit`, and `Write`
 
 ### Example
 

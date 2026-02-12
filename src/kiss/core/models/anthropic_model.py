@@ -129,7 +129,7 @@ class AnthropicModel(Model):
         if max_tokens is None:
             max_tokens = kwargs.pop("max_completion_tokens", None)
         if max_tokens is None:
-            max_tokens = 4096
+            max_tokens = 16384
 
         # Map OpenAI-style stop -> Anthropic stop_sequences (best-effort).
         if "stop" in kwargs and "stop_sequences" not in kwargs:
@@ -196,7 +196,14 @@ class AnthropicModel(Model):
         kwargs = self._build_create_kwargs(tools=tools or None)
         response = self._create_message(kwargs)
 
+        stop_reason = getattr(response, "stop_reason", None)
         blocks = self._normalize_content_blocks(getattr(response, "content", None))
+
+        # When max_tokens is hit, tool_use blocks may be truncated/incomplete.
+        # Strip them to avoid calling tools with missing arguments.
+        if stop_reason == "max_tokens":
+            blocks = [b for b in blocks if b.get("type") != "tool_use"]
+
         content = self._extract_text_from_blocks(blocks)
 
         function_calls: list[dict[str, Any]] = []
