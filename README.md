@@ -17,9 +17,8 @@ KISS stands for ["Keep it Simple, Stupid"](https://en.wikipedia.org/wiki/KISS_pr
 - [Interactive Demo with Streaming Output](#-interactive-demo-with-streaming-output)
 - [Blogs](#-blogs)
 - [Multi-Agent Orchestration](#-multi-agent-orchestration)
-- [Using Agent Creator and Optimizer](#-using-agent-creator-and-optimizer)
-- [Using Optimize Agent (Pareto Frontier)](#-using-optimize-agent-pareto-frontier)
 - [Using Relentless Coding Agent](#-using-relentless-coding-agent)
+- [Using Repo Optimizer](#-using-repo-optimizer)
 - [Output Formatting](#-output-formatting)
 - [Trajectory Saving and Visualization](#-trajectory-saving-and-visualization)
 - [Overview](#-overview)
@@ -137,95 +136,9 @@ print(final)
 
 No special orchestration framework needed. No message buses. No complex state machines. Just Python functions calling Python functions.
 
-## 🧬 Using Agent Creator and Optimizer
-
-📖 **For detailed Agent Creator and Optimizer documentation, see [Agent Creator and Optimizer README](src/kiss/agents/create_and_optimize_agent/README.md)**
-
-The Agent Creator and Optimizer module provides tools to automatically evolve and optimize AI agents for **token efficiency**, **execution speed**, and **cost** using evolutionary algorithms with Pareto frontier maintenance.
-
-**Key Component:**
-
-- **AgentEvolver**: Maintains a population of agent variants and evolves them using mutation and crossover operations
-
-It uses a **Pareto frontier** approach to track non-dominated solutions, optimizing for multiple objectives simultaneously without requiring a single combined metric.
-
-```python
-from kiss.agents.create_and_optimize_agent import AgentEvolver, create_progress_callback
-
-evolver = AgentEvolver()
-
-best_variant = evolver.evolve(
-    task_description="Build a code analysis assistant that can parse and analyze large codebases",
-    max_generations=10,
-    max_frontier_size=6,
-    mutation_probability=0.8,
-    progress_callback=create_progress_callback(verbose=True),  # Optional progress tracking
-)
-
-print(f"Best agent: {best_variant.folder_path}")
-print(f"Metrics: {best_variant.metrics}")
-```
-
-**Key Features:**
-
-- **Multi-Objective Optimization**: Optimizes for flexible metrics (e.g., success, token usage, execution time, cost)
-- **Pareto Frontier Maintenance**: Keeps track of all non-dominated solutions
-- **Evolutionary Operations**: Supports mutation (improving one variant) and crossover (combining ideas from two variants)
-- **Uses RelentlessCodingAgent**: Leverages the relentless single-agent coding system with auto-continuation for agent improvement
-- **Automatic Pruning**: Removes dominated variants to manage memory and storage
-- **Lineage Tracking**: Records parent relationships and improvement history
-- **Progress Callbacks**: Optional `progress_callback` for tracking optimization progress, building UIs, or logging
-- **Configurable Parameters**: Extensive configuration options for generations, frontier size, thresholds, etc.
-
-For usage examples, API reference, and configuration options, please see the [Agent Creator and Optimizer README](src/kiss/agents/create_and_optimize_agent/README.md).
-
-## 🔬 Using Optimize Agent (Pareto Frontier)
-
-The Optimize Agent (`optimize_agent.py`) provides a standalone Pareto frontier optimization system for evolving any KISS coding agent. It uses genetic algorithms with mutation and crossover to improve agent performance across multiple objectives simultaneously.
-
-```python
-from kiss.agents.coding_agents.optimize_agent import optimize
-
-best = optimize(
-    tasks=[
-        "Create a key-value database engine using Bash scripts...",
-        "Build a task scheduler with dependency resolution in Bash...",
-    ],
-    folder="path/to/agent/folder",
-    program_path="relentless_coding_agent.py",
-    metrics_description="unsuccess_rate (highest priority), running_time (second), cost (third)",
-    max_generations=10,
-    initial_frontier_size=3,
-    max_frontier_size=6,
-    eval_sample_size=2,
-    eval_runs=2,
-    mutation_probability=0.8,
-)
-
-print(f"Best variant: {best.id}")
-print(f"Metrics: {best.metrics}")
-print(f"Score: {best.score():.2f}")
-```
-
-**How It Works:**
-
-1. **Phase 1 — Seed**: Creates a baseline copy and generates initial variants by improving the baseline
-1. **Phase 2 — Evolve**: Iterates for `max_generations`, applying mutation (improving one variant) or crossover (combining two variants) with probability `mutation_probability`
-1. **Evaluation**: Each variant is evaluated on a sample of tasks, measuring success rate, token usage, execution time, and cost
-1. **Pareto Frontier**: Non-dominated solutions are maintained; dominated variants are pruned via crowding distance
-
-**Key Features:**
-
-- **Multi-Objective Optimization**: Optimizes for success rate, tokens, time, and cost simultaneously
-- **Pareto Frontier Maintenance**: Tracks all non-dominated solutions with automatic pruning
-- **Evolutionary Operations**: Mutation (single-parent improvement) and crossover (two-parent combination)
-- **LLM-Powered Improvements**: Leverages LLMs for making targeted code improvements
-- **Weighted Scoring**: Configurable score weights for ranking variants (failure_rate × 1M, tokens × 1, time × 1K, cost × 100K)
-- **Built-in Tasks**: Includes 5 complex Bash scripting tasks for evaluation (key-value DB, task scheduler, VCS, log analyzer, build system)
-
 ## 💪 Using Relentless Coding Agent
 
-For very long running coding tasks, use the `RelentlessCodingAgent`. The agent will work relentlessly to complete your task using a single-agent architecture with smart continuation. This agent has been optimized by the Optimize Agent:
+For very long running coding tasks, use the `RelentlessCodingAgent`. The agent will work relentlessly to complete your task using a single-agent architecture with smart continuation:
 
 ```python
 from kiss.agents.coding_agents.relentless_coding_agent import RelentlessCodingAgent
@@ -279,6 +192,38 @@ print(f"Result: {result}")
 - **Path Access Control**: Enforces read/write permissions on file system paths
 - **Built-in Tools**: Bash, Read, and Edit tools for file operations
 - **Budget & Token Tracking**: Automatic cost and token usage monitoring across all sub-sessions
+
+## 🔧 Using Repo Optimizer
+
+The `RepoOptimizer` (`repo_optimizer.py`) uses the `RelentlessCodingAgent` to optimize code within your own project repository. It runs the target program, monitors output in real time, fixes errors, and iteratively optimizes for speed and cost — all without changing the agent's interface.
+
+```python
+from kiss.agents.coding_agents.repo_optimizer import main
+
+# Run the repo optimizer (uses RelentlessCodingAgent with claude-opus-4-6)
+main()
+```
+
+Or run it directly from the command line:
+
+```bash
+uv run python -m kiss.agents.coding_agents.repo_optimizer
+```
+
+**How It Works:**
+
+1. Runs the target program (e.g., `relentless_coding_agent.py`) and monitors output in real time
+2. If repeated errors are observed, fixes them and reruns
+3. Once the program succeeds, analyzes output and optimizes the source for speed and cost
+4. Repeats until running time and cost are reduced significantly
+
+**Optimization Strategies:**
+
+- Shorter system prompts preserving meaning
+- Removing redundant instructions and minimizing conversation turns
+- Batching operations and using early termination
+- Applying latest agentic patterns for long-horizon tasks
+- Inventing and implementing new agent architectures for efficiency and reliability
 
 ## 🎨 Output Formatting
 
@@ -359,8 +304,7 @@ KISS is a lightweight, yet powerful, multi agent framework that implements a ReA
 
 - **Simple Architecture**: Clean, minimal core that's easy to understand and extend
 - **Relentless Coding Agent**: Single-agent coding system with smart auto-continuation for infinite tasks (💡 new idea)
-- **Create and Optimize Agent**: Multi-objective agent evolution and improvement with Pareto frontier (💡 new idea)
-- **Optimize Agent**: Standalone Pareto frontier optimizer for evolving coding agents with mutation, crossover, and multi-objective evaluation (💡 new idea)
+- **Repo Optimizer**: Uses RelentlessCodingAgent to iteratively optimize code in your project for speed and cost (💡 new idea)
 - **GEPA Implementation From Scratch**: Genetic-Pareto prompt optimization for compound AI systems
 - **KISSEvolve Implementation From Scratch**: Evolutionary algorithm discovery framework with LLM-guided mutation and crossover
 - **Model Agnostic**: Support for multiple LLM providers (OpenAI, Anthropic, Gemini, Together AI, OpenRouter)
@@ -712,7 +656,7 @@ kiss/
 │   │   │   └── README.md           # KISSEvolve documentation
 │   │   ├── coding_agents/          # Coding agents for software development tasks
 │   │   │   ├── relentless_coding_agent.py # Single-agent system with smart auto-continuation
-│   │   │   ├── optimize_agent.py          # Pareto frontier agent optimizer with genetic algorithms
+│   │   │   ├── repo_optimizer.py          # Iterative code optimizer using RelentlessCodingAgent
 │   │   │   ├── repo_agent.py              # Repo-level task agent using RelentlessCodingAgent
 │   │   │   └── config.py                  # Coding agent configuration (RelentlessCodingAgent)
 │   │   ├── self_evolving_multi_agent/  # Self-evolving multi-agent system
@@ -863,20 +807,6 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
   - `parent_sampling_method`: Parent sampling: 'tournament', 'power_law', or 'performance_novelty' (default: "power_law")
   - `power_law_alpha`: Power-law sampling parameter for rank-based selection (default: 1.0)
   - `performance_novelty_lambda`: Selection pressure parameter for sigmoid (default: 1.0)
-- **Agent Creator Settings**: Modify `DEFAULT_CONFIG.create_and_optimize_agent` in `src/kiss/agents/create_and_optimize_agent/config.py`:
-  - **Improver** (`DEFAULT_CONFIG.create_and_optimize_agent.improver`):
-    - `model_name`: LLM model to use for the improver agent (default: "claude-sonnet-4-5")
-    - `max_steps`: Maximum steps for the improver agent (default: 100)
-    - `max_budget`: Maximum budget in USD for the improver agent (default: 20.0)
-  - **Evolver** (`DEFAULT_CONFIG.create_and_optimize_agent.evolver`):
-    - `model_name`: LLM model to use for agent creation and improvement (default: "claude-sonnet-4-5")
-    - `max_generations`: Maximum number of improvement generations (default: 10)
-    - `initial_frontier_size`: Initial size of the Pareto frontier (default: 4)
-    - `max_frontier_size`: Maximum size of the Pareto frontier (default: 6)
-    - `mutation_probability`: Probability of mutation vs crossover, 1.0 = always mutate (default: 0.8)
-    - `initial_agent_max_steps`: Maximum steps for creating the initial agent (default: 50)
-    - `initial_agent_max_budget`: Maximum budget in USD for creating the initial agent (default: 50.0)
-    - `evolve_to_solve_task`: Whether to evolve the agent to solve the task or be general purpose (default: False)
 - **Self-Evolving Multi-Agent Settings**: Modify `DEFAULT_CONFIG.self_evolving_multi_agent` in `src/kiss/agents/self_evolving_multi_agent/config.py`:
   - `model`: LLM model to use for the main agent (default: "gemini-3-flash-preview")
   - `sub_agent_model`: Model for sub-agents (default: "gemini-3-flash-preview")
