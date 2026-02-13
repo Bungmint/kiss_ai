@@ -10,35 +10,6 @@ ______________________________________________________________________
 
 KISS stands for ["Keep it Simple, Stupid"](https://en.wikipedia.org/wiki/KISS_principle) which is a well known software engineering principle.
 
-## 📑 Table of Contents
-
-- [The Problem with AI Agent Frameworks Today](#-the-problem-with-ai-agent-frameworks-today)
-- [Your First Agent in 30 Seconds](#-your-first-agent-in-30-seconds)
-- [Interactive Demo with Streaming Output](#-interactive-demo-with-streaming-output)
-- [Blogs](#-blogs)
-- [Multi-Agent Orchestration](#-multi-agent-orchestration)
-- [Using Relentless Coding Agent](#-using-relentless-coding-agent)
-- [Using Repo Optimizer](#-using-repo-optimizer)
-- [Output Formatting](#-output-formatting)
-- [Trajectory Saving and Visualization](#-trajectory-saving-and-visualization)
-- [Overview](#-overview)
-- [Installation](#-installation)
-- [KISSAgent API Reference](#-kissagent-api-reference)
-- [Using GEPA for Prompt Optimization](#-using-gepa-for-prompt-optimization)
-- [Using KISSEvolve for Algorithm Discovery](#-using-kissevolve-for-algorithm-discovery)
-- [Using Self-Evolving Multi-Agent](#-using-self-evolving-multi-agent)
-- [Using SimpleRAG for Retrieval-Augmented Generation](#-using-simplerag-for-retrieval-augmented-generation)
-- [Multiprocessing](#-multiprocessing)
-- [Docker Manager](#-docker-manager)
-- [Project Structure](#-project-structure)
-- [Versioning](#-versioning)
-- [Configuration](#-configuration)
-- [Available Commands](#-available-commands)
-- [Models Supported](#-models-supported)
-- [Contributing](#-contributing)
-- [License](#-license)
-- [Authors](#-authors)
-
 ## 🎯 The Problem with AI Agent Frameworks Today
 
 Let's be honest. The AI agent ecosystem has become a jungle.
@@ -76,25 +47,18 @@ print(result)  # 127.05
 
 That's a fully functional AI agent that uses tools. No annotations. No boilerplate. No ceremony. Just intent, directly expressed.
 
-KISS uses **native function calling** from the LLM providers for efficiency and accuracy. Your Python functions become tools automatically. Type hints become schemas. Docstrings become descriptions. No crazy annotations. Everything just works.
+KISS uses **native function calling** from the LLM providers for efficiency and accuracy. Your Python functions become tools automatically. Type hints become schemas. Docstrings become descriptions. No crazy annotations. Everything just works.  Well you might ask "**why not use Langchain, DSpy, OpenHands, MiniSweAgent, CrewAI, or some well established agent frameworks?**"  Here is my response:
+ 
+ - **KISS comes with [Repo Optimizer](src/kiss/agents/coding_agents/repo_optimizer.py) that will not only enable you write or create agents, but also automatically optimize the agents for efficiency and cost.**
+ - **It has GEPA prompt optimizer builtin with a simple API.**
+ - **It has a [RelentlessCodingAgent](src/kiss/agents/coding_agents/relentless_coding_agent.py), which is pretty straightforward in terms of implementation, but it can work for very very long tasks. It was self evolved over time and is still evolving.**
+ - **The framework can self optimize based on your requirements (e.g. maximize test coverage).**
+ - **No bloat and simple codebase.**
+ - **Optimization strategies can be written as text.**
 
-## 🎬 Interactive Demo with Streaming Output
 
-Run the built-in demo to see a KISSAgent solve arithmetic problems with real-time token streaming to both the terminal and a live browser UI:
 
-```bash
-uv run python -m kiss.demo.kiss_demo
-```
-
-This launches an agent that uses a `simple_calculator` tool to solve three math problems step by step:
-
-## 📝 Blogs
-
-- [Meet KISS Agent Framework](https://dev.to/koushik_sen_d549bf321e6fb/meet-the-kiss-agent-framework-2ij6/)
-- [Agent Evolver: The Darwin of AI Agents](https://dev.to/koushik_sen_d549bf321e6fb/agent-evolver-the-darwin-of-ai-agents-4iio)
-- [Repo Optimizer: I Let a KISS AI Agent Optimize Itself Overnight. It Cut Its Own Cost by 98%.](https://dev.to/koushik_sen_d549bf321e6fb/repo-optimizer-i-let-a-kiss-ai-agent-optimize-itself-overnight-it-cut-its-own-cost-by-98-1ddi)
-
-## 🤝 Multi-Agent Orchestration
+## 🤝 Multi-Agent Orchestration is Function Composition
 
 Here's where KISS really shines — composing multiple agents into systems greater than the sum of their parts.
 
