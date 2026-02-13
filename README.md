@@ -54,7 +54,7 @@ KISS uses **native function calling** from the LLM providers for efficiency and 
 - **It has a [RelentlessCodingAgent](src/kiss/agents/coding_agents/relentless_coding_agent.py), which is pretty straightforward in terms of implementation, but it can work for very very long tasks. It was self evolved over time and is still evolving.**
 - **The framework can self optimize based on your requirements (e.g. maximize test coverage).**
 - **No bloat and simple codebase.**
-- **Optimization strategies can be written as text.**
+- **Optimization strategies can be written in plain English.**
 - **New techniques will be incorporated to the framework as I research them.**
 
 ## 🤝 Multi-Agent Orchestration is Function Composition
