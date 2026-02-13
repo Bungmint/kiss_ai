@@ -47,7 +47,7 @@ print(result)  # 127.05
 
 That's a fully functional AI agent that uses tools. No annotations. No boilerplate. No ceremony. Just intent, directly expressed.
 
-KISS uses **native function calling** from the LLM providers for efficiency and accuracy. Your Python functions become tools automatically. Type hints become schemas. Docstrings become descriptions. No crazy annotations. Everything just works.  Well you might ask "**why not use LangChain, DSpy, OpenHands, MiniSweAgent, CrewAI, Google ADK, Claude Agent SDK, or some well established agent frameworks?**"  Here is my response:
+KISS uses **native function calling** from the LLM providers for efficiency and accuracy. Your Python functions become tools automatically. Type hints become schemas. Docstrings become descriptions. No crazy annotations. Everything just works.  Well you might ask "**Why not use LangChain, DSpy, OpenHands, MiniSweAgent, CrewAI, Google ADK, Claude Agent SDK, or some well established agent frameworks?**"  Here is my response:
  
  - **KISS comes with [Repo Optimizer](src/kiss/agents/coding_agents/repo_optimizer.py) that will not only enable you write or create agents, but also automatically optimize the agents for efficiency and cost.**
  - **It has the GEPA prompt optimizer builtin with a simple API.**
@@ -55,6 +55,7 @@ KISS uses **native function calling** from the LLM providers for efficiency and 
  - **The framework can self optimize based on your requirements (e.g. maximize test coverage).**
  - **No bloat and simple codebase.**
  - **Optimization strategies can be written as text.**
+ - **New techniques will be incorporated to the framework as I research them.**
 
 
 
@@ -155,6 +156,7 @@ print(f"Result: {result}")
 - **Docker Support**: Optional isolated execution via Docker containers
 - **Path Access Control**: Enforces read/write permissions on file system paths
 - **Built-in Tools**: Bash, Read, Edit, and Write tools for file operations
+- **Safer Bash Execution**: `Bash()` blocks inline interpreter eval flags (e.g., `python -c`, `node -e`) and disallows shell control commands like `cd`, `env`, `eval`, and `exec`
 - **Budget & Token Tracking**: Automatic cost and token usage monitoring across all sub-sessions
 
 ## 🔧 Using Repo Optimizer

@@ -128,6 +128,7 @@ class AnthropicModel(Model):
         max_tokens = kwargs.pop("max_tokens", None)
         if max_tokens is None:
             max_tokens = kwargs.pop("max_completion_tokens", None)
+        user_set_max_tokens = max_tokens is not None
         if max_tokens is None:
             max_tokens = 16384
 
@@ -147,7 +148,7 @@ class AnthropicModel(Model):
                 kwargs["thinking"] = {"type": "adaptive"}
             else:
                 kwargs["thinking"] = {"type": "enabled", "budget_tokens": 10000}
-                if max_tokens < 10000:
+                if not user_set_max_tokens and max_tokens < 10000:
                     max_tokens = 16384
 
         kwargs.update(

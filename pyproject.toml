@@ -149,6 +149,7 @@ timeout = 120
 [tool.coverage.run]
 source = ["src/kiss"]
 omit = ["src/kiss/tests/*"]
+concurrency = ["greenlet", "thread"]
 
 [tool.coverage.report]
 exclude_lines = [

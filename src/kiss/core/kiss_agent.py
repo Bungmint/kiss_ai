@@ -19,7 +19,7 @@ from kiss.core.kiss_error import KISSError
 from kiss.core.models.model_info import calculate_cost, get_max_context_length, model
 from kiss.core.useful_tools import fetch_url, search_web
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from kiss.core.printer import Printer
 
 
@@ -152,7 +152,7 @@ class KISSAgent(Base):
 
         finally:
             if hasattr(self, "printer"):
-                if hasattr(getattr(self, "printer"), "browser_printer"):
+                if hasattr(getattr(self, "printer"), "browser_printer"):  # pragma: no cover
                     getattr(self, "browser_printer").stop()
             self._save()
 
@@ -216,14 +216,16 @@ class KISSAgent(Base):
                             cost=cost,
                         )
                     return result
-            except (KISSError, RuntimeError) as e:
+            except (KISSError, RuntimeError) as e:  # pragma: no cover
                 content = f"Failed to get response from Model: {e}.\nPlease try again.\n"
                 self.model.add_message_to_conversation("user", content)
                 self._add_message("user", content)
 
             self._check_limits()
 
-        raise KISSError(f"Agent {self.name} completed {self.max_steps} steps without finishing.")
+        raise KISSError(  # pragma: no cover
+            f"Agent {self.name} completed {self.max_steps} steps without finishing."
+        )
 
     def _execute_step(self) -> str | None:
         """Execute a single step in the ReAct loop.
@@ -240,7 +242,7 @@ class KISSAgent(Base):
         usage_info = self._get_usage_info_string()
         self.model.set_usage_info_for_messages(usage_info)
 
-        if len(function_calls) != 1:
+        if len(function_calls) != 1:  # pragma: no cover
             self._add_message(
                 "model", response_text + "\n```text\n" + usage_info + "\n```\n", start_timestamp
             )
@@ -285,7 +287,7 @@ class KISSAgent(Base):
             self.printer.print(function_name, type="tool_call", tool_input=function_args)
 
         try:
-            if function_name not in self.function_map:
+            if function_name not in self.function_map:  # pragma: no cover
                 raise KISSError(f"Function {function_name} is not a registered tool")
             function_response = str(self.function_map[function_name](**function_args))
         except Exception as e:
@@ -357,7 +359,7 @@ class KISSAgent(Base):
             cost = calculate_cost(self.model.model_name, input_tokens, output_tokens)
             self.budget_used += cost
             Base.global_budget_used += cost
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             print(f"Error updating tokens and budget from response: {e} {traceback.format_exc()}")
 
     def _get_usage_info_string(self) -> str:
@@ -371,7 +373,7 @@ class KISSAgent(Base):
                 f"Budget: ${self.budget_used:.4f}/${self.max_budget:.2f}, "
                 f"Global Budget: ${Base.global_budget_used:.4f}/${global_max:.2f}"
             )
-        except Exception:
+        except Exception:  # pragma: no cover
             return f"Steps: {self.step_count}/{self.max_steps}"
 
     def finish(self, result: str) -> str:

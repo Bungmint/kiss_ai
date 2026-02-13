@@ -1345,8 +1345,8 @@ UsefulTools(
 **Parameters:**
 
 - `base_dir` (str): The base directory for operations (created if it doesn't exist).
-- `readable_paths` (list[str] | None): List of paths the tools can read from. Default is None (no restrictions).
-- `writable_paths` (list[str] | None): List of paths the tools can write to. Default is None (no restrictions).
+- `readable_paths` (list[str] | None): List of paths the tools can read from. Default is None (empty allowlist; no file reads are allowed unless paths are provided).
+- `writable_paths` (list[str] | None): List of paths the tools can write to. Default is None (empty allowlist; no file writes are allowed unless paths are provided).
 
 ### Methods
 
@@ -1387,7 +1387,13 @@ Write content to a file, creating it if it doesn't exist or overwriting if it do
 #### `Bash()`
 
 ```python
-def Bash(self, command: str, description: str, timeout_seconds: float = 30) -> str
+def Bash(
+    self,
+    command: str,
+    description: str,
+    timeout_seconds: float = 30,
+    max_output_chars: int = 50000,
+) -> str
 ```
 
 Execute a bash command with automatic path permission checks and security validation.
@@ -1397,15 +1403,19 @@ Execute a bash command with automatic path permission checks and security valida
 - `command` (str): The bash command to execute.
 - `description` (str): A brief description of what the command does.
 - `timeout_seconds` (float): Timeout in seconds for the command. Default is 30.
+- `max_output_chars` (int): Maximum output length before truncation. Default is 50000.
 
 **Returns:**
 
-- `str`: The command output (stdout), or an error message if permission denied, security violation, or execution failed.
+- `str`: The command output (stdout), or an error message if permission denied, security violation, or execution failed. Very large outputs are truncated from the middle with a truncation marker.
 
 **Security Features:**
 
 - Automatically parses commands to detect file operations
 - Enforces readable_paths and writable_paths restrictions
+- Blocks unsafe shell control commands: `.`, `cd`, `env`, `eval`, `exec`
+- Blocks inline interpreter execution flags (`python -c`, `node -e/--eval`, `bash -c`, etc.)
+- Treats `/proc/self/root/...` as unsafe (not a safe special path)
 - Returns descriptive error messages for violations
 
 #### `Edit()`
@@ -1541,10 +1551,12 @@ This function analyzes bash commands to intelligently determine which directorie
 - Common read commands: cat, grep, find, ls, python, gcc, rsync, etc.
 - Common write commands: touch, mkdir, rm, mv, cp, rsync, etc.
 - Output redirection: >, >>, &>, 2>, etc.
+- Additional output redirection operators: `>|`, `>>|`, `1>>`, `2>>`, `&>>`, `&>|`
 - Input redirection: \<, \<<, \<<\<
 - Heredoc stripping: heredoc body text (between `<< DELIM` and `DELIM`) is stripped before parsing so that heredoc content is not misinterpreted as command arguments
 - Command separators: `&&`, `||`, `;` chains
 - Pipe chains with multiple commands
+- Environment-variable-prefixed commands (e.g., `FOO=bar cat file.txt`)
 - Flags and arguments parsing
 - Special commands like tee (reads stdin and writes to file)
 - Path cleaning: trailing punctuation characters (e.g., `)`, `'`, `"`, `;`, `}`, `]`) are stripped from paths before safety checks
