@@ -7,7 +7,7 @@ from kiss.core.config_builder import add_config
 
 class IMOAgentConfig(BaseModel):
     model_name: str = Field(
-        default="gpt-5.2",
+        default="gemini-2.5-pro",
         description="LLM model to use (paper uses gemini-2.5-pro, grok-4, or gpt-5)",
     )
     temperature: float = Field(

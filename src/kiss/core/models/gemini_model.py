@@ -188,6 +188,7 @@ class GeminiModel(Model):
             stop_sequences=self.model_config.get("stop"),
             thinking_config=thinking_config,
             tools=tools,  # type: ignore[arg-type]
+            system_instruction=self.model_config.get("system_instruction"),
         )
 
     def _stream_parts(self, parts: list[Any]) -> None:
