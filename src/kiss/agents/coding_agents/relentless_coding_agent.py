@@ -33,12 +33,11 @@ TASK_PROMPT = """# Task
 - Bash(): set timeout_seconds=120 for test runs with sleeps/waits.
 - Bash scripts with background jobs: use bounded poll loops (max iterations), never unbounded waits.
 - IMMEDIATELY call finish(success=True, summary="done") once tests pass. NO extra verification.
-- At step {step_threshold}: finish(success=False, summary={{"done":[...], "next":[...]}})
+- At step {step_threshold}: call finish(success=False, summary={{"done":[...], "next":[...]}})
 - Work dir: {work_dir}
 {previous_progress}"""
 
 CONTINUATION_PROMPT = """# CONTINUATION
-{existing_files}
 
 {progress_text}
 
@@ -134,20 +133,6 @@ class RelentlessCodingAgent(Base):
             pass
         return [], []
 
-    def _scan_work_dir(self) -> str:
-        try:
-            files = []
-            for p in sorted(Path(self.work_dir).rglob("*")):
-                if p.is_file():
-                    rel = p.relative_to(self.work_dir)
-                    size = p.stat().st_size
-                    files.append(f"  {rel} ({size}B)")
-            if files:
-                return "## Existing Files\n" + "\n".join(files)
-        except Exception:
-            pass
-        return ""
-
     def _format_progress(self, done_items: list[str], next_items: list[str]) -> str:
         if not done_items:
             return ""
@@ -163,10 +148,8 @@ class RelentlessCodingAgent(Base):
     def _build_continuation_section(
         self, done_items: list[str], next_items: list[str]
     ) -> str:
-        existing_files = self._scan_work_dir()
         progress_text = self._format_progress(done_items, next_items)
         return "\n\n" + CONTINUATION_PROMPT.format(
-            existing_files=existing_files,
             progress_text=progress_text,
         )
 
