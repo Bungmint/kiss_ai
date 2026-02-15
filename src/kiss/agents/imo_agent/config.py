@@ -7,12 +7,16 @@ from kiss.core.config_builder import add_config
 
 class IMOAgentConfig(BaseModel):
     model_name: str = Field(
+        default="gemini-3-pro-preview",
+        description="Strong LLM for solving/correcting (needs deep reasoning)",
+    )
+    verifier_model_name: str = Field(
         default="gemini-2.5-pro",
-        description="LLM model to use (paper uses gemini-2.5-pro, grok-4, or gpt-5)",
+        description="LLM for verification (needs good reasoning to check proofs)",
     )
     temperature: float = Field(
         default=0.1,
-        description="Sampling temperature (paper: 0.1 for Gemini and Grok)",
+        description="Sampling temperature",
     )
     top_p: float = Field(
         default=1.0,
@@ -20,22 +24,26 @@ class IMOAgentConfig(BaseModel):
     )
     thinking_budget: int = Field(
         default=32768,
-        description="Max thinking tokens for Gemini models (paper: 32768)",
+        description="Max thinking tokens for solver",
+    )
+    verifier_thinking_budget: int = Field(
+        default=16384,
+        description="Max thinking tokens for verifier",
     )
     consecutive_passes_to_accept: int = Field(
-        default=5,
+        default=2,
         description="Accept solution after this many consecutive verification passes",
     )
     consecutive_errors_to_reject: int = Field(
-        default=10,
+        default=3,
         description="Reject solution after this many consecutive verification failures",
     )
     max_refinement_iterations: int = Field(
-        default=30,
+        default=8,
         description="Max verification-correction iterations per run",
     )
     max_runs: int = Field(
-        default=10,
+        default=3,
         description="Max independent solver attempts",
     )
     max_budget: float = Field(

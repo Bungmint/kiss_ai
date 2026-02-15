@@ -4,7 +4,9 @@ import json
 import sys
 from typing import Any
 
+import yaml
 from rich.console import Console, Group
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.text import Text
@@ -31,6 +33,23 @@ class ConsolePrinter(Printer):
         self._current_block_type = ""
         self._tool_name = ""
         self._tool_json_buffer = ""
+
+    @staticmethod
+    def _format_result_content(raw: str) -> Group | str:
+        try:
+            data = yaml.safe_load(raw)
+        except Exception:
+            return raw
+        if not isinstance(data, dict) or "summary" not in data:
+            return raw
+        parts: list[Any] = []
+        if "success" in data:
+            style = "bold green" if data["success"] else "bold red"
+            label = "PASSED" if data["success"] else "FAILED"
+            parts.append(Text(f"Status: {label}", style=style))
+            parts.append(Text(""))
+        parts.append(Markdown(str(data["summary"])))
+        return Group(*parts)
 
     def _flush_newline(self) -> None:
         if self._mid_line:
@@ -88,9 +107,10 @@ class ConsolePrinter(Printer):
             cost = kwargs.get("cost", "N/A")
             step_count = kwargs.get("step_count", 0)
             total_tokens = kwargs.get("total_tokens", 0)
+            body = self._format_result_content(str(content)) if content else "(no result)"
             self._console.print(
                 Panel(
-                    str(content) or "(no result)",
+                    body,
                     title="Result",
                     subtitle=f"steps={step_count}  tokens={total_tokens}  cost={cost}",
                     border_style="bold green",
@@ -216,9 +236,14 @@ class ConsolePrinter(Printer):
             total_tokens_used = kwargs.get("total_tokens_used", 0)
             cost_str = f"${budget_used:.4f}" if budget_used else "N/A"
             self._flush_newline()
+            body = (
+                self._format_result_content(message.result)
+                if message.result
+                else "(no result)"
+            )
             self._console.print(
                 Panel(
-                    message.result or "(no result)",
+                    body,
                     title="Result",
                     subtitle=(
                         f"steps={step_count}  tokens={total_tokens_used}  cost={cost_str}"

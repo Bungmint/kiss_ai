@@ -49,6 +49,7 @@ Well you might ask "**Why not use LangChain, DSpy, OpenHands, MiniSweAgent, Crew
 - **KISS comes with [Repo Optimizer](src/kiss/agents/coding_agents/repo_optimizer.py) that will not only enable you write or create agents, but also automatically optimize the agents for efficiency and cost.**
 - **It has the GEPA prompt optimizer builtin with a simple API.**
 - **It has a [RelentlessCodingAgent](src/kiss/agents/coding_agents/relentless_coding_agent.py), which is pretty straightforward in terms of implementation, but it can work for very very long tasks. It was self evolved over time and is still evolving.**
+- **It has an [IMO Agent](src/kiss/agents/imo_agent/imo_agent.py) for solving competition math problems using a verification-and-refinement pipeline.**
 - **The framework can self optimize based on your requirements (e.g. maximize test coverage).**
 - **No bloat and simple codebase.**
 - **Optimization strategies can be written in plain English.**
@@ -144,24 +145,60 @@ print(f"Result: {result}")
 **Key Features:**
 
 - **Single-Agent with Auto-Continuation**: A single agent executes the task across multiple sub-sessions, automatically continuing where it left off via structured JSON progress tracking
-- **Structured Progress Tracking**: Each sub-session reports completed and remaining tasks in JSON format (done/next items), which is deduplicated and passed to subsequent sub-sessions along with a scan of existing files in the work directory
+- **Structured Progress Tracking**: Each sub-session reports completed and remaining tasks in JSON format (done/next items), which is deduplicated and passed to subsequent sub-sessions
 - **Compressed Prompts**: Minimal, high-signal task prompts with critical rules (use Write() for new files, bounded poll loops, immediate finish on success)
+- **Multi-Tool Execution**: The agent can execute multiple tool calls in a single step for faster task completion
 - **Efficiency Rules**: Built-in prompt instructions enforce immediate completion when tests pass, timeout guidance for bash, and bounded loops for background jobs
-- **Retry with Context**: Failed sub-sessions automatically pass structured progress summaries and file listings to the next sub-session
+- **Retry with Context**: Failed sub-sessions automatically pass structured progress summaries to the next sub-session
 - **Configurable Sub-Sessions**: Set high sub-session counts (e.g., 200+) for truly relentless execution
 - **Docker Support**: Optional isolated execution via Docker containers
 - **Path Access Control**: Enforces read/write permissions on file system paths
-- **Built-in Tools**: Bash, Read, Edit, and Write tools for file operations
+- **Built-in Tools**: Bash, Read, Edit, Write, search_web, and fetch_url tools for file and web operations
 - **Safer Bash Execution**: `Bash()` blocks inline interpreter eval flags (e.g., `python -c`, `node -e`) and disallows shell control commands like `cd`, `env`, `eval`, and `exec`
 - **Budget & Token Tracking**: Automatic cost and token usage monitoring across all sub-sessions
 
-## 🔧 Using Repo Optimizer
+## 💬 Browser-Based Chatbot
 
-**This is the most important and usefuly feature of KISS.** The `RepoOptimizer` (`repo_optimizer.py`) uses the `RelentlessCodingAgent` to optimize code within your own project repository. It runs the target program, monitors output in real time, fixes errors, and iteratively optimizes for speed and cost — all without changing the agent's interface. The code can be found [here.](src/kiss/agents/coding_agents/repo_optimizer.py). It has less than 100 lines of code consisting of a detailed short prompt. Modify the prompt in `repo_optimizer` to provide the agent path that you want to optimize. You can run it using the following command.
+KISS includes a browser-based chatbot UI for interacting with the `RelentlessCodingAgent`. It provides a rich web interface with real-time streaming output, task history with autocomplete, and a file browser for the working directory.
 
 ```bash
-uv run python -m kiss.agents.coding_agents.repo_optimizer
+# Launch the chatbot (opens browser automatically)
+uv run chatbot
+
+# Or with a custom working directory
+uv run chatbot --work-dir ./my-project
 ```
+
+The chatbot features:
+
+- **Real-time streaming**: See agent thinking, tool calls, and results as they happen
+- **Structured result display**: Results with success/failure status are rendered with markdown formatting
+- **Task history**: Previously submitted tasks are saved and available via autocomplete
+- **File browser**: Browse files in the working directory from the sidebar
+- **Modern UI**: Dark theme with collapsible sections for tool calls and thinking
+
+## 🔧 Using Repo Optimizer
+
+**This is the most important and useful feature of KISS.** The `RepoOptimizer` (`repo_optimizer.py`) uses the `RelentlessCodingAgent` to optimize code within your own project repository. It runs the target program, monitors output in real time, fixes errors, and iteratively optimizes for speed and cost — all without changing the agent's interface. The code can be found [here.](src/kiss/agents/coding_agents/repo_optimizer.py). It has less than 100 lines of code consisting of a detailed short prompt. Modify the prompt in `repo_optimizer` to provide the agent path that you want to optimize. You can run it using the following command.
+
+```bash
+# Default: optimize the RelentlessCodingAgent
+uv run python -m kiss.agents.coding_agents.repo_optimizer
+
+# Optimize a specific agent file with a different model
+uv run python -m kiss.agents.coding_agents.repo_optimizer \
+    --agent-code src/kiss/agents/imo_agent/imo_agent.py \
+    --model gemini-2.5-pro \
+    --project-root /path/to/project
+```
+
+**CLI Options:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--project-root` | Auto-detected project root | Project root directory |
+| `--agent-code` | `src/kiss/agents/coding_agents/relentless_coding_agent.py` | Path to agent code to optimize |
+| `--model` | `claude-opus-4-6` | Model name to use |
 
 **How It Works:**
 
@@ -177,6 +214,49 @@ uv run python -m kiss.agents.coding_agents.repo_optimizer
 - Batching operations and using early termination
 - Applying latest agentic patterns for long-horizon tasks
 - Inventing and implementing new agent architectures for efficiency and reliability
+
+📖 **For the full story of how the repo optimizer self-optimized the RelentlessCodingAgent, see [BLOG.md](src/kiss/agents/coding_agents/BLOG.md)**
+
+## 🧮 IMO Agent — Mathematical Problem Solving
+
+The [IMO Agent](src/kiss/agents/imo_agent/imo_agent.py) is a verification-and-refinement pipeline for solving competition mathematics problems, based on [arXiv:2507.15855](https://arxiv.org/abs/2507.15855). It uses a solver-verifier-corrector loop to produce rigorous, step-by-step solutions to hard math problems (e.g., IMO 2025).
+
+```python
+from kiss.agents.imo_agent.imo_agent import IMOAgent, get_problem
+
+# Get an IMO 2025 problem
+problem = get_problem(4)  # Problem 4: Number Theory (easy)
+
+agent = IMOAgent()
+solution = agent.solve(
+    problem["statement"],
+    print_to_console=True,
+)
+
+if solution:
+    print(solution)
+    print(f"Cost: ${agent.budget_used:.4f}")
+```
+
+**How It Works:**
+
+1. **Solve**: A strong LLM generates a complete, rigorously justified solution
+1. **Verify**: A separate verifier LLM checks the solution step-by-step, classifying issues as critical errors or justification gaps
+1. **Correct**: If verification fails, the solver receives the bug report and produces a corrected solution
+1. **Repeat**: The verify-correct loop continues until the solution passes consecutive verification rounds or the iteration/budget limit is reached
+1. **Multiple Runs**: If a single run fails, the agent starts fresh with a new independent attempt
+
+**Running from the command line:**
+
+```bash
+# Solve IMO 2025 Problem 4 (default)
+uv run python -m kiss.agents.imo_agent.imo_agent
+
+# Solve a specific problem (1-6)
+uv run python -m kiss.agents.imo_agent.imo_agent 2
+```
+
+All six IMO 2025 problems are included in the agent with their statements, known answers, and validation criteria.
 
 ## 🎨 Output Formatting
 
@@ -256,14 +336,18 @@ The visualizer provides:
 KISS is a lightweight, yet powerful, multi agent framework that implements a ReAct (Reasoning and Acting) loop for LLM agents. The framework provides:
 
 - **Simple Architecture**: Clean, minimal core that's easy to understand and extend
+- **Multi-Tool Execution**: Agents can execute multiple tool calls in a single step for faster task completion
 - **Relentless Coding Agent**: Single-agent coding system with smart auto-continuation for long-running tasks
+- **Browser-Based Chatbot**: Interactive web UI for the RelentlessCodingAgent with real-time streaming and task history
 - **Repo Optimizer**: Uses RelentlessCodingAgent to iteratively optimize code in your project for speed and cost (💡 new idea)
+- **IMO Agent**: Verification-and-refinement pipeline for solving competition math problems (based on [arXiv:2507.15855](https://arxiv.org/abs/2507.15855))
 - **GEPA Implementation From Scratch**: Genetic-Pareto prompt optimization for compound AI systems
 - **KISSEvolve Implementation From Scratch**: Evolutionary algorithm discovery framework with LLM-guided mutation and crossover
 - **Model Agnostic**: Support for multiple LLM providers (OpenAI, Anthropic, Gemini, Together AI, OpenRouter)
 - **Native Function Calling**: Seamless tool integration using native function calling APIs (OpenAI, Anthropic, Gemini, Together AI, and OpenRouter)
 - **Docker Integration**: Built-in Docker manager for running agents in isolated environments
 - **Trajectory Tracking**: Automatic saving of agent execution trajectories with unified state management
+- **Structured Result Display**: Console and browser printers parse YAML result content to show success/failure status with markdown rendering
 - **Token Streaming**: Real-time token streaming via async callback for all providers (OpenAI, Anthropic, Gemini, Together AI, OpenRouter), including thinking/reasoning tokens and tool execution output
 - **Token Usage Tracking**: Built-in token usage tracking with automatic context length detection and step counting
 - **Budget Tracking**: Automatic cost tracking and budget monitoring across all agent runs
@@ -482,6 +566,11 @@ kiss/
 │   │   │   ├── gepa.py
 │   │   │   ├── config.py           # GEPA configuration
 │   │   │   └── README.md           # GEPA documentation
+│   │   ├── imo_agent/              # IMO mathematical problem-solving agent
+│   │   │   ├── __init__.py
+│   │   │   ├── imo_agent.py            # Verification-and-refinement pipeline (arXiv:2507.15855)
+│   │   │   ├── imo_agent_creator.py    # Repo agent that created the IMO agent
+│   │   │   └── config.py               # IMO agent configuration
 │   │   ├── kiss_evolve/            # KISSEvolve evolutionary algorithm discovery
 │   │   │   ├── kiss_evolve.py
 │   │   │   ├── novelty_prompts.py  # Prompts for novelty-based evolution
@@ -489,10 +578,12 @@ kiss/
 │   │   │   └── README.md           # KISSEvolve documentation
 │   │   ├── coding_agents/          # Coding agents for software development tasks
 │   │   │   ├── relentless_coding_agent.py # Single-agent system with smart auto-continuation
+│   │   │   ├── chatbot.py                # Browser-based chatbot UI for RelentlessCodingAgent
 │   │   │   ├── claude_coding_agent.py     # Claude-based coding agent
 │   │   │   ├── repo_optimizer.py          # Iterative code optimizer using RelentlessCodingAgent
 │   │   │   ├── repo_agent.py              # Repo-level task agent using RelentlessCodingAgent
-│   │   │   └── config.py                  # Coding agent configuration (RelentlessCodingAgent)
+│   │   │   ├── config.py                  # Coding agent configuration (RelentlessCodingAgent)
+│   │   │   └── BLOG.md                    # Blog post about self-optimization
 │   │   ├── self_evolving_multi_agent/  # Self-evolving multi-agent system
 │   │   │   ├── agent_evolver.py       # Agent evolution logic
 │   │   │   ├── multi_agent.py         # Multi-agent orchestration
@@ -501,7 +592,7 @@ kiss/
 │   │   └── kiss.py                 # Utility agents (prompt refiner, bash agent)
 │   ├── core/            # Core framework components
 │   │   ├── base.py            # Base class with common functionality for all KISS agents
-│   │   ├── kiss_agent.py      # KISS agent with native function calling
+│   │   ├── kiss_agent.py      # KISS agent with native function calling (supports multi-tool execution)
 │   │   ├── printer.py         # Abstract Printer base class and MultiPrinter
 │   │   ├── print_to_console.py # ConsolePrinter: Rich-formatted terminal output
 │   │   ├── print_to_browser.py # BrowserPrinter: SSE streaming to browser UI
@@ -547,6 +638,7 @@ kiss/
 │   │   ├── conftest.py              # Pytest configuration and fixtures
 │   │   ├── test_kiss_agent_agentic.py
 │   │   ├── test_kiss_agent_non_agentic.py
+│   │   ├── test_kiss_agent_coverage.py    # Coverage tests for KISSAgent
 │   │   ├── test_kissevolve_bubblesort.py
 │   │   ├── test_gepa_hotpotqa.py
 │   │   ├── test_gepa_batched.py           # Tests for GEPA batched wrapper behavior and performance
@@ -576,6 +668,11 @@ kiss/
 │           └── index.html
 ├── scripts/             # Repository-level scripts
 │   └── release.sh       # Release script
+├── API.md               # KISSAgent API reference
+├── BLOG.md              # Blog post about the KISS framework
+├── CLAUDE.md            # Code style guidelines for LLM assistants
+├── kiss.ipynb           # Interactive tutorial Jupyter notebook
+├── LICENSE              # Apache-2.0 license
 ├── pyproject.toml       # Project configuration
 └── README.md
 ```
@@ -620,6 +717,17 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
   - `model_name`: Model for task execution (default: "claude-opus-4-6")
   - `max_sub_sessions`: Maximum number of sub-sessions for auto-continuation (default: 200)
   - `max_steps`: Maximum steps per sub-session (default: 200)
+  - `max_budget`: Maximum budget in USD (default: 200.0)
+- **IMO Agent Settings**: Modify `DEFAULT_CONFIG.imo.imo_agent` in `src/kiss/agents/imo_agent/config.py`:
+  - `model_name`: Strong LLM for solving/correcting (default: "gemini-3-pro-preview")
+  - `verifier_model_name`: LLM for verification (default: "gemini-2.5-pro")
+  - `temperature`: Sampling temperature (default: 0.1)
+  - `thinking_budget`: Max thinking tokens for solver (default: 32768)
+  - `verifier_thinking_budget`: Max thinking tokens for verifier (default: 16384)
+  - `consecutive_passes_to_accept`: Accept solution after this many consecutive passes (default: 2)
+  - `consecutive_errors_to_reject`: Reject after this many consecutive failures (default: 3)
+  - `max_refinement_iterations`: Max verify-correct iterations per run (default: 8)
+  - `max_runs`: Max independent solver attempts (default: 3)
   - `max_budget`: Maximum budget in USD (default: 200.0)
 - **GEPA Settings**: Modify `DEFAULT_CONFIG.gepa` in `src/kiss/agents/gepa/config.py`:
   - `reflection_model`: Model to use for reflection (default: "gemini-3-flash-preview")
@@ -690,6 +798,11 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
 - `uv run notebook --execute` - Execute notebook cells and update outputs in place
 - `uv run notebook --convert` - Convert notebook to Python script
 
+### Chatbot
+
+- `uv run chatbot` - Launch the browser-based chatbot UI
+- `uv run chatbot --work-dir ./my-project` - Launch with custom working directory
+
 ### Cleanup
 
 ```bash
@@ -704,12 +817,12 @@ find . -type f -name "*.pyc" -delete
 
 **Generation Models** (text generation with function calling support):
 
-- **OpenAI**: gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-4, gpt-5, gpt-5-mini, gpt-5-nano, gpt-5-pro, gpt-5.1, gpt-5.2, gpt-5.2-pro
+- **OpenAI**: gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini, gpt-4.5-preview, gpt-4-turbo, gpt-4, gpt-5, gpt-5-mini, gpt-5-nano, gpt-5-pro, gpt-5.1, gpt-5.2, gpt-5.2-pro
 - **OpenAI (Codex)**: gpt-5-codex, gpt-5.1-codex, gpt-5.1-codex-max, gpt-5.1-codex-mini, gpt-5.2-codex, codex-mini-latest
 - **OpenAI (Reasoning)**: o1, o1-mini, o1-pro, o3, o3-mini, o3-mini-high, o3-pro, o3-deep-research, o4-mini, o4-mini-high, o4-mini-deep-research
 - **OpenAI (Open Source)**: openai/gpt-oss-20b, openai/gpt-oss-120b
 - **Anthropic**: claude-opus-4-6, claude-opus-4-5, claude-opus-4-1, claude-sonnet-4-5, claude-sonnet-4, claude-haiku-4-5
-- **Anthropic (Legacy)**: claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022, claude-3-opus-20240229, claude-3-sonnet-20240229, claude-3-haiku-20240307
+- **Anthropic (Legacy)**: claude-3-5-sonnet-20241022, claude-3-5-haiku, claude-3-5-haiku-20241022, claude-3-opus-20240229, claude-3-sonnet-20240229, claude-3-haiku-20240307
 - **Gemini**: gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash, gemini-2.0-flash-lite, gemini-1.5-pro (deprecated), gemini-1.5-flash (deprecated)
 - **Gemini (preview, unreliable function calling)**: gemini-3-pro-preview, gemini-3-flash-preview, gemini-2.5-flash-lite
 - **Together AI (Llama)**: Llama-4-Scout/Maverick (with function calling), Llama-3.x series (generation only)
@@ -717,18 +830,19 @@ find . -type f -name "*.pyc" -delete
 - **Together AI (DeepSeek)**: DeepSeek-R1, DeepSeek-V3-0324, DeepSeek-V3.1 (with function calling)
 - **Together AI (Kimi/Moonshot)**: Kimi-K2-Instruct, Kimi-K2-Instruct-0905, Kimi-K2-Thinking, Kimi-K2.5
 - **Together AI (Mistral)**: Ministral-3-14B, Mistral-7B-v0.2/v0.3, Mistral-Small-24B
-- **Together AI (Other)**: GLM-5.0/4.5-Air/4.7, Nemotron-Nano-9B, Arcee (Coder-Large, Maestro-Reasoning, Virtuoso-Large, trinity-mini), DeepCogito (cogito-v2 series), google/gemma-2b/3n, Refuel-LLM-2/2-Small, essentialai/rnj-1, marin-community/marin-8b
+- **Together AI (Z.AI)**: GLM-5.0, GLM-4.5-Air, GLM-4.7
+- **Together AI (Other)**: Nemotron-Nano-9B, Arcee (Coder-Large, Maestro-Reasoning, Virtuoso-Large, trinity-mini), DeepCogito (cogito-v2 series), google/gemma-2b/3n, Refuel-LLM-2/2-Small, essentialai/rnj-1, marin-community/marin-8b
 - **OpenRouter**: Access to 400+ models from 60+ providers via unified API:
   - OpenAI (gpt-3.5-turbo, gpt-4, gpt-4-turbo, gpt-4.1, gpt-4o variants, gpt-5/5.1/5.2 and codex variants, o1, o3, o3-pro, o4-mini, codex-mini, gpt-oss, gpt-audio)
-  - Anthropic (claude-3-haiku, claude-3.5-haiku/sonnet, claude-3.7-sonnet, claude-sonnet-4/4.5, claude-haiku-4.5, claude-opus-4/4.1/4.5/4.6)
+  - Anthropic (claude-3-haiku, claude-3.5-haiku/sonnet, claude-3.7-sonnet, claude-sonnet-4/4.5, claude-haiku-4.5, claude-opus-4/4.1/4.5/4.6 with 1M context)
   - Google (gemini-2.0-flash, gemini-2.5-flash/pro, gemini-3-flash/pro-preview, gemma-2-9b/27b, gemma-3-4b/12b/27b, gemma-3n-e4b)
   - Meta Llama (llama-3-8b/70b, llama-3.1-8b/70b/405b, llama-3.2-1b/3b/11b-vision, llama-3.3-70b, llama-4-maverick/scout, llama-guard-2/3/4)
   - DeepSeek (deepseek-chat/v3/v3.1/v3.2/v3.2-speciale, deepseek-r1/r1-0528/r1-turbo, deepseek-r1-distill variants, deepseek-coder-v2, deepseek-prover-v2)
-  - Qwen (qwen-2.5-7b/72b, qwen-turbo/plus/max, qwen3-8b/14b/30b/32b/235b, qwen3-coder/coder-plus/coder-next/coder-flash/coder-30b, qwen3-vl variants, qwq-32b, qwen3-next-80b, qwen3-max)
+  - Qwen (qwen-2.5-7b/72b, qwen-turbo/plus/max, qwen3-8b/14b/30b/32b/235b, qwen3-coder/coder-plus/coder-next/coder-flash/coder-30b, qwen3-vl variants, qwq-32b, qwen3-next-80b, qwen3-max/max-thinking)
   - Amazon Nova (nova-micro/lite/pro, nova-2-lite, nova-premier)
   - Cohere (command-r, command-r-plus, command-a, command-r7b)
   - X.AI Grok (grok-3/3-mini/3-beta/3-mini-beta, grok-4/4-fast, grok-4.1-fast, grok-code-fast-1)
-  - MiniMax (minimax-01, minimax-m1, minimax-m2/m2.1/m2-her)
+  - MiniMax (minimax-01, minimax-m1, minimax-m2/m2.1/m2.5/m2-her)
   - ByteDance Seed (seed-1.6, seed-1.6-flash, seed-2.0, seed-2.0-thinking)
   - MoonshotAI (kimi-k2, kimi-k2-thinking, kimi-k2.5, kimi-dev-72b)
   - Mistral (codestral, devstral/devstral-medium/devstral-small, mistral-large/medium/small, mixtral-8x7b/8x22b, ministral-3b/8b/14b, pixtral, voxtral)
@@ -738,6 +852,7 @@ find . -type f -name "*.pyc" -delete
   - Perplexity (sonar, sonar-pro, sonar-pro-search, sonar-deep-research, sonar-reasoning-pro)
   - NousResearch (hermes-2-pro/3/4-llama series, hermes-4-70b/405b, deephermes-3)
   - Baidu ERNIE (ernie-4.5 series including VL and thinking variants)
+  - Aurora (openrouter/aurora-alpha — free cloaked reasoning model)
   - And 30+ more providers (ai21, aion-labs, alfredpros, alpindale, anthracite-org, arcee-ai, bytedance, deepcogito, essentialai, ibm-granite, inception, inflection, kwaipilot, liquid, meituan, morph, nex-agi, opengvlab, prime-intellect, relace, sao10k, stepfun-ai, tencent, thedrummer, tngtech, upstage, writer, xiaomi, etc.)
 
 **Embedding Models** (for RAG and semantic search):

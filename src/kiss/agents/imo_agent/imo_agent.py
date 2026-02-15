@@ -11,108 +11,64 @@ from kiss.core.models.model_info import calculate_cost, model
 from kiss.core.printer import Printer
 
 SOLVER_SYSTEM = """\
-### Core Instructions ###
+You are an IMO gold-medalist mathematician. Produce a complete, rigorously justified
+solution. Every step must be logically sound. Use TeX for all math (e.g. `$n$`).
 
-* **Rigor is Paramount:** Your primary goal is to produce a complete and rigorously justified solution. Every step in your solution must be logically sound and clearly explained. A correct final answer derived from flawed or incomplete reasoning is considered a failure.
-* **Honesty About Completeness:** If you cannot find a complete solution, you must **not** guess or create a solution that appears correct but contains hidden flaws or justification gaps. Instead, you should present only significant partial results that you can rigorously prove. A partial result is considered significant if it represents a substantial advancement toward a full solution. Examples include:
-    * Proving a key lemma.
-    * Fully resolving one or more cases within a logically sound case-based proof.
-    * Establishing a critical property of the mathematical objects in the problem.
-    * For an optimization problem, proving an upper or lower bound without proving that this bound is achievable.
-* **Use TeX for All Mathematics:** All mathematical variables, expressions, and relations must be enclosed in TeX delimiters (e.g., `Let $n$ be an integer.`).
+If you cannot fully solve the problem, present only significant partial results you can
+rigorously prove (key lemmas, resolved cases, established bounds).
+
+### Output Format (in this exact order) ###
+
+**1. Summary**
+- **Verdict:** "Complete solution" or "Partial solution" with main conclusions.
+- **Method Sketch:** High-level strategy, key lemma statements, constructions.
+
+**2. Detailed Solution**
+Full step-by-step proof. Every step justified. No commentary, alternatives, or failed attempts.
+
+Before finalizing, self-review for correctness and rigor. Fix any errors or gaps.
+"""
+
+VERIFIER_SYSTEM = """\
+You are an expert IMO grader. Verify the solution step-by-step. Judge correct ONLY if
+every step is rigorously justified. A correct answer from flawed reasoning is incorrect.
+
+**Issue Classification:**
+- **Critical Error:** Breaks the logical chain (fallacies, calculation errors). Stop
+  checking dependent steps but scan independent parts.
+- **Justification Gap:** Conclusion may be correct but argument is incomplete. Assume
+  true and continue checking.
 
 ### Output Format ###
 
-Your response MUST be structured into the following sections, in this exact order.
-
 **1. Summary**
+- **Final Verdict:** One sentence on validity.
+- **Findings:** Bulleted list with Location (quote), Issue description, Classification.
 
-Provide a concise overview of your findings. This section must contain two parts:
+**2. Detailed Verification Log**
+Step-by-step check. Quote solution text before analyzing. Brief justification for
+correct steps; detailed explanation for issues.
 
-* **a. Verdict:** State clearly whether you have found a complete solution or a partial solution.
-    * **For a complete solution:** State the final answer, e.g., "I have successfully solved the problem. The final answer is..."
-    * **For a partial solution:** State the main rigorous conclusion(s) you were able to prove, e.g., "I have not found a complete solution, but I have rigorously proven that..."
-* **b. Method Sketch:** Present a high-level, conceptual outline of your solution. This sketch should allow an expert to understand the logical flow of your argument without reading the full detail. It should include:
-    * A narrative of your overall strategy.
-    * The full and precise mathematical statements of any key lemmas or major intermediate results.
-    * If applicable, describe any key constructions or case splits that form the backbone of your argument.
-
-**2. Detailed Solution**
-
-Present the full, step-by-step mathematical proof. Each step must be logically justified and clearly explained. The level of detail should be sufficient for an expert to verify the correctness of your reasoning without needing to fill in any gaps. This section must contain ONLY the complete, rigorous proof, free of any internal commentary, alternative approaches, or failed attempts.
-
-### Self-Correction Instruction ###
-
-Before finalizing your output, carefully review your "Method Sketch" and "Detailed Solution" to ensure they are clean, rigorous, and strictly adhere to all instructions provided above. Verify that every statement contributes directly to the final, coherent mathematical argument.
-"""
-
-SELF_IMPROVEMENT_PROMPT = (
-    "You have an opportunity to improve your solution. Please review your "
-    "solution carefully. Correct errors and fill justification gaps if any. "
-    "Your second round of output should strictly follow the instructions "
-    "in the system prompt."
-)
-
-VERIFIER_SYSTEM = """\
-You are an expert mathematician and a meticulous grader for an International Mathematical Olympiad (IMO) level exam. Your primary task is to rigorously verify the provided mathematical solution. A solution is to be judged correct **only if every step is rigorously justified.** A solution that arrives at a correct final answer through flawed reasoning, educated guesses, or with gaps in its arguments must be flagged as incorrect or incomplete.
-
-### Instructions ###
-
-**1. Core Instructions**
-* Your sole task is to find and report all issues in the provided solution. You must act as a **verifier**, NOT a solver. **Do NOT attempt to correct the errors or fill the gaps you find.**
-* You must perform a **step-by-step** check of the entire solution. This analysis will be presented in a **Detailed Verification Log**, where you justify your assessment of each step: for correct steps, a brief justification suffices; for steps with errors or gaps, you must provide a detailed explanation.
-
-**2. How to Handle Issues in the Solution**
-When you identify an issue in a step, you MUST first classify it into one of the following two categories and then follow the specified procedure.
-
-* **a. Critical Error:**
-    This is any error that breaks the logical chain of the proof. This includes both **logical fallacies** (e.g., claiming that `A>B, C>D` implies `A-C>B-D`) and **factual errors** (e.g., a calculation error like `2+3=6`).
-    * **Procedure:**
-        * Explain the specific error and state that it **invalidates the current line of reasoning**.
-        * Do NOT check any further steps that rely on this error.
-        * You MUST, however, scan the rest of the solution to identify and verify any fully independent parts. For example, if a proof is split into multiple cases, an error in one case does not prevent you from checking the other cases.
-
-* **b. Justification Gap:**
-    This is for steps where the conclusion may be correct, but the provided argument is incomplete, hand-wavy, or lacks sufficient rigor.
-    * **Procedure:**
-        * Explain the gap in the justification.
-        * State that you will **assume the step's conclusion is true** for the sake of argument.
-        * Then, proceed to verify all subsequent steps to check if the remainder of the argument is sound.
-
-**3. Output Format**
-Your response MUST be structured into two main sections: a **Summary** followed by the **Detailed Verification Log**.
-
-* **a. Summary**
-    This section MUST be at the very beginning of your response. It must contain two components:
-    * **Final Verdict**: A single, clear sentence declaring the overall validity of the solution. For example: "The solution is correct," "The solution contains a Critical Error and is therefore invalid," or "The solution's approach is viable but contains several Justification Gaps."
-    * **List of Findings**: A bulleted list that summarizes **every** issue you discovered. For each finding, you must provide:
-        * **Location:** A direct quote of the key phrase or equation where the issue occurs.
-        * **Issue:** A brief description of the problem and its classification (**Critical Error** or **Justification Gap**).
-
-* **b. Detailed Verification Log**
-    Following the summary, provide the full, step-by-step verification log as defined in the Core Instructions. When you refer to a specific part of the solution, **quote the relevant text** to make your reference clear before providing your detailed analysis of that part.
+**3. VERDICT**
+On the very last line, write exactly one word: PASS or FAIL
 """
 
 CORRECTION_PROMPT = (
-    "Below is the bug report. If you agree with certain item in it, can you "
-    "improve your solution so that it is complete and rigorous? Note that "
-    "the evaluator who generates the bug report can misunderstand your "
-    "solution and thus make mistakes. If you do not agree with certain item "
-    "in the bug report, please add some detailed explanations to avoid such "
-    "misunderstanding. Your new solution should strictly follow the "
-    "instructions in the system prompt."
+    "Bug report follows. Fix errors and fill gaps you agree with. "
+    "Add detailed explanations for items you disagree with. "
+    "Follow the system prompt format strictly.\n\n"
 )
 
 VALIDATION_SYSTEM = """\
-You are an expert mathematician grading an IMO solution. Your task is to check whether the solution meets the validation criteria below. You must NOT assess mathematical rigor -- only whether the solution addresses the right question and arrives at the correct answer.
+You are an expert mathematician grading an IMO solution. Check ONLY whether the
+solution addresses the right question and arrives at the correct answer.
+Do NOT assess mathematical rigor.
 """
 
-VERIFICATION_REMINDER = """\
-
-### Verification Task Reminder ###
-
-Your task is to act as an IMO grader. Now, generate the **summary** and the **step-by-step verification log** for the solution above. In your log, justify each correct step and explain in detail any errors or justification gaps you find, as specified in the instructions above.
-"""
+VERIFICATION_REMINDER = (
+    "\n\nNow generate the summary, verification log, and final VERDICT "
+    "(PASS or FAIL on the last line)."
+)
 
 
 def _extract_detailed_solution(solution: str) -> str:
@@ -131,36 +87,58 @@ def _extract_bug_report(verification: str) -> str:
     return verification[:idx].strip()
 
 
+def _check_verdict(verification: str) -> bool:
+    """Extract PASS/FAIL from the last lines of verifier output."""
+    import re
+    lines = verification.strip().splitlines()
+    # Check last 10 lines for verdict
+    for line in reversed(lines[-10:]):
+        cleaned = re.sub(r'[*#_`\s]', '', line).upper()
+        if 'VERDICT' in cleaned or cleaned in ('PASS', 'FAIL'):
+            if 'PASS' in cleaned and 'FAIL' not in cleaned:
+                return True
+            if 'FAIL' in cleaned:
+                return False
+    # Fallback: search entire output for explicit verdict patterns
+    lower = verification.lower()
+    if "the solution is correct" in lower and "not correct" not in lower:
+        return True
+    return False
+
+
 class IMOAgent(Base):
     """Verification-and-refinement pipeline for IMO problems (arXiv:2507.15855)."""
 
     def __init__(self, name: str = "IMOAgent") -> None:
         super().__init__(name)
 
-    def _get_model_config(self, system_instruction: str = "") -> dict:
+    def _get_model_config(self, system_instruction: str = "", is_verifier: bool = False) -> dict:
         cfg = config_module.DEFAULT_CONFIG.imo.imo_agent
+        model_name = cfg.verifier_model_name if is_verifier else cfg.model_name
+        thinking_budget = cfg.verifier_thinking_budget if is_verifier else cfg.thinking_budget
         model_config: dict = {}
-        if cfg.model_name.startswith("gemini-"):
+        if model_name.startswith("gemini-"):
             model_config["temperature"] = cfg.temperature
             model_config["top_p"] = cfg.top_p
             from google.genai import types
             model_config["thinking_config"] = types.ThinkingConfig(
-                thinking_budget=cfg.thinking_budget,
+                thinking_budget=thinking_budget,
                 include_thoughts=True,
             )
             if system_instruction:
                 model_config["system_instruction"] = system_instruction
-        elif not cfg.model_name.startswith("gpt-5"):
+        elif not model_name.startswith("gpt-5"):
             model_config["temperature"] = cfg.temperature
             model_config["top_p"] = cfg.top_p
         return model_config
 
-    def _make_model(self, system_instruction: str = "") -> Any:
+    def _make_model(self, system_instruction: str = "", is_verifier: bool = False) -> Any:
         cfg = config_module.DEFAULT_CONFIG.imo.imo_agent
+        model_name = cfg.verifier_model_name if is_verifier else cfg.model_name
         token_callback = self.printer.token_callback if self.printer else None
         return model(
-            cfg.model_name,
-            model_config=self._get_model_config(system_instruction),
+            model_name,
+            model_config=self._get_model_config(system_instruction, is_verifier),
             token_callback=token_callback,
         )
 
@@ -177,61 +155,52 @@ class IMOAgent(Base):
     def _generate(self, m: Any, label: str) -> str:
         if self.printer:
             self.printer.print(label, type="tool_call")
+        text: str
         text, response = m.generate()
         self._track_usage(m, response)
         if self.printer and text:
             self.printer.print(text, type="result")
         return text
 
-    def _init_conversation(self, system_prompt: str, user_message: str) -> Any:
-        m = self._make_model(system_instruction=system_prompt)
+    def _init_conversation(
+        self, system_prompt: str, user_message: str, is_verifier: bool = False
+    ) -> Any:
+        m = self._make_model(system_instruction=system_prompt, is_verifier=is_verifier)
         m.initialize(user_message)
         return m
 
-    def _solve_and_improve(self, problem_statement: str) -> str:
+    def _solve(self, problem_statement: str) -> str:
+        """Single solve call (self-review baked into solver prompt)."""
         m = self._init_conversation(SOLVER_SYSTEM, problem_statement)
-        initial_solution = self._generate(m, "Step1: Solve")
-
-        m.add_message_to_conversation("assistant", initial_solution)
-        m.add_message_to_conversation("user", SELF_IMPROVEMENT_PROMPT)
-        solution = self._generate(m, "Step2: SelfImprove")
+        solution = self._generate(m, "Step1: Solve")
         return solution
 
     def _verify(self, problem_statement: str, solution: str) -> tuple[str, bool]:
+        """Verify using cheaper model. PASS/FAIL extracted directly."""
         detailed_solution = _extract_detailed_solution(solution)
         verification_prompt = (
-            "======================================================================\n"
             "### Problem ###\n\n" + problem_statement + "\n\n"
-            "======================================================================\n"
-            "### Solution ###\n\n" + detailed_solution + "\n"
+            "### Solution ###\n\n" + detailed_solution
             + VERIFICATION_REMINDER
         )
-        m = self._init_conversation(VERIFIER_SYSTEM, verification_prompt)
-        verification = self._generate(m, "Step3: Verify")
+        m = self._init_conversation(VERIFIER_SYSTEM, verification_prompt, is_verifier=True)
+        verification = self._generate(m, "Step2: Verify")
 
-        check_prompt = (
-            'Response in "yes" or "no". Is the following statement saying '
-            "the solution is correct, or does not contain critical error "
-            "or a major justification gap?\n\n" + verification
-        )
-        m2 = self._init_conversation("", check_prompt)
-        check = self._generate(m2, "CorrectnessCheck")
-        passed = "yes" in check.lower()
+        passed = _check_verdict(verification)
         bug_report = "" if passed else _extract_bug_report(verification)
         return bug_report, passed
 
     def _correct(self, problem_statement: str, solution: str, bug_report: str) -> str:
         m = self._init_conversation(SOLVER_SYSTEM, problem_statement)
         m.add_message_to_conversation("assistant", solution)
-        m.add_message_to_conversation("user", CORRECTION_PROMPT + "\n\n" + bug_report)
-        corrected = self._generate(m, "Step5: Correct")
+        m.add_message_to_conversation("user", CORRECTION_PROMPT + bug_report)
+        corrected = self._generate(m, "Step3: Correct")
         return corrected
 
     def _single_run(self, problem_statement: str) -> str | None:
         cfg = config_module.DEFAULT_CONFIG.imo.imo_agent
 
-        solution = self._solve_and_improve(problem_statement)
-
+        solution = self._solve(problem_statement)
         bug_report, passed = self._verify(problem_statement, solution)
 
         correct_count = 1 if passed else 0
@@ -278,7 +247,11 @@ class IMOAgent(Base):
         self.function_map = {}
         self.step_count = 0
         self.run_start_timestamp = 0
-        self.set_printer(printer, print_to_console=print_to_console, print_to_browser=print_to_browser)
+        self.set_printer(
+            printer,
+            print_to_console=print_to_console,
+            print_to_browser=print_to_browser,
+        )
 
         for run_idx in range(cfg.max_runs):
             if self.printer:
@@ -420,7 +393,10 @@ IMO_2025_PROBLEMS = [
             "Determine all values of $\\lambda$ for which Alice has a winning strategy "
             "and all those for which Bazza has a winning strategy."
         ),
-        "answer": "Alice wins iff lambda > 1/sqrt(2); Bazza wins iff lambda < 1/sqrt(2); neither wins at lambda = 1/sqrt(2)",
+        "answer": (
+            "Alice wins iff lambda > 1/sqrt(2); Bazza wins iff lambda < 1/sqrt(2); "
+            "neither wins at lambda = 1/sqrt(2)"
+        ),
         "validation": (
             "The solution must prove three things: (1) Alice has a winning strategy "
             "when lambda > 1/sqrt(2), (2) Bazza has a winning strategy when "
@@ -490,7 +466,7 @@ def validate_solution(
 
 def main() -> None:
     import sys
-    problem_number = int(sys.argv[1]) if len(sys.argv) > 1 else 4
+    problem_number = int(sys.argv[1]) if len(sys.argv) > 1 else 6
     problem = get_problem(problem_number)
     print(f"IMO 2025 Problem {problem['number']}")
     print(f"Topic: {problem['topic']}")
