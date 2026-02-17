@@ -24,22 +24,22 @@ DEFAULT_MODEL = "claude-opus-4-6"
 
 TASK_TEMPLATE = """
 Can you run the agent code by executing the command 'uv run {agent_code}'
-in the background so that you can continue to monitor the output in real time, 
-and correct the agent code if needed?  I MUST be able to see the agent output 
+in the background so that you can continue to monitor the output in real time,
+and correct the agent code if needed?  I MUST be able to see the agent output
 in real time.
 
 If you observe any repeated errors in the output or the agent is not able
 to finish the task successfully, please fix the agent code and run the
 command again.  Repeat the process until the agent can solve the task successfully.
 
-After the agent code manages to solve the task successfully, run the agent again 
+After the agent code manages to solve the task successfully, run the agent again
 and monitor its output in real time.  Check for opportunities to optimize the agent code
 for higher speed and lower cost.  If you find any opportunities, optimize the agent code
-and run the agent again.  Repeat the process until the agent can solve the task successfully, 
+and run the agent again.  Repeat the process until the agent can solve the task successfully,
 at higer speed and lower cost.
 
-While editing the agent code, make sure that the agent does not get to see any 
-validation criterion or the answers to the problems in any possible way. 
+While editing the agent code, make sure that the agent does not get to see any
+validation criterion or the answers to the problems in any possible way.
 Even feedback from a validation agent must not be used by the agent.  Basically,
 make sure that the agent is not aware of the validation criterion or the answers
 to the problems in any possible way.

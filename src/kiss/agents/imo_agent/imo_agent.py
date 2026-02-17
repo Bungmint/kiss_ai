@@ -15,9 +15,9 @@ import traceback
 
 import kiss.agents.imo_agent.config as _imo_config  # noqa: F401
 from kiss.agents.imo_agent.imo_problems import (
+    IMO_2025_PROBLEMS,
     get_problem_statement,
     get_validation_info,
-    IMO_2025_PROBLEMS,
 )
 from kiss.core import config as config_module
 from kiss.core.base import Base
@@ -176,7 +176,7 @@ Then one sentence why.
 
 def extract_verdict(text: str) -> bool:
     """Extract verdict using LAST occurrence to avoid prompt echoes."""
-    verdicts = re.findall(r'VERDICT:\s*(PASS|FAIL)', text.upper())
+    verdicts: list[str] = re.findall(r'VERDICT:\s*(PASS|FAIL)', text.upper())
     if not verdicts:
         return False
     return verdicts[-1] == "PASS"
@@ -253,7 +253,10 @@ class IMOAgent(Base):
             return result
         except Exception as e:
             print(f"  ⚠ Exploration failed: {e}. Proceeding without exploration.")
-            return "(No exploration data available — compute small cases yourself before attempting a proof.)"
+            return (
+                "(No exploration data available"
+                " — compute small cases yourself before attempting a proof.)"
+            )
 
     def _validate(self, problem_number: int, solution: str) -> tuple[bool, str]:
         problem = get_problem_statement(problem_number)
@@ -302,7 +305,8 @@ class IMOAgent(Base):
 
                 # Sanity check: solution should be substantive
                 if len(solution.strip()) < 100:
-                    print(f"  ⚠ Solution too short ({len(solution.strip())} chars), treating as failure.")
+                    chars = len(solution.strip())
+                    print(f"  ⚠ Solution too short ({chars} chars), treating as failure.")
                     if attempt < max_attempts:
                         continue
 
@@ -319,12 +323,12 @@ class IMOAgent(Base):
                 else:
                     print(f"  ✗ Attempt {attempt} failed validation.")
                     if attempt < max_attempts:
-                        print(f"  Retrying with different approach...")
+                        print("  Retrying with different approach...")
             except Exception as e:
                 print(f"\n  ✗ Attempt {attempt} crashed: {type(e).__name__}: {e}")
                 traceback.print_exc()
                 if attempt < max_attempts:
-                    print(f"  Retrying...")
+                    print("  Retrying...")
 
         return best_solution
 
