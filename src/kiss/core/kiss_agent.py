@@ -227,11 +227,13 @@ class KISSAgent(Base):
             f"Agent {self.name} completed {self.max_steps} steps without finishing."
         )
 
-    def _execute_step(self) -> str | None:
+    def _execute_step(self) -> tuple[str | None, bool]:
         """Execute a single step in the ReAct loop.
 
         Returns:
-            str | None: The result string if the task is finished, None otherwise.
+            tuple[str | None, bool]: (result, had_function_calls) where result is the
+            result string if the task is finished (None otherwise), and had_function_calls
+            indicates whether the model produced any function calls.
         """
         start_timestamp = int(time.time())
 
@@ -251,7 +253,7 @@ class KISSAgent(Base):
                 "**Your response MUST have at least one function call. "
                 "Your response has 0 function calls.**",
             )
-            return None
+            return None, False
 
         if self.printer:
             self.printer.print(usage_info, type="usage_info")
@@ -283,10 +285,10 @@ class KISSAgent(Base):
         )
 
         if finish_result is not None:
-            return finish_result
+            return finish_result, True
 
         self.model.add_function_results_to_conversation_and_return(function_results)
-        return None
+        return None, True
 
     def _execute_tool(
         self,

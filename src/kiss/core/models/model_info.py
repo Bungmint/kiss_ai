@@ -259,7 +259,7 @@ MODEL_INFO: dict[str, ModelInfo] = {
     "moonshotai/Kimi-K2-Thinking": _mi(262144, 1.20, 4.00, fc=False),  # SLOW: thinking model
     "moonshotai/Kimi-K2.5": _mi(262144, 0.50, 2.80),
     # Z.AI GLM models
-    "zai-org/GLM-5.0": _mi(200000, 1.00, 3.20),  # 744B MoE (GLM-5-FP4 pricing from together.ai)
+    "zai-org/GLM-5.0": _mi(200000, 1.00, 3.20, fc=False),  # 744B MoE - unreliable FC via Together
     "zai-org/GLM-4.5-Air-FP8": _mi(131072, 0.20, 1.10),
     "zai-org/GLM-4.7": _mi(202752, 0.45, 2.00),  # Enhanced agentic coding
     # OpenAI GPT-OSS models
@@ -595,7 +595,7 @@ MODEL_INFO: dict[str, ModelInfo] = {
     # ==========================================================================
     # OpenRouter models - Z.AI GLM
     # ==========================================================================
-    "openrouter/z-ai/glm-5": _mi(203000, 1.00, 3.20),  # 744B MoE (GLM-5-FP4 pricing)
+    "openrouter/z-ai/glm-5": _mi(203000, 1.00, 3.20, fc=False),  # 744B MoE - unreliable FC
     "openrouter/z-ai/glm-4-32b": _mi(128000, 0.10, 0.10),
     "openrouter/z-ai/glm-4.5": _mi(131072, 0.35, 1.55),
     "openrouter/z-ai/glm-4.5-air": _mi(131072, 0.05, 0.22),
@@ -1028,6 +1028,40 @@ def model(
         )
     else:
         raise KISSError(f"Unknown model name: {model_name}")
+
+
+def get_available_models() -> list[str]:
+    """Return model names for which an API key is configured, generation is supported."""
+    keys = config_module.DEFAULT_CONFIG.agent.api_keys
+    provider_keys = {
+        "openrouter/": keys.OPENROUTER_API_KEY,
+        "claude-": keys.ANTHROPIC_API_KEY,
+        "gemini-": keys.GEMINI_API_KEY,
+        "minimax-": keys.MINIMAX_API_KEY,
+    }
+    openai_prefixes = ("gpt", "text-embedding", "o1", "o3", "o4", "codex", "computer-use")
+    together_prefixes = (
+        "meta-llama/", "Qwen/", "mistralai/", "deepseek-ai/", "deepcogito/",
+        "google/gemma", "moonshotai/", "nvidia/", "zai-org/", "openai/gpt-oss",
+        "arcee-ai/", "marin-community/", "essentialai/", "BAAI/", "intfloat/", "Alibaba-NLP/",
+    )
+    result = []
+    for name, info in MODEL_INFO.items():
+        if not info.is_generation_supported:
+            continue
+        api_key = ""
+        for prefix, key in provider_keys.items():
+            if name.startswith(prefix):
+                api_key = key
+                break
+        if not api_key:
+            if name.startswith(openai_prefixes) and not name.startswith("openai/gpt-oss"):
+                api_key = keys.OPENAI_API_KEY
+            elif name.startswith(together_prefixes):
+                api_key = keys.TOGETHER_API_KEY
+        if api_key:
+            result.append(name)
+    return sorted(result)
 
 
 def calculate_cost(model_name: str, num_input_tokens: int, num_output_tokens: int) -> float:

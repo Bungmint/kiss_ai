@@ -25,6 +25,7 @@ from kiss.agents.coding_agents.chatbot import (
     _StopRequested,
 )
 from kiss.core.kiss_agent import KISSAgent
+from kiss.core.models.model_info import MODEL_INFO, get_available_models
 
 _printer = _ChatbotPrinter()
 _running = False
@@ -34,8 +35,59 @@ _file_cache: list[str] = []
 _agent_thread: threading.Thread | None = None
 _proposed_tasks: list[str] = []
 _proposed_lock = threading.Lock()
+_selected_model: str = "claude-opus-4-6"
 
-_ASSISTANT_HTML = _HTML_PAGE.replace("KISS Chatbot", "KISS Assistant")
+_MODEL_SELECT_CSS = """
+#model-select{
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:8px;
+  padding:8px 10px;font-size:13px;font-family:inherit;
+  outline:none;max-width:260px;flex-shrink:0;
+  cursor:pointer;
+}
+#model-select:focus{border-color:var(--accent)}
+#model-select option.no-fc{color:var(--yellow)}
+"""
+
+_MODEL_SELECT_JS = r"""
+var modelSel=document.getElementById('model-select');
+function loadModels(){
+  fetch('/models').then(function(r){return r.json();})
+  .then(function(d){
+    modelSel.innerHTML='';
+    d.models.forEach(function(m){
+      var o=document.createElement('option');
+      o.value=m.name;
+      o.textContent=m.name+(m.fc?'':' [no FC]');
+      if(!m.fc)o.className='no-fc';
+      if(m.name===d.selected)o.selected=true;
+      modelSel.appendChild(o);
+    });
+  }).catch(function(){});
+}
+loadModels();
+"""
+
+_ASSISTANT_HTML = (
+    _HTML_PAGE
+    .replace("KISS Chatbot", "KISS Assistant")
+    .replace(
+        "#input-row{display:flex;gap:10px;align-items:center}",
+        "#input-row{display:flex;gap:10px;align-items:center}\n" + _MODEL_SELECT_CSS,
+    )
+    .replace(
+        '<input type="text" id="task-input"',
+        '<select id="model-select"></select>\n    <input type="text" id="task-input"',
+    )
+    .replace(
+        "body:JSON.stringify({task:task})",
+        "body:JSON.stringify({task:task,model:modelSel.value})",
+    )
+    .replace(
+        "connectSSE();loadTasks();loadProposed();inp.focus();",
+        "connectSSE();loadTasks();loadProposed();" + _MODEL_SELECT_JS + "inp.focus();",
+    )
+)
 
 
 def _refresh_file_cache() -> None:
@@ -79,7 +131,7 @@ def _refresh_proposed_tasks() -> None:
     _printer.broadcast({"type": "proposed_updated"})
 
 
-def _run_agent_thread(task: str) -> None:
+def _run_agent_thread(task: str, model_name: str) -> None:
     global _running, _agent_thread
     try:
         _add_task(task)
@@ -90,6 +142,7 @@ def _run_agent_thread(task: str) -> None:
             prompt_template=task,
             work_dir=_work_dir,
             printer=_printer,
+            model_name=model_name,
         )
         _printer.broadcast({"type": "task_done"})
     except _StopRequested:
@@ -163,7 +216,7 @@ def main() -> None:
         )
 
     async def run_task(request: Request) -> JSONResponse:
-        global _running, _agent_thread
+        global _running, _agent_thread, _selected_model
         with _running_lock:
             if _running:
                 return JSONResponse(
@@ -173,6 +226,8 @@ def main() -> None:
             _running = True
         body = await request.json()
         task = body.get("task", "").strip()
+        model = body.get("model", "").strip() or _selected_model
+        _selected_model = model
         if not task:
             with _running_lock:
                 _running = False
@@ -181,7 +236,7 @@ def main() -> None:
             )
         t = threading.Thread(
             target=_run_agent_thread,
-            args=(task,),
+            args=(task, model),
             daemon=True,
         )
         with _running_lock:
@@ -225,6 +280,18 @@ def main() -> None:
         with _proposed_lock:
             return JSONResponse(list(_proposed_tasks))
 
+    async def models_endpoint(request: Request) -> JSONResponse:
+        available = get_available_models()
+        models_list = []
+        for name in available:
+            info = MODEL_INFO.get(name)
+            if info:
+                models_list.append({
+                    "name": name,
+                    "fc": info.is_function_calling_supported,
+                })
+        return JSONResponse({"models": models_list, "selected": _selected_model})
+
     app = Starlette(routes=[
         Route("/", index),
         Route("/events", events),
@@ -233,6 +300,7 @@ def main() -> None:
         Route("/suggestions", suggestions),
         Route("/tasks", tasks),
         Route("/proposed_tasks", proposed_tasks),
+        Route("/models", models_endpoint),
     ])
 
     with _proposed_lock:
