@@ -908,6 +908,8 @@ def model(
     Args:
         model_name: The name of the model (with provider prefix if applicable).
         model_config: Optional dictionary of model configuration parameters.
+            If it contains "base_url", routing is bypassed and an OpenAICompatibleModel
+            is built with that base_url and optional "api_key".
         token_callback: Optional async callback invoked with each streamed text token.
 
     Returns:
@@ -916,6 +918,21 @@ def model(
     Raises:
         KISSError: If the model name is not recognized.
     """
+    if model_config and "base_url" in model_config:
+        if OpenAICompatibleModel is None:
+            raise KISSError(
+                "OpenAI SDK not installed. Install 'openai' to use custom base_url."
+            )
+        base_url = model_config["base_url"]
+        api_key = model_config.get("api_key", "")
+        filtered = {k: v for k, v in model_config.items() if k not in ("base_url", "api_key")}
+        return OpenAICompatibleModel(
+            model_name=model_name,
+            base_url=base_url,
+            api_key=api_key,
+            model_config=filtered if filtered else None,
+            token_callback=token_callback,
+        )
     # OpenRouter models (strip "openrouter/" prefix for API calls)
     if model_name.startswith("openrouter/"):
         if OpenAICompatibleModel is None:
