@@ -309,6 +309,7 @@ class TestModelConfigBaseUrlOverride:
             "x",
             model_config={"base_url": "https://b/v1", "api_key": "key123"},
         )
+        assert isinstance(m, OpenAICompatibleModel)
         assert m.api_key == "key123"
         assert "api_key" not in m.model_config
         assert "base_url" not in m.model_config
@@ -357,6 +358,7 @@ class TestModelConfigBaseUrlOverride:
 
     def test_base_url_trailing_slash_preserved(self):
         m = model("m", model_config={"base_url": "https://endpoint/v1/"})
+        assert isinstance(m, OpenAICompatibleModel)
         assert m.base_url == "https://endpoint/v1/"
 
     @pytest.mark.timeout(60)

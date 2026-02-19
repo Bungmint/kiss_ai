@@ -154,7 +154,10 @@ class WebUseTool:
                 raise ValueError(f"Element with ID {element_id} not found.")
         role = self._elements[element_id - 1]["role"]
         name = self._elements[element_id - 1]["name"]
-        locator = self._page.get_by_role(role, name=name, exact=True) if name else self._page.get_by_role(role)
+        if name:
+            locator = self._page.get_by_role(role, name=name, exact=True)
+        else:
+            locator = self._page.get_by_role(role)
         n = locator.count()
         if n == 0:
             raise ValueError(f"Element with ID {element_id} not found on page.")
@@ -284,7 +287,8 @@ class WebUseTool:
             amount: Number of scroll steps (default 3).
 
         Returns:
-            Updated accessibility tree after scrolling, or "Error scrolling <direction>: <message>" on error."""
+            Updated accessibility tree after scrolling, or
+            "Error scrolling <direction>: <message>" on error."""
         self._ensure_browser()
         try:
             dx, dy = _SCROLL_DELTA.get(direction, (0, 300))
@@ -299,14 +303,16 @@ class WebUseTool:
             return f"Error scrolling {direction}: {e}"
 
     def screenshot(self, file_path: str = "screenshot.png") -> str:
-        """Capture the visible viewport as an image. Use to verify layout, captchas, or visual state.
+        """Capture the visible viewport as an image. Use to verify layout, captchas, or
+        visual state.
 
         Args:
             file_path: Path where the PNG will be saved (default "screenshot.png"). Parent
                 directories are created if needed.
 
         Returns:
-            "Screenshot saved to <resolved_path>", or "Error taking screenshot: <message>" on error."""
+            "Screenshot saved to <resolved_path>", or
+            "Error taking screenshot: <message>" on error."""
         self._ensure_browser()
         try:
             path = Path(file_path).resolve()
@@ -324,11 +330,15 @@ class WebUseTool:
                 elements. If True, return plain text only (title, URL, body text).
 
         Returns:
-            Accessibility tree or plain text as described above, or "Error getting page content: <message>" on error."""
+            Accessibility tree or plain text as described above, or
+            "Error getting page content: <message>" on error."""
         self._ensure_browser()
         try:
             if text_only:
-                return f"Page: {self._page.title()}\nURL: {self._page.url}\n\n{self._page.inner_text('body')}"
+                title = self._page.title()
+                url = self._page.url
+                body = self._page.inner_text("body")
+                return f"Page: {title}\nURL: {url}\n\n{body}"
             return self._get_ax_tree()
         except Exception as e:
             return f"Error getting page content: {e}"

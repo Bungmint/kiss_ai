@@ -32,30 +32,44 @@ def _find_free_port() -> int:
         return int(s.getsockname()[1])
 
 
-def _load_history() -> list[str]:
+def _normalize_history_entry(raw: Any) -> dict[str, str]:
+    if isinstance(raw, dict) and "task" in raw:
+        return {"task": str(raw["task"]), "result": str(raw.get("result", ""))}
+    return {"task": str(raw), "result": ""}
+
+
+def _load_history() -> list[dict[str, str]]:
     if HISTORY_FILE.exists():
         try:
             data = json.loads(HISTORY_FILE.read_text())
             if isinstance(data, list):
                 seen: set[str] = set()
-                result: list[str] = []
+                result: list[dict[str, str]] = []
                 for t in data[:MAX_HISTORY]:
-                    s = str(t)
-                    if s not in seen:
-                        seen.add(s)
-                        result.append(s)
+                    entry = _normalize_history_entry(t)
+                    task_str = entry["task"]
+                    if task_str not in seen:
+                        seen.add(task_str)
+                        result.append(entry)
                 return result
         except (json.JSONDecodeError, OSError):
             pass
     return []
 
 
-def _save_history(tasks: list[str]) -> None:
+def _save_history(entries: list[dict[str, str]]) -> None:
     try:
         _KISS_DIR.mkdir(parents=True, exist_ok=True)
-        HISTORY_FILE.write_text(json.dumps(tasks[:MAX_HISTORY]))
+        HISTORY_FILE.write_text(json.dumps(entries[:MAX_HISTORY]))
     except OSError:
         pass
+
+
+def _set_latest_result(result: str) -> None:
+    history = _load_history()
+    if history:
+        history[0]["result"] = result
+        _save_history(history)
 
 
 def _load_proposals() -> list[str]:
@@ -106,16 +120,18 @@ def _find_semantic_duplicates(new_task: str, existing_tasks: list[str]) -> list[
 
 def _add_task(task: str) -> None:
     history = _load_history()
-    if task in history:
-        history.remove(task)
+    task_strings = [e["task"] for e in history]
+    if task in task_strings:
+        idx = next(i for i, e in enumerate(history) if e["task"] == task)
+        history.pop(idx)
     else:
         try:
-            duplicates = _find_semantic_duplicates(task, history)
+            duplicates = _find_semantic_duplicates(task, task_strings)
             for idx in sorted(duplicates, reverse=True):
                 history.pop(idx)
         except Exception:
             pass
-    history.insert(0, task)
+    history.insert(0, {"task": task, "result": ""})
     _save_history(history[:MAX_HISTORY])
 
 
@@ -358,7 +374,7 @@ def _refresh_proposed_tasks() -> None:
             _proposed_tasks = []
         _printer.broadcast({"type": "proposed_updated"})
         return
-    task_list = "\n".join(f"- {t}" for t in history[:20])
+    task_list = "\n".join(f"- {e['task']}" for e in history[:20])
     agent = KISSAgent("Task Proposer")
     try:
         result = agent.run(
@@ -393,15 +409,18 @@ def _run_agent_thread(task: str) -> None:
         _printer.broadcast({"type": "tasks_updated"})
         _printer.broadcast({"type": "clear"})
         agent = RelentlessCodingAgent("Chatbot")
-        agent.run(
+        result = agent.run(
             prompt_template=task,
             work_dir=_work_dir,
             printer=_printer,
         )
+        _set_latest_result(result or "")
         _printer.broadcast({"type": "task_done"})
     except _StopRequested:
+        _set_latest_result("(stopped)")
         _printer.broadcast({"type": "task_stopped"})
     except Exception as e:
+        _set_latest_result(f"(error: {e})")
         _printer.broadcast({"type": "task_error", "text": str(e)})
     finally:
         with _running_lock:
@@ -919,7 +938,7 @@ function handleEvent(ev){
   case'thinking_delta':
     if(thinkEl){
       var tc=thinkEl.querySelector('.cnt');
-      tc.textContent+=ev.text||'';
+      tc.textContent+=(ev.text||'').replace(/\n\n+/g,'\n');
       thinkEl.scrollTop=thinkEl.scrollHeight;
     }break;
   case'thinking_end':
@@ -934,7 +953,7 @@ function handleEvent(ev){
   case'text_delta':
     if(!txtEl){
       txtEl=mkEl('div','txt');O.appendChild(txtEl);
-    }txtEl.textContent+=ev.text||'';break;
+    }txtEl.textContent+=(ev.text||'').replace(/\n\n+/g,'\n');break;
   case'text_end':txtEl=null;break;
   case'tool_call':{
     var c=mkEl('div','ev tc');
@@ -985,7 +1004,7 @@ function handleEvent(ev){
     if(running)showSpinner();break;}
   case'system_output':{
     var s=mkEl('div','ev sys');
-    s.textContent=ev.text||'';
+    s.textContent=(ev.text||'').replace(/\n\n+/g,'\n');
     O.appendChild(s);break;}
   case'result':{
     var rc=mkEl('div','ev rc');
@@ -1000,10 +1019,11 @@ function handleEvent(ev){
         +'Status: '+stLabel+'</div>';
     }
     if(ev.summary){
+      var sum=(ev.summary||'').replace(/\n\n+/g,'\n');
       rb+=typeof marked!=='undefined'
-        ?marked.parse(ev.summary):esc(ev.summary);
+        ?marked.parse(sum):esc(sum);
     }else{
-      rb+=esc(ev.text||'(no result)');
+      rb+=esc((ev.text||'(no result)').replace(/\n\n+/g,'\n'));
     }
     rc.innerHTML=
       '<div class="rc-h"><h3>Result</h3>'
@@ -1160,10 +1180,13 @@ function loadTasks(){
       return;
     }
     tasks.forEach(function(t){
+      var taskText=typeof t==='string'?t:(t.task||'');
+      var resultText=typeof t==='string'?'':(t.result||'');
       var d=mkEl('div','task-item');
-      d.textContent=t;d.title=t;
+      d.textContent=taskText;
+      d.title=resultText?taskText+'\n\nResult: '+resultText:taskText;
       d.addEventListener('click',function(){
-        inp.value=t;inp.focus();
+        inp.value=taskText;inp.focus();
       });
       rl.appendChild(d);
     });
@@ -1280,7 +1303,8 @@ def main() -> None:
             return JSONResponse([])
         q_lower = query.lower()
         results: list[dict[str, str]] = []
-        for task in _load_history():
+        for entry in _load_history():
+            task = entry["task"]
             if q_lower in task.lower():
                 results.append({"type": "task", "text": task})
                 if len(results) >= 5:

@@ -22,6 +22,10 @@ def _restore_history(original: Path, tmp: Path) -> None:
         tmp.unlink()
 
 
+def _entry(task: str, result: str = "") -> dict[str, str]:
+    return {"task": task, "result": result}
+
+
 class TestHistoryFileOps(unittest.TestCase):
     def setUp(self) -> None:
         self.original, self.tmp = _use_temp_history()
@@ -33,8 +37,9 @@ class TestHistoryFileOps(unittest.TestCase):
         assert chatbot._load_history() == []
 
     def test_save_and_load_history(self) -> None:
-        chatbot._save_history(["task1", "task2"])
-        assert chatbot._load_history() == ["task1", "task2"]
+        chatbot._save_history([_entry("task1"), _entry("task2")])
+        loaded = chatbot._load_history()
+        assert [e["task"] for e in loaded] == ["task1", "task2"]
 
     def test_load_corrupted_file(self) -> None:
         self.tmp.write_text("not json")
@@ -45,15 +50,16 @@ class TestHistoryFileOps(unittest.TestCase):
         assert chatbot._load_history() == []
 
     def test_save_truncates_to_max(self) -> None:
-        tasks = [f"task{i}" for i in range(chatbot.MAX_HISTORY + 200)]
+        tasks = [_entry(f"task{i}") for i in range(chatbot.MAX_HISTORY + 200)]
         chatbot._save_history(tasks)
         loaded = chatbot._load_history()
         assert len(loaded) == chatbot.MAX_HISTORY
 
     def test_save_overwrite(self) -> None:
-        chatbot._save_history(["a", "b"])
-        chatbot._save_history(["x"])
-        assert chatbot._load_history() == ["x"]
+        chatbot._save_history([_entry("a"), _entry("b")])
+        chatbot._save_history([_entry("x")])
+        loaded = chatbot._load_history()
+        assert len(loaded) == 1 and loaded[0]["task"] == "x"
 
 
 class TestFindSemanticDuplicatesEdgeCases(unittest.TestCase):
@@ -101,24 +107,29 @@ class TestAddTaskWithDedup(unittest.TestCase):
     def test_add_new_task(self) -> None:
         chatbot._add_task("Build a REST API")
         history = chatbot._load_history()
-        assert history[0] == "Build a REST API"
+        assert history[0]["task"] == "Build a REST API"
 
     def test_exact_duplicate_moves_to_top(self) -> None:
-        chatbot._save_history(["old task", "Build a REST API", "another task"])
+        chatbot._save_history([
+            _entry("old task"),
+            _entry("Build a REST API"),
+            _entry("another task"),
+        ])
         chatbot._add_task("Build a REST API")
         history = chatbot._load_history()
-        assert history[0] == "Build a REST API"
-        assert history.count("Build a REST API") == 1
+        assert history[0]["task"] == "Build a REST API"
+        assert sum(1 for e in history if e["task"] == "Build a REST API") == 1
 
     def test_semantic_duplicate_removed(self) -> None:
         chatbot._save_history([
-            "Write unit tests for the auth module",
-            "Fix homepage layout bugs",
+            _entry("Write unit tests for the auth module"),
+            _entry("Fix homepage layout bugs"),
         ])
         chatbot._add_task("Add tests for the authentication module")
         history = chatbot._load_history()
-        assert history[0] == "Add tests for the authentication module"
-        assert "Write unit tests for the auth module" not in history
+        assert history[0]["task"] == "Add tests for the authentication module"
+        task_strs = [e["task"] for e in history]
+        assert "Write unit tests for the auth module" not in task_strs
 
 
 @requires_gemini_api_key
@@ -136,9 +147,9 @@ class TestRefreshProposedTasks(unittest.TestCase):
 
     def test_generates_proposals_from_history(self) -> None:
         chatbot._save_history([
-            "Add user authentication with JWT",
-            "Create REST API for user management",
-            "Set up PostgreSQL database schema",
+            _entry("Add user authentication with JWT"),
+            _entry("Create REST API for user management"),
+            _entry("Set up PostgreSQL database schema"),
         ])
         chatbot._refresh_proposed_tasks()
         with chatbot._proposed_lock:
@@ -147,7 +158,7 @@ class TestRefreshProposedTasks(unittest.TestCase):
         assert all(isinstance(p, str) and p.strip() for p in proposals)
 
     def test_proposals_capped_at_five(self) -> None:
-        chatbot._save_history([f"Task number {i}" for i in range(10)])
+        chatbot._save_history([_entry(f"Task number {i}") for i in range(10)])
         chatbot._refresh_proposed_tasks()
         with chatbot._proposed_lock:
             assert len(chatbot._proposed_tasks) <= 5

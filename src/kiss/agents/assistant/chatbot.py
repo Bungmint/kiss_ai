@@ -103,7 +103,7 @@ def _refresh_proposed_tasks() -> None:
             _proposed_tasks = []
         _printer.broadcast({"type": "proposed_updated"})
         return
-    task_list = "\n".join(f"- {t}" for t in history[:20])
+    task_list = "\n".join(f"- {e['task']}" for e in history[:20])
     agent = KISSAgent("Task Proposer")
     try:
         result = agent.run(
@@ -257,7 +257,8 @@ def main() -> None:
             return JSONResponse([])
         q_lower = query_str.lower()
         results: list[dict[str, str]] = []
-        for task in _load_history():
+        for entry in _load_history():
+            task = entry["task"]
             if q_lower in task.lower():
                 results.append({"type": "task", "text": task})
                 if len(results) >= 5:
