@@ -16,8 +16,7 @@ from kiss.core.printer import MAX_RESULT_LEN as _MAX_RESULT_LEN
 
 def _subscribe(printer: BrowserPrinter) -> queue.Queue:
     q: queue.Queue = queue.Queue()
-    with printer._clients_lock:
-        printer._clients.append(q)
+    printer._clients.append(q)
     return q
 
 
@@ -118,7 +117,7 @@ class TestPrintToolResult(unittest.TestCase):
         p = BrowserPrinter()
         q = _subscribe(p)
         long = "x" * (_MAX_RESULT_LEN * 2)
-        p._print_tool_result(long, is_error=False)
+        p.print(long, type="tool_result", is_error=False)
         events = _drain(q)
         assert "... (truncated) ..." in events[0]["content"]
 

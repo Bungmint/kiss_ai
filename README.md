@@ -163,19 +163,19 @@ print(f"Result: {result}")
 - **Safer Bash Execution**: `Bash()` validates file paths inside inline interpreter flags (e.g., `python -c`, `node -e`) against path access controls, and disallows shell control commands like `env`, `eval`, and `exec`
 - **Budget & Token Tracking**: Automatic cost and token usage monitoring across all sub-sessions
 
-## 💬 Browser-Based Chatbot
+## 💬 Browser-Based Assistant
 
-KISS includes a browser-based chatbot UI for interacting with the `RelentlessCodingAgent`. It provides a rich web interface with real-time streaming output, task history with autocomplete, and a file browser for the working directory.
+KISS includes a browser-based assistant UI for interacting with agents. It provides a rich web interface with real-time streaming output, task history with autocomplete, and a file browser for the working directory.
 
 ```bash
-# Launch the chatbot (opens browser automatically)
-uv run chatbot
+# Launch the assistant (opens browser automatically)
+uv run assistant
 
 # Or with a custom working directory
-uv run chatbot --work-dir ./my-project
+uv run assistant --work-dir ./my-project
 ```
 
-The chatbot features:
+The assistant features:
 
 - **Real-time streaming**: See agent thinking, tool calls, and results as they happen
 - **Structured result display**: Results with success/failure status are rendered with markdown formatting
@@ -303,7 +303,7 @@ KISS is a lightweight, yet powerful, multi agent framework that implements a ReA
 - **Simple Architecture**: Clean, minimal core that's easy to understand and extend
 - **Multi-Tool Execution**: Agents can execute multiple tool calls in a single step for faster task completion
 - **Relentless Coding Agent**: Single-agent coding system with smart auto-continuation for long-running tasks
-- **Browser-Based Chatbot**: Interactive web UI for the RelentlessCodingAgent with real-time streaming and task history
+- **Browser-Based Assistant**: Interactive web UI for agents with real-time streaming and task history
 - **Repo Optimizer**: Uses RelentlessCodingAgent to iteratively optimize code in your project for speed and cost (💡 new idea)
 - **IMO Agent**: Verification-and-refinement pipeline for solving competition math problems (based on [arXiv:2507.15855](https://arxiv.org/abs/2507.15855))
 - **GEPA Implementation From Scratch**: Genetic-Pareto prompt optimization for compound AI systems
@@ -523,7 +523,8 @@ kiss/
 │   ├── agents/          # Agent implementations
 │   │   ├── assistant/              # Assistant agent with coding + browser tools
 │   │   │   ├── assistant_agent.py      # AssistantAgent with coding and browser automation
-│   │   │   ├── chatbot.py              # Browser-based chatbot UI for AssistantAgent
+│   │   │   ├── assistant.py            # Browser-based assistant UI
+│   │   │   ├── relentless_agent.py     # RelentlessAgent base class
 │   │   │   └── config.py               # Assistant agent configuration
 │   │   ├── create_and_optimize_agent/  # Agent evolution and improvement
 │   │   │   ├── agent_evolver.py        # Evolutionary agent optimization
@@ -548,7 +549,6 @@ kiss/
 │   │   │   └── README.md           # KISSEvolve documentation
 │   │   ├── coding_agents/          # Coding agents for software development tasks
 │   │   │   ├── relentless_coding_agent.py # Single-agent system with smart auto-continuation
-│   │   │   ├── chatbot.py                # Browser-based chatbot UI for RelentlessCodingAgent
 │   │   │   ├── claude_coding_agent.py     # Claude-based coding agent
 │   │   │   ├── repo_optimizer.py          # Iterative code optimizer using RelentlessCodingAgent
 │   │   │   ├── repo_agent.py              # Repo-level task agent using RelentlessCodingAgent
@@ -566,6 +566,7 @@ kiss/
 │   │   ├── printer.py         # Abstract Printer base class and MultiPrinter
 │   │   ├── print_to_console.py # ConsolePrinter: Rich-formatted terminal output
 │   │   ├── print_to_browser.py # BrowserPrinter: SSE streaming to browser UI
+│   │   ├── browser_ui.py      # Browser UI base components and utilities
 │   │   ├── config.py          # Configuration
 │   │   ├── config_builder.py  # Dynamic config builder with CLI support
 │   │   ├── kiss_error.py      # Custom error class
@@ -603,8 +604,7 @@ kiss/
 │   ├── scripts/         # Utility scripts
 │   │   ├── check.py                    # Code quality check script
 │   │   ├── notebook.py                 # Jupyter notebook launcher and utilities
-│   │   ├── kissevolve_bubblesort.py    # KISSEvolve example: evolving bubble sort
-│   │   └── release.sh                  # Release automation script
+│   │   └── kissevolve_bubblesort.py    # KISSEvolve example: evolving bubble sort
 │   ├── tests/           # Test suite
 │   │   ├── conftest.py              # Pytest configuration and fixtures
 │   │   ├── test_kiss_agent_agentic.py
@@ -632,7 +632,7 @@ kiss/
 │   │   ├── test_search_web.py
 │   │   ├── test_useful_tools.py
 │   │   ├── test_web_use_tool.py             # Tests for WebUseTool browser automation
-│   │   ├── test_chatbot_tasks.py            # Tests for chatbot task handling
+│   │   ├── test_chatbot_tasks.py            # Tests for assistant task handling
 │   │   ├── integration_test_assistant_agent.py  # Integration tests for AssistantAgent
 │   │   ├── integration_test_google_search.py    # Integration tests for Google search
 │   │   └── integration_test_web_use_tool.py     # Integration tests for WebUseTool
@@ -770,11 +770,6 @@ Configuration is managed through environment variables and the `DEFAULT_CONFIG` 
 - `uv run notebook --run` - Open the tutorial notebook in Jupyter Notebook
 - `uv run notebook --execute` - Execute notebook cells and update outputs in place
 - `uv run notebook --convert` - Convert notebook to Python script
-
-### Chatbot
-
-- `uv run chatbot` - Launch the browser-based chatbot UI for RelentlessCodingAgent
-- `uv run chatbot --work-dir ./my-project` - Launch with custom working directory
 
 ### Assistant
 
