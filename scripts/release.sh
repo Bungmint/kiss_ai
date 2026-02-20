@@ -217,6 +217,11 @@ main() {
     git add "$VERSION_FILE"
     git commit -m "Bump version to $VERSION"
     print_info "Committed version bump"
+    
+    # Push version bump to origin
+    print_step "Pushing version bump to origin..."
+    git push origin "$CURRENT_BRANCH"
+    print_info "Pushed version bump to origin"
 
     # Ensure remote exists
     ensure_remote
@@ -282,6 +287,10 @@ main() {
         git add "$README_FILE"
         git commit -m "Update version to $VERSION in README.md"
         print_info "Committed README version update"
+        
+        # Push README update to origin
+        git push origin "$CURRENT_BRANCH"
+        print_info "Pushed README update to origin"
         
         # Re-push the branch with the version update
         print_step "Re-pushing branch with version update..."
