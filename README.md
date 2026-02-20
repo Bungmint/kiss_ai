@@ -16,6 +16,7 @@ Install from PyPI with pip:
 
 ```bash
 pip install kiss-agent-framework
+uv run python -m kiss.agents.assistant.assistant
 ```
 
 ## 🎯 The Problem with AI Agent Frameworks Today
@@ -29,8 +30,6 @@ What if building AI agents could be as straightforward as the name suggests?
 Enter **KISS** — the *Keep It Simple, Stupid* Agent Framework.
 
 ## 🚀 Your First Agent in 30 Seconds.
-
-Try the interactive Jupyter notebook by running `uv run notebook --lab`.
 
 Let me show you something beautiful:
 

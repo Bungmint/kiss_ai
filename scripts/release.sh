@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# Script to release to public GitHub repository with file filtering and version tagging
+# Script to release to public GitHub repository with file filtering and version tagging,
+# and publish to PyPI.
 # Repository: https://github.com/ksenxx/kiss_ai
+# PyPI: https://pypi.org/project/kiss-agent-framework/
 
 set -e  # Exit on error
 
@@ -26,6 +28,7 @@ PUBLIC_REPO_SSH="git@github.com:ksenxx/kiss_ai.git"
 VERSION_FILE="src/kiss/_version.py"
 README_FILE="README.md"
 RELEASE_BRANCH="release-staging"
+PYPI_PACKAGE_NAME="kiss-agent-framework"
 
 # Colors for output
 RED='\033[0;31m'
@@ -69,6 +72,37 @@ get_version() {
     echo "$VERSION"
 }
 
+# Bump the patch version (x.y.z -> x.y.(z+1))
+bump_version() {
+    local current_version="$1"
+    
+    # Split version into parts
+    local major minor patch
+    IFS='.' read -r major minor patch <<< "$current_version"
+    
+    # Increment patch version
+    patch=$((patch + 1))
+    
+    local new_version="${major}.${minor}.${patch}"
+    echo "$new_version"
+}
+
+# Update version in _version.py
+update_version_file() {
+    local new_version="$1"
+    
+    if [[ ! -f "$VERSION_FILE" ]]; then
+        print_error "Version file not found: $VERSION_FILE"
+        return 1
+    fi
+    
+    # Update the version in the file
+    sed -i.bak "s/__version__ = \".*\"/__version__ = \"${new_version}\"/" "$VERSION_FILE"
+    rm -f "${VERSION_FILE}.bak"
+    
+    print_info "Updated $VERSION_FILE to version $new_version"
+}
+
 # Check if remote exists, add if not
 ensure_remote() {
     if ! git remote get-url "$PUBLIC_REMOTE" &>/dev/null; then
@@ -76,17 +110,6 @@ ensure_remote() {
         git remote add "$PUBLIC_REMOTE" "$PUBLIC_REPO_SSH"
     else
         print_info "Remote '$PUBLIC_REMOTE' exists"
-    fi
-}
-
-# Check if tag exists on remote
-tag_exists_on_remote() {
-    local tag="$1"
-    git fetch "$PUBLIC_REMOTE" --tags &>/dev/null || true
-    if git ls-remote --tags "$PUBLIC_REMOTE" | grep -q "refs/tags/$tag$"; then
-        return 0  # Tag exists
-    else
-        return 1  # Tag does not exist
     fi
 }
 
@@ -108,6 +131,52 @@ update_readme_version() {
     fi
 }
 
+# Build and publish to PyPI
+publish_to_pypi() {
+    local version="$1"
+    
+    print_step "Building package for PyPI..."
+    
+    # Clean previous builds
+    rm -rf dist/ build/
+    
+    # Check if build and twine are available
+    if ! uv run python -c "import build" &>/dev/null; then
+        print_info "Installing build package..."
+        uv pip install build twine
+    fi
+    
+    # Build the package
+    uv run python -m build
+    
+    if [[ ! -d "dist" ]] || [[ -z "$(ls -A dist/)" ]]; then
+        print_error "Build failed - no files in dist/"
+        return 1
+    fi
+    
+    print_info "Built packages:"
+    ls -la dist/
+    
+    # Check the package
+    print_step "Checking package..."
+    uv run python -m twine check dist/*
+    
+    # Upload to PyPI
+    print_step "Uploading to PyPI..."
+    
+    # Check for PyPI token
+    if [[ -z "$UV_PUBLISH_TOKEN" ]]; then
+        print_error "UV_PUBLISH_TOKEN environment variable is not set"
+        print_info "Please set it with: export UV_PUBLISH_TOKEN='pypi-your-token-here'"
+        return 1
+    fi
+    
+    uv run python -m twine upload dist/* -u __token__ -p "$UV_PUBLISH_TOKEN"
+    
+    print_info "Successfully published version $version to PyPI"
+    print_info "View at: https://pypi.org/project/${PYPI_PACKAGE_NAME}/${version}/"
+}
+
 # =============================================================================
 # Main Release Process
 # =============================================================================
@@ -126,16 +195,28 @@ main() {
     CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
     print_info "Current branch: $CURRENT_BRANCH"
 
-    # Check for uncommitted changes
-    if ! git diff-index --quiet HEAD --; then
+    # Check for uncommitted changes (allow version file and README to be modified by this script)
+    if ! git diff-index --quiet HEAD -- ':!'"$VERSION_FILE" ':!'"$README_FILE"; then
         print_error "You have uncommitted changes. Please commit or stash them first."
         exit 1
     fi
 
-    # Get version
-    VERSION=$(get_version)
+    # Get current version and bump it
+    CURRENT_VERSION=$(get_version)
+    VERSION=$(bump_version "$CURRENT_VERSION")
     TAG_NAME="v$VERSION"
-    print_info "Version: $VERSION (tag: $TAG_NAME)"
+    
+    print_info "Current version: $CURRENT_VERSION"
+    print_info "New version: $VERSION (tag: $TAG_NAME)"
+    
+    # Update version file
+    print_step "Bumping version..."
+    update_version_file "$VERSION"
+    
+    # Commit the version bump
+    git add "$VERSION_FILE"
+    git commit -m "Bump version to $VERSION"
+    print_info "Committed version bump"
 
     # Ensure remote exists
     ensure_remote
@@ -191,61 +272,57 @@ main() {
     fi
 
     # Handle version tagging
-    print_step "Checking version tag..."
-    if tag_exists_on_remote "$TAG_NAME"; then
-        print_info "Tag '$TAG_NAME' already exists on public remote - skipping"
-    else
-        print_info "Version bump detected - creating tag '$TAG_NAME'..."
+    print_step "Creating version tag..."
+    
+    # Update version in README.md
+    update_readme_version "$VERSION"
+    
+    # Commit README version update if there are changes
+    if ! git diff --quiet "$README_FILE" 2>/dev/null; then
+        git add "$README_FILE"
+        git commit -m "Update version to $VERSION in README.md"
+        print_info "Committed README version update"
         
-        # Update version in README.md
-        update_readme_version "$VERSION"
-        
-        # Commit README version update if there are changes
-        if ! git diff --quiet "$README_FILE" 2>/dev/null; then
-            git add "$README_FILE"
-            git commit -m "Update version to $VERSION in README.md"
-            print_info "Committed README version update"
-            
-            # Re-push the branch with the version update
-            print_step "Re-pushing branch with version update..."
-            if [[ ${#PRIVATE_FILES[@]} -eq 0 ]]; then
-                git push "$PUBLIC_REMOTE" "$CURRENT_BRANCH:main" --force-with-lease
-            else
-                # Need to recreate the filtered branch with the new commit
-                git branch -D "$RELEASE_BRANCH" 2>/dev/null || true
-                git checkout -b "$RELEASE_BRANCH"
-                for file in "${PRIVATE_FILES[@]}"; do
-                    if [[ -e "$file" ]]; then
-                        git rm -rf --cached "$file" 2>/dev/null || true
-                    fi
-                done
-                if ! git diff-index --quiet HEAD --; then
-                    git commit -m "Release $VERSION - remove private files"
+        # Re-push the branch with the version update
+        print_step "Re-pushing branch with version update..."
+        if [[ ${#PRIVATE_FILES[@]} -eq 0 ]]; then
+            git push "$PUBLIC_REMOTE" "$CURRENT_BRANCH:main" --force-with-lease
+        else
+            # Need to recreate the filtered branch with the new commit
+            git branch -D "$RELEASE_BRANCH" 2>/dev/null || true
+            git checkout -b "$RELEASE_BRANCH"
+            for file in "${PRIVATE_FILES[@]}"; do
+                if [[ -e "$file" ]]; then
+                    git rm -rf --cached "$file" 2>/dev/null || true
                 fi
-                git push "$PUBLIC_REMOTE" "$RELEASE_BRANCH:main" --force-with-lease
-                git checkout "$CURRENT_BRANCH"
-                git branch -D "$RELEASE_BRANCH"
+            done
+            if ! git diff-index --quiet HEAD --; then
+                git commit -m "Release $VERSION - remove private files"
             fi
+            git push "$PUBLIC_REMOTE" "$RELEASE_BRANCH:main" --force-with-lease
+            git checkout "$CURRENT_BRANCH"
+            git branch -D "$RELEASE_BRANCH"
         fi
-        
-        # Create tag locally if it doesn't exist
-        if ! git tag -l "$TAG_NAME" | grep -q "$TAG_NAME"; then
-            git tag -a "$TAG_NAME" -m "Release $VERSION"
-            print_info "Created local tag: $TAG_NAME"
-        fi
-        
-        # Push tag to public remote
-        git push "$PUBLIC_REMOTE" "$TAG_NAME"
-        print_info "Pushed tag '$TAG_NAME' to public remote"
     fi
+    
+    # Create and push tag
+    git tag -a "$TAG_NAME" -m "Release $VERSION"
+    print_info "Created local tag: $TAG_NAME"
+    git push "$PUBLIC_REMOTE" "$TAG_NAME"
+    print_info "Pushed tag '$TAG_NAME' to public remote"
+
+    # Publish to PyPI
+    print_step "Publishing to PyPI..."
+    publish_to_pypi "$VERSION"
 
     echo
     print_info "========================================"
     print_info "Release completed successfully!"
     print_info "========================================"
-    print_info "Repository: $PUBLIC_REPO_URL"
-    print_info "Version:    $VERSION"
-    print_info "Tag:        $TAG_NAME"
+    print_info "GitHub:  $PUBLIC_REPO_URL"
+    print_info "PyPI:    https://pypi.org/project/${PYPI_PACKAGE_NAME}/"
+    print_info "Version: $VERSION"
+    print_info "Tag:     $TAG_NAME"
     echo
 }
 
