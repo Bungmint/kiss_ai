@@ -29,13 +29,13 @@ class EvolveOptimizerConfig(BaseModel):
         default="claude-opus-4-6",
         description="LLM model for coder and monitor agents",
     )
-    max_budget: float = Field(
-        default=50.0,
-        description="Maximum total coevolution budget in USD",
+    max_gpt_calls: int | None = Field(
+        default=100,
+        description="Maximum number of GPT model API calls before stopping.",
     )
-    max_time: float = Field(
-        default=3600.0,
-        description="Maximum wall-clock time in seconds",
+    max_evals: int | None = Field(
+        default=None,
+        description="Maximum number of evaluator executions before stopping.",
     )
     max_steps_per_session: int = Field(
         default=25,
@@ -44,14 +44,6 @@ class EvolveOptimizerConfig(BaseModel):
     max_sub_sessions: int = Field(
         default=10,
         description="Maximum sub-sessions per agent turn",
-    )
-    stop_on_target_score: bool = Field(
-        default=False,
-        description=(
-            "Whether to stop the coevolution loop immediately when target_score is reached. "
-            "If False, target_score is treated as a milestone and the run continues until "
-            "budget/time/failure limits stop it."
-        ),
     )
 
 

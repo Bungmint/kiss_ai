@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import subprocess
 import tempfile
 import threading
 import time
@@ -499,6 +500,61 @@ class TestUsefulTools:
         result = tools.Bash(f"echo hi 1>> {output}", "Append in writable path")
         assert "Error:" not in result
         assert output.read_text().strip() == "hi"
+
+    def test_evaluate_tool_success(self, tools_sandbox):
+        tools, readable_dir, _, _ = tools_sandbox
+        evaluator = readable_dir / "evaluator.py"
+        program = readable_dir / "initial_program.py"
+        evaluator.write_text(
+            "import sys\n"
+            "if __name__ == '__main__':\n"
+            "    print('0.123')\n"
+        )
+        program.write_text("x = 1\n")
+        result = tools.Evaluate(str(evaluator), str(program), timeout_seconds=5)
+        assert '"score": 0.123' in result
+
+    def test_read_log_tail(self, tools_sandbox):
+        tools, readable_dir, _, _ = tools_sandbox
+        log_file = readable_dir / "log.jsonl"
+        log_file.write_text("a\nb\nc\nd\n")
+        result = tools.ReadLogTail(str(log_file), max_lines=2)
+        assert result == "c\nd"
+
+    def test_repo_search_falls_back_to_grep_when_rg_missing(self, tools_sandbox, monkeypatch):
+        tools, readable_dir, _, _ = tools_sandbox
+        sample = readable_dir / "sample.py"
+        sample.write_text("def marker_function():\n    return 'needle'\n", encoding="utf-8")
+
+        original_run = subprocess.run
+
+        def fake_run(*args, **kwargs):  # type: ignore[no-untyped-def]
+            command = args[0] if args else kwargs.get("args")
+            if isinstance(command, list) and command and command[0] == "rg":
+                raise FileNotFoundError("rg")
+            return original_run(*args, **kwargs)
+
+        monkeypatch.setattr("kiss.core.useful_tools.subprocess.run", fake_run)
+        result = tools.RepoSearch("needle", glob="*.py", max_lines=50)
+        assert "sample.py" in result
+        assert "needle" in result
+
+    def test_strict_bash_allowlist(self, temp_test_dir):
+        readable_dir = temp_test_dir / "readable"
+        writable_dir = temp_test_dir / "writable"
+        readable_dir.mkdir()
+        writable_dir.mkdir()
+        tools = UsefulTools(
+            base_dir=str(readable_dir),
+            readable_paths=[str(readable_dir)],
+            writable_paths=[str(writable_dir)],
+            allowed_bash_commands=["python", "ls"],
+            strict_bash=True,
+        )
+        denied = tools.Bash("cat missing.txt", "should fail")
+        assert "not allowed" in denied
+        denied_ops = tools.Bash("python x.py && ls", "should fail strict")
+        assert "strict Bash mode" in denied_ops
 
 
 class TestRead:

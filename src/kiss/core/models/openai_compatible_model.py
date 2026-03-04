@@ -11,6 +11,7 @@ import re
 import uuid
 from collections.abc import Callable
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from openai import OpenAI
 
@@ -232,6 +233,42 @@ class OpenAICompatibleModel(Model):
         )
         self.conversation = [{"role": "user", "content": prompt}]
 
+    def _reinitialize_client(self) -> None:
+        """Rebuild the client after changing endpoint settings."""
+        self.client = OpenAI(
+            base_url=self.base_url,
+            api_key=self.api_key,
+            timeout=1800.0,
+        )
+
+    def _retry_with_suggested_hostname(self, err: Exception) -> bool:
+        """If API suggests a different hostname, switch endpoint once and retry."""
+        msg = str(err)
+        if "incorrect_hostname" not in msg:
+            return False
+        host_match = re.search(
+            r"Please make your request to\s+([A-Za-z0-9.-]+)",
+            msg,
+        )
+        if host_match is None:
+            return False
+        suggested_host = host_match.group(1).rstrip(".")
+        parsed = urlsplit(self.base_url)
+        if parsed.netloc == suggested_host:
+            return False
+        self.base_url = urlunsplit((parsed.scheme, suggested_host, parsed.path, "", ""))
+        self._reinitialize_client()
+        return True
+
+    def _chat_create(self, **kwargs: Any) -> Any:
+        """Create a chat completion with one automatic incorrect-hostname retry."""
+        try:
+            return self.client.chat.completions.create(**kwargs)
+        except Exception as err:
+            if self._retry_with_suggested_hostname(err):
+                return self.client.chat.completions.create(**kwargs)
+            raise
+
     def _is_deepseek_reasoning_model(self) -> bool:
         """Check if this is a DeepSeek R1 reasoning model.
 
@@ -330,7 +367,7 @@ class OpenAICompatibleModel(Model):
             A tuple of (content, response).
         """
         if self.token_callback is None:
-            response = self.client.chat.completions.create(**kwargs)
+            response = self._chat_create(**kwargs)
             return response.choices[0].message.content or "", response
 
         kwargs["stream"] = True
@@ -338,19 +375,27 @@ class OpenAICompatibleModel(Model):
         content = ""
         response = None
         last_chunk = None
-        for chunk in self.client.chat.completions.create(**kwargs):
-            last_chunk = chunk
-            if chunk.choices:
-                delta = chunk.choices[0].delta
-                if delta:
-                    reasoning = getattr(delta, "reasoning_content", None)
-                    if reasoning:
-                        self._invoke_token_callback(reasoning)
-                    if delta.content:
-                        content += delta.content
-                        self._invoke_token_callback(delta.content)
-            if chunk.usage is not None:
-                response = chunk
+        did_retry = False
+        while True:
+            try:
+                for chunk in self.client.chat.completions.create(**kwargs):
+                    last_chunk = chunk
+                    if chunk.choices:
+                        delta = chunk.choices[0].delta
+                        if delta:
+                            reasoning = getattr(delta, "reasoning_content", None)
+                            if reasoning:
+                                self._invoke_token_callback(reasoning)
+                            if delta.content:
+                                content += delta.content
+                                self._invoke_token_callback(delta.content)
+                    if chunk.usage is not None:
+                        response = chunk
+                break
+            except Exception as err:
+                if did_retry or not self._retry_with_suggested_hostname(err):
+                    raise
+                did_retry = True
         response = self._finalize_stream_response(response, last_chunk)
         return content, response
 
@@ -414,7 +459,7 @@ class OpenAICompatibleModel(Model):
             tool_calls_accum: dict[int, dict[str, str]] = {}
             response = None
             last_chunk = None
-            for chunk in self.client.chat.completions.create(**kwargs):
+            for chunk in self._chat_create(**kwargs):
                 last_chunk = chunk
                 if chunk.choices:
                     delta = chunk.choices[0].delta
@@ -449,7 +494,7 @@ class OpenAICompatibleModel(Model):
             function_calls, raw_tool_calls = self._parse_tool_call_accum(tool_calls_accum)
         else:
             # Non-streaming path.
-            response = self.client.chat.completions.create(**kwargs)
+            response = self._chat_create(**kwargs)
             message = response.choices[0].message
             content = message.content or ""
             function_calls, raw_tool_calls = self._parse_tool_calls_from_message(message)
@@ -614,7 +659,13 @@ class OpenAICompatibleModel(Model):
         """
         model_to_use = embedding_model or self.model_name
         try:
-            response = self.client.embeddings.create(model=model_to_use, input=text)
+            try:
+                response = self.client.embeddings.create(model=model_to_use, input=text)
+            except Exception as err:
+                if self._retry_with_suggested_hostname(err):
+                    response = self.client.embeddings.create(model=model_to_use, input=text)
+                else:
+                    raise
             return list(response.data[0].embedding)
         except Exception as e:
             raise KISSError(f"Embedding generation failed for model {model_to_use}: {e}") from e

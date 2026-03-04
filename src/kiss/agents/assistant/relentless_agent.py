@@ -24,7 +24,7 @@ TASK_PROMPT = """# Task
 # Rules
 - Write() for new files. Edit() for small changes. Bash timeout_seconds=120 for long runs.
 - Call finish(success=True, summary="done") immediately when task is complete.
-- At step {step_threshold}: finish(success=False, summary={{"done":[...], "next":[...]}})
+{continuation_rule}
 - Work dir: {work_dir}
 {previous_progress}"""
 
@@ -59,6 +59,7 @@ class RelentlessAgent(Base):
         max_sub_sessions: int | None,
         max_steps: int | None,
         max_budget: float | None,
+        max_total_model_calls: int | None,
         work_dir: str | None,
         base_dir: str | None,
         readable_paths: list[str] | None,
@@ -90,11 +91,13 @@ class RelentlessAgent(Base):
         )
         self.max_steps = max_steps if max_steps is not None else cfg.max_steps
         self.max_budget = max_budget if max_budget is not None else cfg.max_budget
+        self.max_total_model_calls = max_total_model_calls
         self.model_name = model_name if model_name is not None else cfg.model_name
         self.max_tokens = get_max_context_length(self.model_name)
 
         self.budget_used: float = 0.0
         self.total_tokens_used: int = 0
+        self.total_model_calls: int = 0
 
         self.docker_image = docker_image
         self.docker_manager: DockerManager | None = None
@@ -146,7 +149,19 @@ class RelentlessAgent(Base):
         all_tools: list[Callable[..., Any]] = [finish, *tools]
 
         for trial in range(self.max_sub_sessions):
-            step_threshold = self.max_steps - 2
+            max_steps_for_trial = self.max_steps
+            if self.max_total_model_calls is not None:
+                remaining_model_calls = self.max_total_model_calls - self.total_model_calls
+                if remaining_model_calls <= 0:
+                    raise KISSError("Task failed: max_total_model_calls reached.")
+                max_steps_for_trial = min(max_steps_for_trial, remaining_model_calls)
+            step_threshold = max(1, max_steps_for_trial - 2)
+            continuation_rule = ""
+            if self.max_sub_sessions > 1:
+                continuation_rule = (
+                    f'- At step {step_threshold}: finish(success=False, summary={{"done":[...], '
+                    '"next":[...]}})'
+                )
 
             if trial == 0:
                 progress_section = ""
@@ -163,11 +178,11 @@ class RelentlessAgent(Base):
                     arguments={
                         "task_description": self.task_description,
                         "previous_progress": progress_section,
-                        "step_threshold": str(step_threshold),
+                        "continuation_rule": continuation_rule,
                         "work_dir": self.work_dir,
                     },
                     tools=all_tools,
-                    max_steps=self.max_steps,
+                    max_steps=max_steps_for_trial,
                     max_budget=self.max_budget,
                     printer=self.printer,
                 )
@@ -190,6 +205,7 @@ class RelentlessAgent(Base):
 
             self.budget_used += executor.budget_used
             self.total_tokens_used += executor.total_tokens_used
+            self.total_model_calls += executor.step_count
 
             ret = yaml.safe_load(result)
             payload = ret if isinstance(ret, dict) else {}
@@ -224,6 +240,7 @@ class RelentlessAgent(Base):
         printer: Printer | None = None,
         max_sub_sessions: int | None = None,
         docker_image: str | None = None,
+        max_total_model_calls: int | None = None,
         print_to_console: bool | None = None,
         print_to_browser: bool | None = None,
         tools_factory: Callable[[], list[Callable[..., Any]]] | None = None,
@@ -235,6 +252,7 @@ class RelentlessAgent(Base):
             max_sub_sessions,
             max_steps,
             max_budget,
+            max_total_model_calls,
             work_dir,
             base_dir,
             readable_paths,

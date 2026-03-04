@@ -19,11 +19,13 @@ from kiss.core import config as config_module
 
 INITIAL_FILE = "initial_program.py"
 EVAL_FILE = "evaluator.py"
-MAX_CONSECUTIVE_FAILURES = 6
 REQUIRED_TASK_FILES = (INITIAL_FILE, EVAL_FILE, "config.yaml", "requirements.txt")
 DEFAULT_EVAL_TIMEOUT_SECONDS = 360.0
 RUN_METADATA_FILE = "run_config.yaml"
 BEST_REPO_DIRNAME = "best"
+MAX_CONSECUTIVE_FAILURES = 6
+STOP_MODE_GPT_CALLS = "max_gpt_calls"
+STOP_MODE_EVALS = "max_evals"
 FINGERPRINT_IGNORE_PARTS = {
     ".git",
     "__pycache__",
@@ -31,22 +33,61 @@ FINGERPRINT_IGNORE_PARTS = {
     ".ruff_cache",
     ".mypy_cache",
 }
+COPYTREE_IGNORE_GLOBS = (
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".mypy_cache",
+    "*.pyc",
+    "*.pyo",
+)
+CODER_ALLOWED_BASH_COMMANDS = [
+    "python",
+    "python3",
+    "ls",
+    "rg",
+    "cat",
+    "sed",
+    "head",
+    "tail",
+    "wc",
+]
+MONITOR_ALLOWED_BASH_COMMANDS = [
+    "python",
+    "python3",
+    "ls",
+    "rg",
+    "cat",
+    "sed",
+    "head",
+    "tail",
+    "wc",
+]
 CODER_TASK = (
     "You are the Coding Agent in a coevolving loop.\n"
     "Work dir: {repo_dir}\nLog file: {log_path}\n"
-    "Target score: {target_score}\nTarget policy: {target_policy}\n"
-    f"Improve {INITIAL_FILE} (and related files) to maximize `python {EVAL_FILE}` score. "
-    "Run eval frequently, keep coder_notes.md with tried ideas/scores, and call finish "
-    "with concise progress when done for this turn."
+    f"Improve {INITIAL_FILE} (and related files) to maximize Evaluate() score. "
+    "Use Evaluate() for scoring, ReadLogTail() for log inspection, "
+    "and RepoSearch() for code search. "
+    "Use Bash only for simple commands, no shell operators or inline scripts. "
+    f"Edit only {INITIAL_FILE} and coder_notes.md unless evaluator import/runtime "
+    "errors require a minimal fix. "
+    "Do not create helper runner files. "
+    "Keep iterating on plausible hypotheses instead of stopping on tiny deltas alone. "
+    "Keep coder_notes.md with tried ideas/scores, and call finish with concise progress when done."
 )
 MONITOR_TASK = (
     "You are the Monitor/Optimizer in a coevolving loop.\n"
     "Work dir: {repo_dir}\nLog file: {log_path}\n"
-    "Target score: {target_score}\nTarget policy: {target_policy}\n"
-    f"Run `python {EVAL_FILE}` and monitor output in real time. Review log/code trend and decide "
-    "autonomously whether optimization is worthwhile. If worthwhile, edit code and rerun eval; "
-    "if not, explicitly skip intervention and explain why. Track tried ideas in monitor_notes.md "
-    "and call finish with concise decision and latest score."
+    "Use Evaluate() for scoring, ReadLogTail() for log inspection, "
+    "and RepoSearch() for code search. "
+    "Bash is allowed only for simple non-chained commands, "
+    "with no shell operators or inline scripts. "
+    f"Default to read-only monitoring. Edit {INITIAL_FILE} and monitor_notes.md when "
+    "you have a plausible improvement path and justify intervention. "
+    "If intervention is not worthwhile, explicitly skip with rationale. "
+    "Do not create helper runner files. Track tried ideas in monitor_notes.md and call finish "
+    "with concise decision and latest score."
 )
 
 
@@ -194,15 +235,16 @@ def prepare_experiment(task_dir: Path) -> tuple[Path, Path, Path]:
     missing = [n for n in REQUIRED_TASK_FILES if not (task_dir / n).is_file()]
     if missing:
         raise ValueError(f"Task directory missing required files: {missing}")
-    base_exp_dir = Path("exp") / f"{task_dir.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    exp_root = (Path.cwd() / "exp").resolve()
+    base_exp_dir = exp_root / f"{task_dir.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     exp_dir = base_exp_dir
     suffix = 1
     while exp_dir.exists():
-        exp_dir = Path(f"{base_exp_dir}_{suffix:02d}")
+        exp_dir = exp_root / f"{base_exp_dir.name}_{suffix:02d}"
         suffix += 1
     repo_dir, log_path = exp_dir / "repo", exp_dir / "log.jsonl"
     exp_dir.mkdir(parents=True, exist_ok=False)
-    shutil.copytree(task_dir, repo_dir)
+    shutil.copytree(task_dir, repo_dir, ignore=shutil.ignore_patterns(*COPYTREE_IGNORE_GLOBS))
     log_path.touch()
     return exp_dir, repo_dir, log_path
 
@@ -217,33 +259,39 @@ def snapshot_best_repo(repo_dir: Path, best_repo_dir: Path) -> None:
     tmp_dir = best_repo_dir.with_name(f"{best_repo_dir.name}.tmp")
     if tmp_dir.exists():
         shutil.rmtree(tmp_dir, ignore_errors=True)
-    shutil.copytree(repo_dir, tmp_dir)
+    shutil.copytree(repo_dir, tmp_dir, ignore=shutil.ignore_patterns(*COPYTREE_IGNORE_GLOBS))
     if best_repo_dir.exists():
         shutil.rmtree(best_repo_dir, ignore_errors=True)
     tmp_dir.rename(best_repo_dir)
 
 
+def resolve_stop_condition(
+    max_gpt_calls: int | None,
+    max_evals: int | None,
+) -> tuple[str, int]:
+    has_gpt_limit = max_gpt_calls is not None
+    has_eval_limit = max_evals is not None
+    if has_gpt_limit == has_eval_limit:
+        raise ValueError("Exactly one of max_gpt_calls or max_evals must be provided.")
+    if has_gpt_limit:
+        if max_gpt_calls <= 0:
+            raise ValueError("max_gpt_calls must be a positive integer.")
+        return STOP_MODE_GPT_CALLS, max_gpt_calls
+    if max_evals is None or max_evals <= 0:
+        raise ValueError("max_evals must be a positive integer.")
+    return STOP_MODE_EVALS, max_evals
+
+
 def get_stop_reason(
-    start_time: float,
-    score: float | None,
-    target_score: float | None,
-    stop_on_target_score: bool,
-    budget_used: float,
-    max_budget: float,
-    max_time: float,
+    stop_mode: str,
+    stop_limit: int,
+    total_gpt_calls: int,
+    total_eval_calls: int,
 ) -> str | None:
-    elapsed = time.time() - start_time
-    if budget_used >= max_budget:
-        return f"max_budget reached ({budget_used:.4f}/{max_budget:.4f})"
-    if elapsed >= max_time:
-        return f"max_time reached ({elapsed:.1f}/{max_time:.1f}s)"
-    if (
-        stop_on_target_score
-        and target_score is not None
-        and score is not None
-        and score >= target_score
-    ):
-        return f"target_score reached ({score:.6f} >= {target_score:.6f})"
+    if stop_mode == STOP_MODE_GPT_CALLS and total_gpt_calls >= stop_limit:
+        return f"{STOP_MODE_GPT_CALLS} reached ({total_gpt_calls}/{stop_limit})"
+    if stop_mode == STOP_MODE_EVALS and total_eval_calls >= stop_limit:
+        return f"{STOP_MODE_EVALS} reached ({total_eval_calls}/{stop_limit})"
     return None
 
 
@@ -255,208 +303,224 @@ def run_agent_turn(
     log_path: Path,
     max_steps_per_session: int,
     max_sub_sessions: int,
-    remaining_budget: float,
-) -> tuple[bool, str, float]:
-    if remaining_budget <= 0:
-        return False, "No budget remaining", 0.0
+    max_total_model_calls: int | None = None,
+    allowed_bash_commands: list[str] | None = None,
+) -> tuple[bool, str, float, int]:
+    if max_total_model_calls is not None and max_total_model_calls <= 0:
+        return False, "No GPT calls remaining", 0.0, 0
     try:
         result = agent.run(
             prompt_template=prompt,
             model_name=model_name,
             max_steps=max_steps_per_session,
-            max_budget=remaining_budget,
+            max_budget=float("inf"),
+            max_total_model_calls=max_total_model_calls,
             max_sub_sessions=max_sub_sessions,
-            work_dir=str(repo_dir),
-            readable_paths=[str(log_path)],
-            writable_paths=[str(repo_dir)],
+            work_dir=str(repo_dir.resolve()),
+            readable_paths=[str(log_path.resolve())],
+            writable_paths=[str(repo_dir.resolve())],
+            allowed_bash_commands=allowed_bash_commands,
+            strict_bash=True,
+            enable_repo_helper_tools=True,
+            enable_bash_tool=True,
         )
     except Exception as exc:
-        return False, str(exc), agent.budget_used
+        return False, str(exc), agent.budget_used, agent.total_model_calls
     try:
         payload = yaml.safe_load(result)
     except yaml.YAMLError:
-        return False, result, agent.budget_used
+        return False, result, agent.budget_used, agent.total_model_calls
     if isinstance(payload, dict):
         return (
             bool(payload.get("success", False)),
             str(payload.get("summary", "")),
             agent.budget_used,
+            agent.total_model_calls,
         )
-    return False, result, agent.budget_used
+    return False, result, agent.budget_used, agent.total_model_calls
 
 
 def evolve(
     task_dir: Path,
     model_name: str,
-    max_budget: float,
-    max_time: float,
+    max_gpt_calls: int | None,
+    max_evals: int | None,
     max_steps_per_session: int,
     max_sub_sessions: int,
-    target_score: float | None,
-    stop_on_target_score: bool = False,
     eval_timeout: float = DEFAULT_EVAL_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
+    stop_mode, stop_limit = resolve_stop_condition(max_gpt_calls, max_evals)
     exp_dir, repo_dir, log_path = prepare_experiment(task_dir)
     run_metadata_path = write_run_metadata(
         exp_dir,
         {
             "task_dir": str(task_dir),
             "model_name": model_name,
-            "max_budget": max_budget,
-            "max_time": max_time,
+            "max_gpt_calls": max_gpt_calls,
+            "max_evals": max_evals,
+            "stop_mode": stop_mode,
+            "stop_limit": stop_limit,
             "max_steps_per_session": max_steps_per_session,
             "max_sub_sessions": max_sub_sessions,
-            "target_score": target_score,
-            "stop_on_target_score": stop_on_target_score,
             "eval_timeout": eval_timeout,
             "started_at": datetime.now().isoformat(timespec="seconds"),
         },
     )
     coder, monitor = RelentlessCodingAgent("Coder"), RelentlessCodingAgent("Monitor")
-    target_text = "none" if target_score is None else f"{target_score:.6f}"
-    target_policy = (
-        "hard-stop run when target_score is reached"
-        if stop_on_target_score
-        else "milestone only; continue optimizing until budget/time/failure stop conditions"
-    )
     coder_prompt = CODER_TASK.format(
         repo_dir=repo_dir,
         log_path=log_path,
-        target_score=target_text,
-        target_policy=target_policy,
     )
     monitor_prompt = MONITOR_TASK.format(
         repo_dir=repo_dir,
         log_path=log_path,
-        target_score=target_text,
-        target_policy=target_policy,
     )
     start_time, total_budget = time.time(), 0.0
-    score, eval_msg = run_eval(repo_dir, eval_timeout=eval_timeout)
-    append_log(
-        log_path,
-        "monitor",
-        "eval",
-        score,
-        total_budget,
-        f"baseline eval; {eval_msg}",
-        budget_delta=0.0,
-    )
-    best_score = score
-    best_repo_dir = exp_dir / BEST_REPO_DIRNAME
-    snapshot_best_repo(repo_dir, best_repo_dir)
-
-    reason = None
+    total_gpt_calls = 0
+    total_eval_calls = 0
+    old_global_max_budget = config_module.DEFAULT_CONFIG.agent.global_max_budget
+    config_module.DEFAULT_CONFIG.agent.global_max_budget = float("inf")
+    score: float | None = None
+    best_score: float | None = None
+    reason: str | None = None
     coder_fail_streak = 0
     monitor_fail_streak = 0
-    while True:
-        reason = get_stop_reason(
-            start_time,
-            score,
-            target_score,
-            stop_on_target_score,
-            total_budget,
-            max_budget,
-            max_time,
-        )
-        if reason is not None:
-            break
-        append_log(
-            log_path,
-            "coder",
-            "run",
-            score,
-            total_budget,
-            "starting coder turn",
-            budget_delta=0.0,
-        )
-        ok, summary, cost = run_agent_turn(
-            coder,
-            coder_prompt,
-            model_name,
-            repo_dir,
-            log_path,
-            max_steps_per_session,
-            max_sub_sessions,
-            max_budget - total_budget,
-        )
-        coder_fail_streak = 0 if ok else coder_fail_streak + 1
-        total_budget += cost
+    best_repo_dir = exp_dir / BEST_REPO_DIRNAME
+    try:
         score, eval_msg = run_eval(repo_dir, eval_timeout=eval_timeout)
+        total_eval_calls += 1
         append_log(
             log_path,
-            "coder",
+            "monitor",
             "eval",
             score,
             total_budget,
-            f"success={ok}; {summary}; {eval_msg}",
-            budget_delta=cost,
-        )
-        if score is not None and (best_score is None or score > best_score):
-            best_score = score
-            snapshot_best_repo(repo_dir, best_repo_dir)
-        if coder_fail_streak >= MAX_CONSECUTIVE_FAILURES:
-            reason = f"max_consecutive_failures(coder) reached ({coder_fail_streak})"
-            break
-        reason = get_stop_reason(
-            start_time,
-            score,
-            target_score,
-            stop_on_target_score,
-            total_budget,
-            max_budget,
-            max_time,
-        )
-        if reason is not None:
-            break
-        before = repo_fingerprint(repo_dir)
-        append_log(
-            log_path,
-            "monitor",
-            "run",
-            score,
-            total_budget,
-            "starting monitor turn",
+            f"baseline eval; {eval_msg}",
             budget_delta=0.0,
         )
-        ok, summary, cost = run_agent_turn(
-            monitor,
-            monitor_prompt,
-            model_name,
-            repo_dir,
-            log_path,
-            max_steps_per_session,
-            max_sub_sessions,
-            max_budget - total_budget,
+        best_score = score
+        snapshot_best_repo(repo_dir, best_repo_dir)
+        reason = get_stop_reason(
+            stop_mode,
+            stop_limit,
+            total_gpt_calls,
+            total_eval_calls,
         )
-        monitor_fail_streak = 0 if ok else monitor_fail_streak + 1
-        total_budget += cost
-        action = "optimize" if repo_fingerprint(repo_dir) != before else "eval"
-        score, eval_msg = run_eval(repo_dir, eval_timeout=eval_timeout)
-        append_log(
-            log_path,
-            "monitor",
-            action,
-            score,
-            total_budget,
-            f"success={ok}; {summary}; {eval_msg}",
-            budget_delta=cost,
-        )
-        if score is not None and (best_score is None or score > best_score):
-            best_score = score
-            snapshot_best_repo(repo_dir, best_repo_dir)
-        if monitor_fail_streak >= MAX_CONSECUTIVE_FAILURES:
-            reason = f"max_consecutive_failures(monitor) reached ({monitor_fail_streak})"
-            break
+        while reason is None:
+            append_log(
+                log_path,
+                "coder",
+                "run",
+                score,
+                total_budget,
+                "starting coder turn",
+                budget_delta=0.0,
+            )
+            remaining_model_calls = (
+                stop_limit - total_gpt_calls
+                if stop_mode == STOP_MODE_GPT_CALLS
+                else None
+            )
+            ok, summary, cost, gpt_calls = run_agent_turn(
+                coder,
+                coder_prompt,
+                model_name,
+                repo_dir,
+                log_path,
+                max_steps_per_session,
+                max_sub_sessions,
+                max_total_model_calls=remaining_model_calls,
+                allowed_bash_commands=CODER_ALLOWED_BASH_COMMANDS,
+            )
+            total_budget += cost
+            total_gpt_calls += gpt_calls
+            coder_fail_streak = 0 if ok else coder_fail_streak + 1
+            score, eval_msg = run_eval(repo_dir, eval_timeout=eval_timeout)
+            total_eval_calls += 1
+            append_log(
+                log_path,
+                "coder",
+                "eval",
+                score,
+                total_budget,
+                f"success={ok}; gpt_calls={gpt_calls}; {summary}; {eval_msg}",
+                budget_delta=cost,
+            )
+            if score is not None and (best_score is None or score > best_score):
+                best_score = score
+                snapshot_best_repo(repo_dir, best_repo_dir)
+            if coder_fail_streak >= MAX_CONSECUTIVE_FAILURES:
+                reason = f"max_consecutive_failures(coder) reached ({coder_fail_streak})"
+                break
+            reason = get_stop_reason(
+                stop_mode,
+                stop_limit,
+                total_gpt_calls,
+                total_eval_calls,
+            )
+            if reason is not None:
+                break
+            before = repo_fingerprint(repo_dir)
+            append_log(
+                log_path,
+                "monitor",
+                "run",
+                score,
+                total_budget,
+                "starting monitor turn",
+                budget_delta=0.0,
+            )
+            remaining_model_calls = (
+                stop_limit - total_gpt_calls
+                if stop_mode == STOP_MODE_GPT_CALLS
+                else None
+            )
+            ok, summary, cost, gpt_calls = run_agent_turn(
+                monitor,
+                monitor_prompt,
+                model_name,
+                repo_dir,
+                log_path,
+                max_steps_per_session,
+                max_sub_sessions,
+                max_total_model_calls=remaining_model_calls,
+                allowed_bash_commands=MONITOR_ALLOWED_BASH_COMMANDS,
+            )
+            total_budget += cost
+            total_gpt_calls += gpt_calls
+            monitor_fail_streak = 0 if ok else monitor_fail_streak + 1
+            action = "optimize" if repo_fingerprint(repo_dir) != before else "eval"
+            score, eval_msg = run_eval(repo_dir, eval_timeout=eval_timeout)
+            total_eval_calls += 1
+            append_log(
+                log_path,
+                "monitor",
+                action,
+                score,
+                total_budget,
+                f"success={ok}; gpt_calls={gpt_calls}; {summary}; {eval_msg}",
+                budget_delta=cost,
+            )
+            if score is not None and (best_score is None or score > best_score):
+                best_score = score
+                snapshot_best_repo(repo_dir, best_repo_dir)
+            if monitor_fail_streak >= MAX_CONSECUTIVE_FAILURES:
+                reason = f"max_consecutive_failures(monitor) reached ({monitor_fail_streak})"
+                break
+            reason = get_stop_reason(
+                stop_mode,
+                stop_limit,
+                total_gpt_calls,
+                total_eval_calls,
+            )
+    finally:
+        config_module.DEFAULT_CONFIG.agent.global_max_budget = old_global_max_budget
 
     stop_reason = reason or get_stop_reason(
-        start_time,
-        score,
-        target_score,
-        stop_on_target_score,
-        total_budget,
-        max_budget,
-        max_time,
+        stop_mode,
+        stop_limit,
+        total_gpt_calls,
+        total_eval_calls,
     )
     append_log(
         log_path,
@@ -464,7 +528,10 @@ def evolve(
         "stop",
         score,
         total_budget,
-        f"stop_reason={stop_reason}",
+        (
+            f"stop_reason={stop_reason}; "
+            f"total_gpt_calls={total_gpt_calls}; total_eval_calls={total_eval_calls}"
+        ),
         budget_delta=0.0,
     )
     return {
@@ -476,6 +543,10 @@ def evolve(
         "best_score": best_score,
         "final_score": score,
         "budget_used": round(total_budget, 6),
+        "total_gpt_calls": total_gpt_calls,
+        "total_eval_calls": total_eval_calls,
+        "stop_mode": stop_mode,
+        "stop_limit": stop_limit,
         "elapsed_time": round(time.time() - start_time, 2),
         "stop_reason": stop_reason,
     }
@@ -486,18 +557,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Coevolving optimizer for alpha-math-evolve tasks")
     parser.add_argument("--task-dir", required=True)
     parser.add_argument("--model-name", default=cfg.model_name)
-    parser.add_argument("--max-budget", type=float, default=cfg.max_budget)
-    parser.add_argument("--max-time", type=float, default=cfg.max_time)
-    parser.add_argument("--target-score", type=float, default=None)
-    parser.add_argument(
-        "--stop-on-target-score",
-        action=argparse.BooleanOptionalAction,
-        default=cfg.stop_on_target_score,
-        help=(
-            "Stop immediately once target score is reached. "
-            "Use --no-stop-on-target-score to keep running until budget/time/failure limits."
-        ),
-    )
+    limit_group = parser.add_mutually_exclusive_group(required=True)
+    limit_group.add_argument("--max-gpt-calls", type=int)
+    limit_group.add_argument("--max-evals", type=int)
     parser.add_argument("--max-steps-per-session", type=int, default=cfg.max_steps_per_session)
     parser.add_argument("--max-sub-sessions", type=int, default=cfg.max_sub_sessions)
     parser.add_argument("--eval-timeout", type=float, default=DEFAULT_EVAL_TIMEOUT_SECONDS)
@@ -507,12 +569,10 @@ def main() -> None:
             evolve(
                 task_dir=Path(args.task_dir).resolve(),
                 model_name=args.model_name,
-                max_budget=args.max_budget,
-                max_time=args.max_time,
+                max_gpt_calls=args.max_gpt_calls,
+                max_evals=args.max_evals,
                 max_steps_per_session=args.max_steps_per_session,
                 max_sub_sessions=args.max_sub_sessions,
-                target_score=args.target_score,
-                stop_on_target_score=args.stop_on_target_score,
                 eval_timeout=args.eval_timeout,
             ),
             sort_keys=False,

@@ -8,9 +8,20 @@
 import os
 import random
 import time
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+try:
+    from dotenv import load_dotenv
+except Exception:  # pragma: no cover
+    load_dotenv = None
+
+
+if load_dotenv is not None:
+    # Load workspace .env for local CLI runs without overriding exported env vars.
+    load_dotenv(dotenv_path=Path.cwd() / ".env", override=False)
 
 
 def _generate_artifact_dir() -> str:

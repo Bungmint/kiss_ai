@@ -11,6 +11,7 @@ FLAKY MODEL MARKERS:
 - Models with comments like "SLOW" may timeout on some requests
 """
 
+import os
 from typing import Any
 
 from kiss.core import config as config_module
@@ -856,6 +857,15 @@ MODEL_INFO: dict[str, ModelInfo] = {
     "openrouter/undi95/remm-slerp-l2-13b": _mi(6144, 0.45, 0.65, fc=False),
 }
 
+
+def _openai_base_url() -> str:
+    """Resolve OpenAI base URL from environment with sensible fallback."""
+    return (
+        os.getenv("OPENAI_API_BASE", "").strip()
+        or os.getenv("OPENAI_BASE_URL", "").strip()
+        or "https://api.openai.com/v1"
+    )
+
 # ==========================================================================
 # FLAKY MODEL REGISTRY
 # Models that have been tested and found to have reliability issues
@@ -971,7 +981,7 @@ def model(
             )
         return OpenAICompatibleModel(
             model_name=model_name,
-            base_url="https://api.openai.com/v1",
+            base_url=_openai_base_url(),
             api_key=config_module.DEFAULT_CONFIG.agent.api_keys.OPENAI_API_KEY,
             model_config=model_config,
             token_callback=token_callback,

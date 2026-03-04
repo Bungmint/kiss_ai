@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import os
 import tempfile
+from collections.abc import Callable
+from typing import Any
 
 import yaml
 
@@ -23,15 +25,26 @@ class RelentlessCodingAgent(RelentlessAgent):
 
     def __init__(self, name: str) -> None:
         super().__init__(name)
+        self.allowed_bash_commands: list[str] | None = None
+        self.strict_bash = False
+        self.enable_repo_helper_tools = False
+        self.enable_bash_tool = True
 
     def _get_tools(self) -> list:
         useful_tools = UsefulTools(
-            base_dir=self.base_dir,
+            base_dir=self.work_dir,
             readable_paths=[str(p) for p in self.readable_paths],
             writable_paths=[str(p) for p in self.writable_paths],
+            allowed_bash_commands=self.allowed_bash_commands,
+            strict_bash=self.strict_bash,
         )
-        bash_tool = self._docker_bash if self.docker_manager else useful_tools.Bash
-        return [bash_tool, useful_tools.Read, useful_tools.Edit, useful_tools.Write]
+        tools: list[Callable[..., Any]] = [useful_tools.Read, useful_tools.Edit, useful_tools.Write]
+        if self.enable_repo_helper_tools:
+            tools.extend([useful_tools.Evaluate, useful_tools.ReadLogTail, useful_tools.RepoSearch])
+        if self.enable_bash_tool:
+            bash_tool = self._docker_bash if self.docker_manager else useful_tools.Bash
+            return [bash_tool, *tools]
+        return tools
 
     def run(  # type: ignore[override]
         self,
@@ -47,16 +60,26 @@ class RelentlessCodingAgent(RelentlessAgent):
         printer: Printer | None = None,
         max_sub_sessions: int | None = None,
         docker_image: str | None = None,
+        max_total_model_calls: int | None = None,
         print_to_console: bool | None = None,
         print_to_browser: bool | None = None,
+        allowed_bash_commands: list[str] | None = None,
+        strict_bash: bool = False,
+        enable_repo_helper_tools: bool = False,
+        enable_bash_tool: bool = True,
     ) -> str:
         """Run the coding agent."""
+        self.allowed_bash_commands = allowed_bash_commands
+        self.strict_bash = strict_bash
+        self.enable_repo_helper_tools = enable_repo_helper_tools
+        self.enable_bash_tool = enable_bash_tool
         return super().run(
             model_name=model_name,
             prompt_template=prompt_template,
             arguments=arguments,
             max_steps=max_steps,
             max_budget=max_budget,
+            max_total_model_calls=max_total_model_calls,
             work_dir=work_dir,
             base_dir=base_dir,
             readable_paths=readable_paths,

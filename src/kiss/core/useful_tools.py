@@ -1,5 +1,6 @@
 """Useful tools for agents: file editing, bash execution, web search, and URL fetching."""
 
+import json
 import re
 import shlex
 import subprocess
@@ -196,7 +197,7 @@ def _is_safe_special_path(path: str) -> bool:
     return cleaned in SAFE_SPECIAL_PATHS or cleaned.startswith(SAFE_SPECIAL_PREFIXES)
 
 
-def _resolve_path(path_str: str) -> str | None:
+def _resolve_path(path_str: str, base_dir: str | Path | None = None) -> str | None:
     """Resolve a file path to an absolute canonical path for security validation.
 
     Args:
@@ -208,10 +209,11 @@ def _resolve_path(path_str: str) -> str | None:
     try:
         path = Path(path_str)
 
-        # Resolve relative paths to absolute paths using current working directory
+        # Resolve relative paths to absolute paths using base_dir/cwd.
         # This is important for security validation of relative paths
         if not path.is_absolute():
-            path = Path.cwd() / path
+            root = Path(base_dir).resolve() if base_dir is not None else Path.cwd()
+            path = root / path
 
         # Resolve to get canonical path (handles .., ., etc.)
         return str(path.resolve())
@@ -267,13 +269,13 @@ def _extract_command_names(command: str) -> list[str]:
     return names
 
 
-def _extract_paths_from_code(code: str) -> list[str]:
+def _extract_paths_from_code(code: str, base_dir: str | Path | None = None) -> list[str]:
     """Extract file paths from an inline code string (e.g. python -c argument)."""
     paths: set[str] = set()
     for match in re.finditer(r"""['"]((\.{0,2}/)[^\s'"*?]*)['"]""", code):
         p = match.group(1)
         if not _is_safe_special_path(p):
-            resolved = _resolve_path(p)
+            resolved = _resolve_path(p, base_dir=base_dir)
             if resolved:
                 paths.add(resolved)
     return sorted(paths)
@@ -516,7 +518,10 @@ def _strip_heredocs(command: str) -> str:
     )
 
 
-def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
+def parse_bash_command_paths(
+    command: str,
+    base_dir: str | Path | None = None,
+) -> tuple[list[str], list[str]]:
     """Parse a bash command to extract readable and writable directory paths.
 
     This function analyzes bash commands to determine which directories are
@@ -682,7 +687,7 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
                         path = redirect_match.group(1).strip()
                         path = path.strip("'\"")
                         if path and not _is_safe_special_path(path):
-                            dir_path = _resolve_path(path)
+                            dir_path = _resolve_path(path, base_dir=base_dir)
                             if dir_path:
                                 writable_paths.add(dir_path)
 
@@ -692,7 +697,7 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
                 path = input_redirect_match.group(1).strip()
                 path = path.strip("'\"")
                 if path and not _is_safe_special_path(path):
-                    dir_path = _resolve_path(path)
+                    dir_path = _resolve_path(path, base_dir=base_dir)
                     if dir_path:
                         readable_paths.add(dir_path)
 
@@ -784,7 +789,7 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
                 # Classify paths based on command
                 if cmd in read_commands:
                     for path in paths:
-                        dir_path = _resolve_path(path)
+                        dir_path = _resolve_path(path, base_dir=base_dir)
                         if dir_path:
                             readable_paths.add(dir_path)
 
@@ -794,13 +799,13 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
                         if cmd in ["cp", "mv", "rsync"]:
                             # Source(s) are read, destination is written
                             for path in paths[:-1]:
-                                dir_path = _resolve_path(path)
+                                dir_path = _resolve_path(path, base_dir=base_dir)
                                 if dir_path:
                                     readable_paths.add(dir_path)
 
                             # Last path is destination
                             if len(paths) > 0:  # pragma: no branch
-                                dir_path = _resolve_path(paths[-1])
+                                dir_path = _resolve_path(paths[-1], base_dir=base_dir)
                                 if dir_path:
                                     writable_paths.add(dir_path)
                         elif cmd == "dd":
@@ -810,19 +815,19 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
                                 if token.startswith("of="):
                                     output_file = token[3:]
                                     if not _is_safe_special_path(output_file):
-                                        dir_path = _resolve_path(output_file)
+                                        dir_path = _resolve_path(output_file, base_dir=base_dir)
                                         if dir_path:
                                             writable_paths.add(dir_path)
                                 elif token.startswith("if="):
                                     input_file = token[3:]
                                     if not _is_safe_special_path(input_file):
-                                        dir_path = _resolve_path(input_file)
+                                        dir_path = _resolve_path(input_file, base_dir=base_dir)
                                         if dir_path:
                                             readable_paths.add(dir_path)
                         else:
                             # Other write commands
                             for path in paths:
-                                dir_path = _resolve_path(path)
+                                dir_path = _resolve_path(path, base_dir=base_dir)
                                 if dir_path:
                                     writable_paths.add(dir_path)
 
@@ -830,7 +835,7 @@ def parse_bash_command_paths(command: str) -> tuple[list[str], list[str]]:
             if inline_flags:
                 for j in range(cmd_idx + 1, len(tokens)):
                     if tokens[j] in inline_flags and j + 1 < len(tokens):
-                        for p in _extract_paths_from_code(tokens[j + 1]):
+                        for p in _extract_paths_from_code(tokens[j + 1], base_dir=base_dir):
                             readable_paths.add(p)
                         break
 
@@ -854,6 +859,8 @@ class UsefulTools:
         base_dir: str,
         readable_paths: list[str] | None = None,
         writable_paths: list[str] | None = None,
+        allowed_bash_commands: list[str] | None = None,
+        strict_bash: bool = False,
     ) -> None:
         """Initialize UsefulTools with security-restricted paths.
 
@@ -866,6 +873,37 @@ class UsefulTools:
         self.base_dir = str(Path(base_dir).resolve())
         self.readable_paths = [Path(p).resolve() for p in readable_paths or []]
         self.writable_paths = [Path(p).resolve() for p in writable_paths or []]
+        self.allowed_bash_commands = set(allowed_bash_commands or [])
+        self.strict_bash = strict_bash
+        self._strict_shell_ops_pattern = re.compile(r"&&|\|\||;|\||>|<|`|\$\(|\n")
+
+    def _resolve_local_path(self, path_str: str) -> Path:
+        path = Path(path_str)
+        if not path.is_absolute():
+            path = Path(self.base_dir) / path
+        return path.resolve()
+
+    def _is_inline_code_command(self, command: str) -> bool:
+        stripped_command = _strip_heredocs(command)
+        segments = re.split(r"&&|\|\||;", stripped_command)
+        for segment in segments:
+            for part in re.split(r"(?<!>)\|(?!\|)", segment):
+                try:
+                    tokens = shlex.split(part)
+                except ValueError:
+                    continue
+                if not tokens:
+                    continue
+                i = 0
+                while i < len(tokens) and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=.*", tokens[i]):
+                    i += 1
+                if i >= len(tokens):
+                    continue
+                cmd = tokens[i].split("/")[-1]
+                flags = INLINE_CODE_FLAGS.get(cmd)
+                if flags and any(token in flags for token in tokens[i + 1 :]):
+                    return True
+        return False
 
     def Read(  # noqa: N802
         self,
@@ -878,7 +916,7 @@ class UsefulTools:
             file_path: Absolute path to file.
             max_lines: Maximum number of lines to return.
         """
-        resolved = Path(file_path).resolve()
+        resolved = self._resolve_local_path(file_path)
         if not is_subpath(resolved, self.readable_paths):
             return f"Error: Access denied for reading {file_path}"
         try:
@@ -904,7 +942,7 @@ class UsefulTools:
             file_path: Path to the file to write.
             content: The full content to write to the file.
         """
-        resolved = Path(file_path).resolve()
+        resolved = self._resolve_local_path(file_path)
         if not is_subpath(resolved, self.writable_paths):
             return f"Error: Access denied for writing to {file_path}"
         try:
@@ -936,7 +974,7 @@ class UsefulTools:
         """
 
         # Check if file_path is in writable_paths
-        resolved = Path(file_path).resolve()
+        resolved = self._resolve_local_path(file_path)
         if not is_subpath(resolved, self.writable_paths):
             return f"Error: Access denied for writing to {file_path}"
 
@@ -986,6 +1024,129 @@ class UsefulTools:
             except Exception:  # pragma: no cover
                 pass
 
+    def Evaluate(  # noqa: N802
+        self,
+        evaluator_path: str = "evaluator.py",
+        program_path: str = "initial_program.py",
+        timeout_seconds: float = 360.0,
+    ) -> str:
+        """Run evaluator.py against a target program and return structured output."""
+        evaluator_path = evaluator_path.strip() or "evaluator.py"
+        program_path = program_path.strip() or "initial_program.py"
+        evaluator_resolved = self._resolve_local_path(evaluator_path)
+        program_resolved = self._resolve_local_path(program_path)
+        if not is_subpath(evaluator_resolved, self.readable_paths):
+            return f"Error: Access denied for reading {evaluator_path}"
+        if not is_subpath(program_resolved, self.readable_paths):
+            return f"Error: Access denied for reading {program_path}"
+
+        try:
+            proc = subprocess.run(
+                ["python", str(evaluator_resolved), str(program_resolved)],
+                cwd=self.base_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=timeout_seconds,
+            )
+        except subprocess.TimeoutExpired:
+            return "Error: Evaluator execution timeout"
+        except Exception as e:  # pragma: no cover
+            return f"Error: {e}"
+
+        stdout = proc.stdout.strip()
+        score: float | None = None
+        if stdout:
+            for line in reversed(stdout.splitlines()):
+                candidate = line.strip()
+                if not candidate:
+                    continue
+                try:
+                    score = float(candidate)
+                    break
+                except ValueError:
+                    continue
+        payload = {
+            "score": score,
+            "returncode": proc.returncode,
+            "stdout": stdout[:500],
+            "stderr": proc.stderr.strip()[:500],
+        }
+        return json.dumps(payload)
+
+    def ReadLogTail(  # noqa: N802
+        self,
+        log_path: str = "log.jsonl",
+        max_lines: int = 20,
+    ) -> str:
+        """Read the last N lines from a log file."""
+        log_path = log_path.strip() or "log.jsonl"
+        resolved = self._resolve_local_path(log_path)
+        if not is_subpath(resolved, self.readable_paths):
+            return f"Error: Access denied for reading {log_path}"
+        try:
+            if max_lines <= 0:
+                return ""
+            lines = resolved.read_text(encoding="utf-8").splitlines()
+            tail = lines[-max_lines:]
+            return "\n".join(tail)
+        except Exception as e:
+            return f"Error: {e}"
+
+    def RepoSearch(  # noqa: N802
+        self,
+        pattern: str,
+        glob: str = "*.py",
+        max_lines: int = 200,
+    ) -> str:
+        """Search repository text with ripgrep in base_dir."""
+        proc: subprocess.CompletedProcess[str]
+        try:
+            proc = subprocess.run(
+                ["rg", "-n", "--glob", glob, pattern, self.base_dir],
+                cwd=self.base_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+        except subprocess.TimeoutExpired:
+            return "Error: Search timeout"
+        except FileNotFoundError:
+            try:
+                # Fallback for environments without ripgrep.
+                proc = subprocess.run(
+                    [
+                        "grep",
+                        "-R",
+                        "-n",
+                        "--include",
+                        glob,
+                        "--binary-files=without-match",
+                        "-e",
+                        pattern,
+                        self.base_dir,
+                    ],
+                    cwd=self.base_dir,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=30,
+                )
+            except subprocess.TimeoutExpired:
+                return "Error: Search timeout"
+            except Exception as e:  # pragma: no cover
+                return f"Error: {e}"
+        except Exception as e:  # pragma: no cover
+            return f"Error: {e}"
+
+        if proc.returncode not in (0, 1):
+            return f"Error: search failed with return code {proc.returncode}"
+        lines = proc.stdout.splitlines()
+        if len(lines) > max_lines:
+            lines = lines[:max_lines] + [f"... [truncated {len(lines) - max_lines} lines]"]
+        return "\n".join(lines)
+
     def MultiEdit(  # noqa: N802
         self,
         file_path: str,
@@ -1028,12 +1189,25 @@ class UsefulTools:
         """
         del description
 
-        for command_name in _extract_command_names(command):
+        command_names = _extract_command_names(command)
+        for command_name in command_names:
             if command_name in DISALLOWED_BASH_COMMANDS:
                 return f"Error: Command '{command_name}' is not allowed in Bash tool"
+        if self.allowed_bash_commands and any(
+            command_name not in self.allowed_bash_commands for command_name in command_names
+        ):
+            return (
+                "Error: Command is not allowed in Bash tool. "
+                f"Allowed commands: {sorted(self.allowed_bash_commands)}"
+            )
+        if self.strict_bash:
+            if self._strict_shell_ops_pattern.search(command):
+                return "Error: Shell operators and redirections are not allowed in strict Bash mode"
+            if self._is_inline_code_command(command):
+                return "Error: Inline code execution is not allowed in strict Bash mode"
 
         # Parse and validate paths
-        readable, writable = parse_bash_command_paths(command)
+        readable, writable = parse_bash_command_paths(command, base_dir=self.base_dir)
 
         for path_str in readable:
             if _is_safe_special_path(path_str):  # pragma: no cover
@@ -1057,6 +1231,7 @@ class UsefulTools:
                 capture_output=True,
                 text=True,
                 timeout=timeout_seconds,
+                cwd=self.base_dir,
             )
             output = result.stdout
             if len(output) > max_output_chars:
